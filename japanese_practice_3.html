@@ -178,6 +178,14 @@
     }
     .transcript-box.active { border-color: var(--teal); }
     .transcript-placeholder { color: var(--muted); font-style: italic; font-size: 0.85rem; font-family: 'Noto Sans JP', sans-serif; }
+    .transcript-furigana {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid var(--paper-2);
+      font-size: 0.88rem;
+      color: var(--teal);
+      font-family: 'Noto Sans JP', sans-serif;
+    }
 
     /* ── Result badge ── */
     .result-badge {
@@ -247,6 +255,13 @@
       gap: 12px;
       flex-wrap: wrap;
       margin-top: 8px;
+      align-items: center;
+    }
+    .btn-group-record {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
     }
 
     /* ── Start screen ── */
@@ -361,8 +376,8 @@
     </div>
 
     <div class="transcript-box" id="transcript-box">
-      <span class="transcript-placeholder" id="transcript-placeholder">Your spoken answer will appear here…</span>
-      <span id="transcript-content" class="hidden"></span>
+      <span class="transcript-placeholder" id="transcript-placeholder">Your spoken answer will appear here (as recognized)…</span>
+      <div id="transcript-content" class="hidden"></div>
     </div>
 
     <div class="result-badge" id="result-badge">
@@ -374,9 +389,11 @@
     </div>
 
     <div class="btn-row">
-      <button class="btn btn-submit hidden" id="btn-submit" onclick="submitAnswer()">✔ Submit Answer</button>
+      <div class="btn-group-record">
+        <button class="btn btn-submit hidden" id="btn-submit" onclick="submitAnswer()">✔ Submit Answer</button>
+        <button class="btn btn-secondary hidden" id="btn-rerecord" onclick="rerecordAnswer()">🎤 Re-record</button>
+      </div>
       <button class="btn btn-primary hidden" id="btn-next" onclick="nextQuestion()">Next →</button>
-      <button class="btn btn-secondary hidden" id="btn-rerecord" onclick="rerecordAnswer()">🎤 Re-record</button>
       <button class="btn btn-secondary" id="btn-skip" onclick="skipQuestion()">Skip ▷</button>
       <button class="btn btn-danger" onclick="endSession()">✕ End</button>
     </div>
@@ -428,7 +445,7 @@ const QA = [
   { q: "まいあさ　なにを　たべますか。なにで　たべますか",
     a: "くだものと　やさいを　たべます。てで　たべます。" },
   { q: "「ありがとうございます」はじぶんの　げんごで　なんですか。",
-    a: "ありがとうございますは　たがルゴごごで　Salamat Poです。" },
+    a: "ありがとうございますは　たがルゴごで　Salamat Poです。" },
   { q: "きょねんのたんじょうびに　かぞくに　なにを　もらいましたか。",
     a: "たんじょうびに　ちちに　シャツを　もらいました。そして　あねに　おかねを　もらいました。" },
   { q: "にほんごの　べんきょうは　もうおわりましたか。",
@@ -457,6 +474,16 @@ let listening     = false;
 let liveTranscript = '';
 let micStream     = null;  // held open for the whole session to avoid repeated permission prompts
 
+function isSpeechRecognitionSupported() {
+  return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+}
+
+function abortRecognition() {
+  if (!recog) return;
+  listening = false;
+  try { recog.abort(); } catch (e) {}
+}
+
 // ─────────────────────────────────────────────
 // HELPERS
 // ─────────────────────────────────────────────
@@ -466,11 +493,6 @@ function katakanaToHiragana(s) {
   return s.replace(/[\u30A1-\u30F6]/g, ch =>
     String.fromCharCode(ch.charCodeAt(0) - 0x60)
   );
-}
-
-// ── Count kanji ──
-function kanjiCount(s) {
-  return (s.match(/[\u4E00-\u9FFF\u3400-\u4DBF]/g) || []).length;
 }
 
 // ── Number word tables ──
@@ -528,7 +550,10 @@ const KANJI_MAP = [
   ['毎週',        'まいしゅう'],
   ['先週',        'せんしゅう'],
   ['仕事',        'しごと'],
+  ['一人で',      'ひとりで'],
   ['一人',        'ひとり'],
+  ['独りで',      'ひとりで'],
+  ['独り',        'ひとり'],
   ['野菜',        'やさい'],
   ['果物',        'くだもの'],
   ['去年',        'きょねん'],
@@ -545,6 +570,8 @@ const KANJI_MAP = [
   ['元気',        'げんき'],
   ['得意',        'とくい'],
   ['言語',        'げんご'],
+  ['タガログ語',  'たがるごご'],
+  ['タガログ',    'たがるご'],
   ['何時',        'なんじ'],
   ['何分',        'なんぷん'],
   ['何月',        'なんがつ'],
@@ -562,7 +589,7 @@ const KANJI_MAP = [
   ['行き',        'いき'],
   ['行っ',        'いっ'],
   ['行く',        'いく'],
-  ['行',          'い'],
+  ['銀行',        'ぎんこう'],
   ['書きまし',    'かきまし'],
   ['書きます',    'かきます'],
   ['書き',        'かき'],
@@ -607,20 +634,123 @@ const KANJI_MAP = [
   ['妹',          'いもうと'],
   ['弟',          'おとうと'],
   ['私',          'わたし'],
-  ['人',          'ひと'],
 ];
 
-// ── Master normalizer: kanji words + date patterns + numbers → hiragana ──
-function toHiragana(s) {
+// Extra vocabulary from all 16 answer keys (STT often returns these as kanji).
+const LESSON_KANJI_MAP = [
+  ['ありがとうございます', 'ありがとうございます'],
+  ['九月十二日', 'くがつじゅうににち'],
+  ['そうしましょう', 'そうしましょう'],
+  ['いきませんか', 'いきませんか'],
+  ['ではありません', 'ではありません'],
+  ['行きませんか', 'いきませんか'],
+  ['行きません', 'いきません'],
+  ['おもしろいです', 'おもしろいです'],
+  ['元気な', 'げんきな'],
+  ['面白い', 'おもしろい'],
+  ['昼ごはん', 'ひるごはん'],
+  ['昼御飯', 'ひるごはん'],
+  ['御飯', 'ごはん'],
+  ['近くの', 'ちかくの'],
+  ['近く', 'ちかく'],
+  ['大丈夫', 'だいじょうぶ'],
+  ['物価', 'ぶっか'],
+  ['時々', 'ときどき'],
+  ['料理が', 'りょうりが'],
+  ['上手', 'じょうず'],
+  ['素敵', 'すてき'],
+  ['忙しい', 'いそがしい'],
+  ['安くない', 'やすくない'],
+  ['安く', 'やすく'],
+  ['安い', 'やすい'],
+  ['自分', 'じぶん'],
+  ['休みの日', 'やすみのひ'],
+  ['休み', 'やすみ'],
+  ['ありがとう', 'ありがとう'],
+  ['食べました', 'たべました'],
+  ['行きました', 'いきました'],
+  ['会いました', 'あいました'],
+  ['もらいました', 'もらいました'],
+  ['終わります', 'おわります'],
+  ['作ります', 'つくります'],
+  ['食べます', 'たべます'],
+  ['行きます', 'いきます'],
+  ['しました', 'しました'],
+  ['します', 'します'],
+  ['ましょう', 'ましょう'],
+  ['それから', 'それから'],
+  ['そして', 'そして'],
+  ['いいえ', 'いいえ'],
+  ['ちょっと', 'ちょっと'],
+  ['あまり', 'あまり'],
+  ['まだ', 'まだ'],
+  ['九月', 'くがつ'],
+  ['七月', 'しちがつ'],
+  ['十二日', 'じゅうににち'],
+  ['映画', 'えいが'],
+  ['日本', 'にほん'],
+  ['物', 'もの'],
+  ['人', 'ひと'],
+];
+
+// Fallback readings for single kanji still left after compound passes.
+const SINGLE_KANJI_READ = {
+  '近': 'ちか', '休': 'やす', '安': 'やす', '忙': 'いそ', '上': 'じょう', '手': 'て',
+  '素': 'そ', '敵': 'てき', '物': 'もの', '価': 'か', '昼': 'ひる', '御': 'ご', '飯': 'はん',
+  '画': 'が', '館': 'かん', '映': 'えい', '電': 'でん', '車': 'しゃ', '友': 'とも', '達': 'だち',
+  '食': 'た', '堂': 'どう', '勉': 'べん', '強': 'きょう', '習': 'しゅう', '料': 'りょう', '理': 'り',
+  '味': 'み', '面': 'おも', '白': 'しろ', '元': 'げん', '気': 'き', '今': 'こん', '年': 'ねん',
+  '去': 'きょ', '先': 'せん', '週': 'しゅう', '毎': 'まい', '朝': 'あさ', '日': 'にち', '月': 'がつ',
+  '誕': 'たん', '生': 'せい', '何': 'なに', '分': 'ぶん', '自': 'じ', '身': 'み', '族': 'ぞく',
+  '活': 'かつ', '父': 'ちち', '母': 'はは', '姉': 'あね', '兄': 'あに', '妹': 'いもうと', '弟': 'おとうと',
+  '私': 'わたし', '人': 'ひと', '一': 'いち', '二': 'に', '三': 'さん', '四': 'よん', '五': 'ご',
+  '六': 'ろく', '七': 'しち', '八': 'はち', '九': 'く', '十': 'じゅう', '土': 'ど', '曜': 'よう',
+  '語': 'ご', '言': 'げん', '金': 'かね', '野': 'や', '菜': 'さい', '果': 'くだ', '小': 'ちい',
+  '大': 'おお', '不': 'ふ', '未': 'み', '本': 'ほん', '中': 'なか', '高': 'たか', '低': 'ひく',
+  '好': 'す', '見': 'み', '聞': 'き', '読': 'よ', '書': 'か', '話': 'はな', '買': 'か', '売': 'う',
+  '行': 'い', '来': 'き', '帰': 'かえ', '入': 'はい', '出': 'で', '使': 'つか', '持': 'も',
+  '知': 'し', '思': 'おも', '言': 'い', '立': 'た', '座': 'すわ', '歩': 'ある', '走': 'はし',
+};
+
+let _allKanjiMapCache = null;
+function getAllKanjiMap() {
+  if (_allKanjiMapCache) return _allKanjiMapCache;
+  const seen = new Set();
+  _allKanjiMapCache = [];
+  for (const pair of [...KANJI_MAP, ...LESSON_KANJI_MAP]) {
+    if (seen.has(pair[0])) continue;
+    seen.add(pair[0]);
+    _allKanjiMapCache.push(pair);
+  }
+  _allKanjiMapCache.sort((a, b) => b[0].length - a[0].length);
+  return _allKanjiMapCache;
+}
+
+function applyKanjiMap(s, passes) {
+  const map = getAllKanjiMap();
+  for (let p = 0; p < (passes || 2); p++) {
+    let next = s;
+    for (const [kanji, hira] of map) next = next.split(kanji).join(hira);
+    if (next === s) break;
+    s = next;
+  }
+  return s;
+}
+
+function convertRemainingSingleKanji(s) {
+  return s.replace(/[\u4E00-\u9FFF\u3400-\u4DBF]/g, ch => SINGLE_KANJI_READ[ch] || ch);
+}
+
+// ── Kanji/katakana STT → hiragana reading (furigana) for grading ──
+function transcriptToFurigana(s) {
   // 1) full-width numbers → half-width
   s = s.replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0));
+  // STT often writes 1人 / 1人で instead of 一人
+  s = s.replace(/1人で/g, 'ひとりで');
+  s = s.replace(/1人/g, 'ひとり');
 
-  // 2) KANJI_MAP first — must run before number-kanji conversion so that
-  //    compound words containing number kanji (e.g. 一人→ひとり) are matched
-  //    before the standalone-number pass breaks them apart.
-  for (const [kanji, hira] of KANJI_MAP) {
-    s = s.split(kanji).join(hira);
-  }
+  // 2) Lesson kanji → hiragana (multi-pass)
+  s = applyKanjiMap(s, 3);
 
   // 3) NUMBER月 → month reading  (e.g. 9月, 十二月)
   s = s.replace(/([0-9]+|[一二三四五六七八九十百千]+)月/g, (_, n) => {
@@ -653,6 +783,26 @@ function toHiragana(s) {
   // 8) Katakana → Hiragana
   s = katakanaToHiragana(s);
 
+  // 9) Any kanji still left → single-char readings, then map sweep again
+  s = convertRemainingSingleKanji(s);
+  s = applyKanjiMap(s, 2);
+  s = katakanaToHiragana(s);
+
+  return s;
+}
+
+// Grading: extra pass using answer key + raw STT kanji hints.
+function transcriptToFuriganaForGrading(raw, answer) {
+  let s = transcriptToFurigana(raw);
+  const rawHasKanji = /[\u4E00-\u9FFF\u3400-\u4DBF]/.test(raw);
+  if (rawHasKanji) {
+    for (const [kanji, hira] of getAllKanjiMap()) {
+      if (raw.includes(kanji)) s = s.split(kanji).join(hira);
+    }
+    s = convertRemainingSingleKanji(s);
+    s = applyKanjiMap(s, 2);
+    s = katakanaToHiragana(s);
+  }
   return s;
 }
 
@@ -669,35 +819,58 @@ function numberToHiragana(n) {
   return s || 'ぜろ';
 }
 
-// ── Pick least-kanji STT alternative ──
-function bestHiraganaAlternative(results, resultIndex) {
-  const finalResult = results[resultIndex];
-  let best = finalResult[0].transcript;
-  let bestKanji = kanjiCount(best);
-  for (let i = 1; i < finalResult.length; i++) {
-    const alt = finalResult[i].transcript;
-    const k   = kanjiCount(alt);
-    if (k < bestKanji) { best = alt; bestKanji = k; }
-  }
-  // Convert katakana + any leftover kanji patterns
-  return toHiragana(best);
+// Live display: raw STT (katakana→hiragana only). Grading uses transcriptToFurigana.
+function formatLiveTranscript(s) {
+  return katakanaToHiragana(s);
 }
 
-// ── Normalize helpers ──
+function sttSegmentText(result) {
+  return result[0].transcript;
+}
+
 const STRIP_RE = /[\s　、。！？・「」『』【】〜〈〉（）,，.]/g;
 
-// For ANSWERS (already written in hiragana/katakana by the user):
-// Only convert katakana→hiragana and strip punctuation/spaces.
-// Do NOT run the full kanji converter — the answers have no kanji.
+// Answer key is hiragana/katakana only — keep katakana, do not run kanji map.
 function normalizeAnswer(s) {
   return katakanaToHiragana(s).replace(STRIP_RE, '').toLowerCase();
 }
 
-// For TRANSCRIPTS (raw STT output — may contain kanji, katakana, etc.):
-// Run the full toHiragana pipeline (kanji map, date readings, katakana)
-// so that STT kanji are converted before comparing with the hiragana answer.
-function normalizeTranscript(s) {
-  return toHiragana(s).replace(STRIP_RE, '').toLowerCase();
+// STT transcript → furigana reading, then strip (matches answer key form).
+function normalizeTranscript(raw, answer) {
+  const furigana = answer != null
+    ? transcriptToFuriganaForGrading(raw, answer)
+    : transcriptToFurigana(raw);
+  return furigana.replace(STRIP_RE, '').toLowerCase();
+}
+
+// Latin STT may return Romaji; map known phrases to hiragana readings too.
+const ROMAJI_READING_VARIANTS = {
+  salamatpo: ['salamatpo', 'salamat', 'さらまっと', 'さらまっとぽ', 'さらまっとぽ'],
+  salamat: ['salamat', 'さらまっと', 'さらまっとぽ'],
+};
+
+function answerHasRomaji(s) {
+  return /[a-zA-Z]/.test(s);
+}
+
+function extractRomajiPhrases(answer) {
+  return (answer.match(/[a-zA-Z]+(?:\s+[a-zA-Z]+)*/g) || [])
+    .map((p) => p.trim().toLowerCase());
+}
+
+function compactLatin(s) {
+  return s.toLowerCase().replace(/\s+/g, '');
+}
+
+function transcriptHasRomajiPhrase(raw, furiganaNorm, phrase) {
+  const compact = compactLatin(phrase);
+  if (compactLatin(raw).includes(compact)) return true;
+  const variants = ROMAJI_READING_VARIANTS[compact]
+    || ROMAJI_READING_VARIANTS[compact.replace(/po$/, '')]
+    || [];
+  return variants.some((v) =>
+    (/^[a-z]+$/.test(v) ? compactLatin(raw).includes(v) : furiganaNorm.includes(v))
+  );
 }
 
 // ── LCS length (space-optimised) ──
@@ -718,7 +891,7 @@ function lcsLength(s1, s2) {
 
 // ── Similarity: LCS coverage of the answer ──
 function similarity(transcript, answer) {
-  const t = normalizeTranscript(transcript);
+  const t = normalizeTranscript(transcript, answer);
   const a = normalizeAnswer(answer);
   if (t === a) return 1;
   if (a.length === 0) return 0;
@@ -781,33 +954,27 @@ function particlesMatchNorm(tNorm, aNorm) {
 }
 
 function particlesMatch(transcript, answer) {
-  return particlesMatchNorm(normalizeTranscript(transcript), normalizeAnswer(answer));
+  return particlesMatchNorm(normalizeTranscript(transcript, answer), normalizeAnswer(answer));
 }
 
-// Strip ASCII Latin letters (a-z A-Z) — used for Q9 Romaji handling.
 function stripLatin(s) {
   return s.replace(/[a-zA-Z]+/g, '');
 }
 
-// Q9 special check: answer contains "Salamat Po" (Romaji).
-// ja-JP STT may return it as Latin, katakana (サラマットポ→さらまっとぽ), or skip it.
-// Strategy:
-//   1. Strip Latin from both sides → compare only the Japanese core.
-//   2. Separately detect whether any recognizable form of "Salamat" was captured.
-//      If yes, the full answer is accepted; if no, still accept if Japanese core ≥ 0.75.
-function isCorrectQ9(transcript, answer) {
-  const aNorm = stripLatin(normalizeAnswer(answer));
-  const tNorm = stripLatin(normalizeTranscript(transcript));
-  if (!particlesMatchNorm(tNorm, aNorm)) return false;
-  const coreScore = aNorm.length === 0 ? 1
-    : tNorm === aNorm ? 1
-    : lcsLength(tNorm, aNorm) / aNorm.length;
-  if (coreScore < 0.55) return false; // Japanese core way off
-  // Check for Salamat in transcript (Latin or katakana-converted hiragana)
-  const tFull = normalizeTranscript(transcript);
-  const hasSalamat = tFull.includes('salamat') || tFull.includes('さらまっと');
-  // Pass if Japanese core is strong enough, bonus if Salamat detected
-  return hasSalamat ? coreScore >= 0.55 : coreScore >= 0.75;
+// Answers that include Romaji (e.g. Q9 Salamat Po): compare Japanese in furigana, Romaji flexibly.
+function gradeAnswerWithRomaji(raw, answer) {
+  const furiganaNorm = normalizeTranscript(raw, answer);
+  const aNorm = normalizeAnswer(answer);
+  const tJp = stripLatin(furiganaNorm);
+  const aJp = stripLatin(aNorm);
+  if (!particlesMatchNorm(tJp, aJp)) return false;
+  const coreScore = !aJp.length ? 1
+    : tJp === aJp ? 1
+    : lcsLength(tJp, aJp) / aJp.length;
+  if (coreScore < 0.55) return false;
+  const phrases = extractRomajiPhrases(answer);
+  const hasRomaji = phrases.some((p) => transcriptHasRomajiPhrase(raw, furiganaNorm, p));
+  return hasRomaji ? coreScore >= 0.55 : coreScore >= 0.75;
 }
 
 // Returns true if the answer string contains a meaningful amount of katakana
@@ -819,10 +986,10 @@ function answerHasKatakanaLoanword(answer) {
   return katakana.length >= 2;
 }
 
-function isCorrect(transcript, answer, qIndex) {
-  if (qIndex === 8) return isCorrectQ9(transcript, answer); // Q9 (0-based)
-  if (!answerHasKatakanaLoanword(answer) && !particlesMatch(transcript, answer)) return false;
-  return similarity(transcript, answer) >= 0.65;
+function isCorrect(rawTranscript, answer) {
+  if (answerHasRomaji(answer)) return gradeAnswerWithRomaji(rawTranscript, answer);
+  if (!answerHasKatakanaLoanword(answer) && !particlesMatch(rawTranscript, answer)) return false;
+  return similarity(rawTranscript, answer) >= 0.65;
 }
 
 // ─────────────────────────────────────────────
@@ -842,12 +1009,32 @@ function showTranscript(text, active) {
   if (text) {
     ph.classList.add('hidden');
     ct.classList.remove('hidden');
-    ct.textContent = text;
+    ct.replaceChildren(document.createTextNode(text));
   } else {
     ph.classList.remove('hidden');
     ct.classList.add('hidden');
+    ct.replaceChildren();
   }
   box.classList.toggle('active', !!active);
+}
+
+// After submit: show raw STT + furigana form used for checking (answer key is hiragana/katakana).
+function showCheckedTranscript(raw, furiganaReading) {
+  const ph  = document.getElementById('transcript-placeholder');
+  const ct  = document.getElementById('transcript-content');
+  const box = document.getElementById('transcript-box');
+  ph.classList.add('hidden');
+  ct.classList.remove('hidden');
+  box.classList.remove('active');
+
+  const heard = document.createElement('div');
+  heard.textContent = formatLiveTranscript(raw);
+
+  const checked = document.createElement('div');
+  checked.className = 'transcript-furigana';
+  checked.textContent = 'Checked (reading): ' + furiganaReading;
+
+  ct.replaceChildren(heard, checked);
 }
 
 function showResult(correct, transcript, answer) {
@@ -859,7 +1046,10 @@ function showResult(correct, transcript, answer) {
   icon.textContent = correct ? '✅' : '❌';
   msg.textContent  = correct ? '正解！ Correct!' : '不正解。 Incorrect.';
   if (!correct) {
-    rev.innerHTML = '<strong>Correct answer:</strong> ' + answer;
+    rev.replaceChildren();
+    const strong = document.createElement('strong');
+    strong.textContent = 'Correct answer: ';
+    rev.append(strong, document.createTextNode(answer));
   } else {
     rev.textContent = '';
   }
@@ -918,27 +1108,28 @@ function startListening(onError) {
 
   recog.onstart = () => {
     listening = true;
-    setStatus('listening', '🎤 Recording… click Submit Answer when done');
+    setStatus('listening', '🎤 Recording… click Submit or Re-record when done');
     showTranscript('', true);
     showBtn('btn-submit', true);
-    showBtn('btn-skip',   false);
+    showBtn('btn-rerecord', true);
+    showBtn('btn-skip', false);
   };
   recog.onend = () => {
     listening = false;
-    // If mic closed before user submitted (e.g. timeout), keep Submit visible.
     if (liveTranscript && document.getElementById('btn-next').classList.contains('hidden')) {
       showBtn('btn-submit', true);
+      showBtn('btn-rerecord', true);
     }
   };
   recog.onresult = (e) => {
     let accumulated = '';
     let interimRaw  = '';
     for (let i = 0; i < e.results.length; i++) {
-      if (e.results[i].isFinal) accumulated += bestHiraganaAlternative(e.results, i);
-      else                      interimRaw  += e.results[i][0].transcript;
+      if (e.results[i].isFinal) accumulated += sttSegmentText(e.results[i]);
+      else                      interimRaw  += sttSegmentText(e.results[i]);
     }
     liveTranscript = accumulated;
-    showTranscript(accumulated + katakanaToHiragana(interimRaw), true);
+    showTranscript(formatLiveTranscript(accumulated + interimRaw), true);
   };
   recog.onerror = (e) => {
     listening = false;
@@ -963,6 +1154,10 @@ function releaseMic() {
 }
 
 function startPractice() {
+  if (!isSpeechRecognitionSupported()) {
+    alert('Voice recognition requires Chrome or Microsoft Edge. Safari and Firefox are not supported.');
+    return;
+  }
   current = 0; score = 0; results = [];
   document.getElementById('screen-start').classList.add('hidden');
   document.getElementById('screen-practice').classList.remove('hidden');
@@ -1030,24 +1225,25 @@ function beginListen() {
 }
 
 function submitAnswer() {
-  if (recog) { try { recog.abort(); } catch(e){} }
+  abortRecognition();
   showBtn('btn-submit', false);
   const item       = QA[current];
-  const transcript = liveTranscript.trim();
+  const raw = liveTranscript.trim();
 
-  if (!transcript) {
+  if (!raw) {
     setStatus('', 'No speech captured — try re-recording.');
     showBtn('btn-rerecord', true);
     showBtn('btn-skip',     true);
     return;
   }
 
+  const furiganaReading = transcriptToFuriganaForGrading(raw, item.a);
   setStatus('checking', 'Checking your answer…');
-  showTranscript(transcript, false);
-  const correct = isCorrect(transcript, item.a, current);
+  showCheckedTranscript(raw, furiganaReading);
+  const correct = isCorrect(raw, item.a);
   if (correct) score++;
-  results.push({ q: item.q, a: item.a, transcript, correct });
-  showResult(correct, transcript, item.a);
+  results.push({ q: item.q, a: item.a, transcript: raw, furigana: furiganaReading, correct });
+  showResult(correct, raw, item.a);
   showBtn('btn-next',     true);
   showBtn('btn-rerecord', !correct);
   showBtn('btn-skip',     false);
@@ -1056,6 +1252,8 @@ function submitAnswer() {
 
 function rerecordAnswer() {
   const item = QA[current];
+  abortRecognition();
+  liveTranscript = '';
   document.getElementById('result-badge').className = 'result-badge';
   showTranscript('');
   showBtn('btn-next',     false);
@@ -1071,7 +1269,7 @@ function nextQuestion() {
 }
 
 function skipQuestion() {
-  if (recog) { try { recog.abort(); } catch(e){} }
+  abortRecognition();
   results.push({ q: QA[current].q, a: QA[current].a, transcript: '(skipped)', correct: false });
   current++;
   if (current >= QA.length) showResults();
@@ -1080,10 +1278,12 @@ function skipQuestion() {
 
 function endSession() {
   if (synth.speaking) synth.cancel();
-  if (recog) { try { recog.abort(); } catch(e){} recog = null; }
+  abortRecognition();
+  recog = null;
   releaseMic();
-  for (let i = current; i < QA.length; i++) {
-    if (!results[i]) results.push({ q: QA[i].q, a: QA[i].a, transcript: '(not reached)', correct: false });
+  while (results.length < QA.length) {
+    const i = results.length;
+    results.push({ q: QA[i].q, a: QA[i].a, transcript: '(not reached)', correct: false });
   }
   showResults();
 }
@@ -1110,25 +1310,35 @@ function showResults() {
   document.getElementById('score-message').textContent = msg;
 
   const list = document.getElementById('results-list');
-  list.innerHTML = '';
+  list.replaceChildren();
   results.forEach((r, i) => {
     const div = document.createElement('div');
     div.className = 'result-row ' + (r.correct ? 'c' : 'w');
-    div.innerHTML = `
-      <span class="tag ${r.correct ? 'tag-ok' : 'tag-ng'}">${i+1}. ${r.correct ? '✓ Correct' : '✗ Incorrect'}</span>
-      <div class="rq">${r.q}</div>
-      ${r.correct
-        ? `<div class="rc">Your answer: ${r.transcript}</div>`
-        : `<div class="rw">Your answer: ${r.transcript}</div>
-           <div class="ra">✔ Expected: ${r.a}</div>`
-      }
-    `;
+    const tag = document.createElement('span');
+    tag.className = 'tag ' + (r.correct ? 'tag-ok' : 'tag-ng');
+    tag.textContent = (i + 1) + '. ' + (r.correct ? '✓ Correct' : '✗ Incorrect');
+    const rq = document.createElement('div');
+    rq.className = 'rq';
+    rq.textContent = r.q;
+    const ans = document.createElement('div');
+    ans.className = r.correct ? 'rc' : 'rw';
+    let label = 'Heard: ' + r.transcript;
+    if (r.furigana) label += ' · Checked: ' + r.furigana;
+    ans.textContent = label;
+    div.append(tag, rq, ans);
+    if (!r.correct) {
+      const expected = document.createElement('div');
+      expected.className = 'ra';
+      expected.textContent = '✔ Expected: ' + r.a;
+      div.appendChild(expected);
+    }
     list.appendChild(div);
   });
 }
 
 function restartApp() {
-  if (recog) { try { recog.abort(); } catch(e){} recog = null; }
+  abortRecognition();
+  recog = null;
   releaseMic();
   document.getElementById('screen-results').style.display = 'none';
   document.getElementById('screen-start').classList.remove('hidden');
