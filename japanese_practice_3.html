@@ -5,6 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>日本語 Voice Practice</title>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@300;400;700&family=Noto+Sans+JP:wght@300;400;500&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.min.js"></script>
+  <script>
+    // Fallback: if XLSX doesn't load from CDN, load from alternative source
+    if (typeof XLSX === 'undefined') {
+      const script = document.createElement('script');
+      script.src = 'https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js';
+      document.head.appendChild(script);
+    }
+  </script>
   <style>
     :root {
       --ink:      #1a1a2e;
@@ -280,6 +289,66 @@
       border: 1px solid #d0c8b8;
     }
 
+    /* ── Import section ── */
+    .import-section {
+      border: 1.5px dashed var(--paper-2);
+      border-radius: 10px;
+      padding: 20px;
+      margin: 28px 0;
+      background: #fafaf7;
+    }
+    .import-section h3 {
+      font-size: 0.9rem;
+      color: var(--ink);
+      margin-bottom: 12px;
+      font-weight: 500;
+    }
+    .import-section p {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-bottom: 12px;
+      line-height: 1.5;
+    }
+    #file-input { display: none; }
+    .import-buttons {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .btn-import {
+      background: var(--paper-2);
+      color: var(--ink);
+      border: 1.5px solid #d0c8b8;
+      padding: 10px 18px;
+      font-size: 0.85rem;
+    }
+    .btn-import:hover { background: #e0d8ca; }
+    .import-status {
+      font-size: 0.8rem;
+      margin-top: 8px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      display: none;
+    }
+    .import-status.success {
+      display: block;
+      background: #e6f4ee;
+      color: var(--correct);
+      border: 1px solid #b2dfc5;
+    }
+    .import-status.error {
+      display: block;
+      background: #fdf0ef;
+      color: var(--wrong);
+      border: 1px solid #f0b8b2;
+    }
+    .import-status.info {
+      display: block;
+      background: #f0f4f8;
+      color: var(--teal);
+      border: 1px solid #d0e4f0;
+    }
+
     /* ── Results screen ── */
     #screen-results { display: none; }
     .score-hero {
@@ -346,10 +415,32 @@
     <h2>Ready to Practice?</h2>
     <p>The app will read each question aloud in Japanese.<br>Speak your answer clearly into your microphone.<br>Your answer will be checked automatically.</p>
     <div class="info-chips">
-      <span class="chip">🗂 16 Questions</span>
+      <span class="chip"><span id="qa-count-chip">🗂 16 Questions</span></span>
       <span class="chip">🇯🇵 Japanese</span>
       <span class="chip">🎤 Voice Input</span>
     </div>
+
+    <!-- Import Section -->
+    <div class="import-section">
+      <h3>📁 Import Your Own Q&A Database</h3>
+      <p>Load your custom questions and answers from a JSON or CSV file:</p>
+      <p style="font-size: 0.75rem; color: var(--muted); margin-bottom: 6px;">
+        <strong>JSON format:</strong> <code style="background: var(--paper-2); padding: 2px 6px; border-radius: 3px;">[{"q": "Question?", "a": "Answer"}, ...]</code><br>
+        <strong>CSV format:</strong> Two columns (Question, Answer) — first row as header<br>
+        <strong>Excel format:</strong> .xlsx or .xls file with two columns (Question, Answer)
+      </p>
+      <input type="file" id="file-input" accept=".json,.csv,.txt,.xlsx,.xls" />
+      <div class="import-buttons">
+        <button class="btn btn-import" onclick="document.getElementById('file-input').click()">
+          📤 Choose File
+        </button>
+        <button class="btn btn-secondary" onclick="resetToDefault()">
+          ↺ Use Default
+        </button>
+      </div>
+      <div class="import-status" id="import-status"></div>
+    </div>
+
     <button class="btn btn-primary" onclick="startPractice()">
       ▶ Start Practice
     </button>
@@ -367,6 +458,7 @@
 
     <div class="warning-box" id="warning-box">
       ⚠️ Microphone access is required. Please allow microphone permission when prompted,
+      
       then click <strong>Retry</strong>.
     </div>
 
@@ -427,7 +519,7 @@
 // ─────────────────────────────────────────────
 // Q&A DATA  (from QAdatabase.xlsx)
 // ─────────────────────────────────────────────
-const QA = [
+const DEFAULT_QA = [
   { q: "まいにち　なんで　しごとへ　いきますか。",
     a: "でんしゃで　いきます。" },
   { q: "まいにち　だれと　しごとへ　いきますか。",
@@ -468,6 +560,262 @@ const QA = [
     a: "わたしは　りょうりが　あまり　とくいではありませんが、ときどき　つくります。" },
 ];
 
+let QA = [...DEFAULT_QA];
+
+// ─────────────────────────────────────────────
+// FILE IMPORT FUNCTIONALITY
+// ─────────────────────────────────────────────
+
+function updateQACount() {
+  const count = QA.length;
+  document.getElementById('qa-count-chip').textContent = '🗂 ' + count + ' Question' + (count !== 1 ? 's' : '');
+}
+
+function showImportStatus(message, type) {
+  const statusDiv = document.getElementById('import-status');
+  statusDiv.textContent = message;
+  statusDiv.className = 'import-status ' + type;
+  if (type !== 'info') {
+    setTimeout(() => {
+      statusDiv.className = 'import-status';
+    }, 5000);
+  }
+}
+
+// Parse JSON file
+function parseJSON(content) {
+  try {
+    const data = JSON.parse(content);
+    if (!Array.isArray(data)) {
+      throw new Error('JSON must be an array of objects');
+    }
+    if (data.length === 0) {
+      throw new Error('JSON array cannot be empty');
+    }
+    
+    const qa = data.map(item => {
+      if (typeof item !== 'object' || item === null) {
+        throw new Error('Each item must be an object');
+      }
+      const q = item.q || item.question || item.Q || item.Question;
+      const a = item.a || item.answer || item.A || item.Answer;
+      
+      if (!q || !a) {
+        throw new Error('Each item must have "q"/"question" and "a"/"answer" fields');
+      }
+      
+      return { q: String(q).trim(), a: String(a).trim() };
+    });
+    
+    return qa;
+  } catch (e) {
+    throw new Error('JSON parse error: ' + e.message);
+  }
+}
+
+// Parse CSV file
+function parseCSV(content) {
+  const lines = content.trim().split('\n');
+  if (lines.length < 2) {
+    throw new Error('CSV must have at least 2 rows (header + 1 data row)');
+  }
+  
+  // Simple CSV parser (handles basic cases, not quoted fields with commas)
+  function parseCSVLine(line) {
+    return line.split(',').map(field => field.trim());
+  }
+  
+  const headerLine = parseCSVLine(lines[0]);
+  if (headerLine.length < 2) {
+    throw new Error('CSV must have at least 2 columns');
+  }
+  
+  // Detect which columns are Q and A (look for common headers)
+  let qIdx = 0, aIdx = 1;
+  const header = headerLine.map(h => h.toLowerCase());
+  
+  const qHeaders = ['q', 'question', 'ques', 'prompt'];
+  const aHeaders = ['a', 'answer', 'ans', 'response'];
+  
+  for (let i = 0; i < header.length; i++) {
+    if (qHeaders.includes(header[i])) qIdx = i;
+    if (aHeaders.includes(header[i])) aIdx = i;
+  }
+  
+  const qa = [];
+  for (let i = 1; i < lines.length; i++) {
+    const fields = parseCSVLine(lines[i]);
+    if (fields.length > Math.max(qIdx, aIdx)) {
+      const q = fields[qIdx].trim();
+      const a = fields[aIdx].trim();
+      if (q && a) {
+        qa.push({ q, a });
+      }
+    }
+  }
+  
+  if (qa.length === 0) {
+    throw new Error('No valid Q&A pairs found in CSV');
+  }
+  
+  return qa;
+}
+
+// Parse Excel file (.xlsx, .xls)
+function parseExcel(arrayBuffer) {
+  try {
+    if (typeof XLSX === 'undefined') {
+      throw new Error('Excel library is still loading. Please wait a moment and try again.');
+    }
+    
+    const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+    if (!workbook.SheetNames.length) {
+      throw new Error('Excel file is empty');
+    }
+    
+    // Use the first sheet
+    const sheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[sheetName];
+    const data = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+    
+    if (data.length < 2) {
+      throw new Error('Excel sheet must have at least 2 rows (header + 1 data row)');
+    }
+    
+    const headerLine = data[0];
+    if (headerLine.length < 2) {
+      throw new Error('Excel sheet must have at least 2 columns');
+    }
+    
+    // Detect which columns are Q and A
+    let qIdx = 0, aIdx = 1;
+    const header = headerLine.map(h => String(h || '').toLowerCase().trim());
+    
+    const qHeaders = ['q', 'question', 'ques', 'prompt'];
+    const aHeaders = ['a', 'answer', 'ans', 'response'];
+    
+    for (let i = 0; i < header.length; i++) {
+      if (qHeaders.includes(header[i])) qIdx = i;
+      if (aHeaders.includes(header[i])) aIdx = i;
+    }
+    
+    const qa = [];
+    for (let i = 1; i < data.length; i++) {
+      const row = data[i];
+      if (row.length > Math.max(qIdx, aIdx)) {
+        const q = String(row[qIdx] || '').trim();
+        const a = String(row[aIdx] || '').trim();
+        if (q && a) {
+          qa.push({ q, a });
+        }
+      }
+    }
+    
+    if (qa.length === 0) {
+      throw new Error('No valid Q&A pairs found in Excel sheet');
+    }
+    
+    return qa;
+  } catch (e) {
+    throw new Error('Excel parse error: ' + e.message);
+  }
+}
+
+// Wait for XLSX library to load
+function ensureXLSXLoaded() {
+  return new Promise((resolve) => {
+    if (typeof XLSX !== 'undefined') {
+      resolve();
+    } else {
+      const checkInterval = setInterval(() => {
+        if (typeof XLSX !== 'undefined') {
+          clearInterval(checkInterval);
+          resolve();
+        }
+      }, 100);
+      // Timeout after 5 seconds
+      setTimeout(() => {
+        clearInterval(checkInterval);
+        resolve();
+      }, 5000);
+    }
+  });
+}
+
+function handleFileImport(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  
+  const reader = new FileReader();
+  const fileName = file.name.toLowerCase();
+  const isExcel = fileName.endsWith('.xlsx') || fileName.endsWith('.xls');
+  
+  reader.onload = async (e) => {
+    try {
+      let qa;
+      
+      if (isExcel) {
+        // Wait for XLSX library to load before parsing
+        await ensureXLSXLoaded();
+        qa = parseExcel(e.target.result);
+      } else {
+        // Text-based formats (JSON, CSV)
+        const content = e.target.result;
+        if (fileName.endsWith('.json')) {
+          qa = parseJSON(content);
+        } else if (fileName.endsWith('.csv') || fileName.endsWith('.txt')) {
+          qa = parseCSV(content);
+        } else {
+          throw new Error('Unsupported file format. Use JSON, CSV, or Excel.');
+        }
+      }
+      
+      if (!Array.isArray(qa) || qa.length === 0) {
+        throw new Error('No valid Q&A data found in file');
+      }
+      
+      QA = qa;
+      updateQACount();
+      showImportStatus('✅ Successfully imported ' + qa.length + ' question' + (qa.length !== 1 ? 's' : '') + ' from ' + file.name, 'success');
+    } catch (error) {
+      showImportStatus('❌ Import failed: ' + error.message, 'error');
+      QA = [...DEFAULT_QA];
+      updateQACount();
+    }
+  };
+  
+  reader.onerror = () => {
+    showImportStatus('❌ Error reading file', 'error');
+  };
+  
+  // Read as ArrayBuffer for Excel, as Text for others
+  if (isExcel) {
+    reader.readAsArrayBuffer(file);
+  } else {
+    reader.readAsText(file);
+  }
+  
+  // Reset file input
+  event.target.value = '';
+}
+
+// Reset to default Q&A
+function resetToDefault() {
+  QA = [...DEFAULT_QA];
+  updateQACount();
+  showImportStatus('↺ Switched to default Q&A database (' + DEFAULT_QA.length + ' questions)', 'info');
+  document.getElementById('file-input').value = '';
+}
+
+// Attach file input event listener
+document.addEventListener('DOMContentLoaded', () => {
+  const fileInput = document.getElementById('file-input');
+  if (fileInput) {
+    fileInput.addEventListener('change', handleFileImport);
+  }
+  updateQACount();
+});
+
 // ─────────────────────────────────────────────
 // STATE
 // ─────────────────────────────────────────────
@@ -494,11 +842,37 @@ function abortRecognition() {
 // HELPERS
 // ─────────────────────────────────────────────
 
-// ── Katakana → Hiragana ──
+// ── Katakana → Hiragana (comprehensive mapping) ──
+const KATAKANA_HIRAGANA_MAP = {
+  'ア': 'あ', 'イ': 'い', 'ウ': 'う', 'エ': 'え', 'オ': 'お',
+  'カ': 'か', 'キ': 'き', 'ク': 'く', 'ケ': 'け', 'コ': 'こ',
+  'サ': 'さ', 'シ': 'し', 'ス': 'す', 'セ': 'せ', 'ソ': 'そ',
+  'タ': 'た', 'チ': 'ち', 'ツ': 'つ', 'テ': 'て', 'ト': 'と',
+  'ナ': 'な', 'ニ': 'に', 'ヌ': 'ぬ', 'ネ': 'ね', 'ノ': 'の',
+  'ハ': 'は', 'ヒ': 'ひ', 'フ': 'ふ', 'ヘ': 'へ', 'ホ': 'ほ',
+  'マ': 'ま', 'ミ': 'み', 'ム': 'む', 'メ': 'め', 'モ': 'も',
+  'ヤ': 'や', 'ユ': 'ゆ', 'ヨ': 'よ',
+  'ラ': 'ら', 'リ': 'り', 'ル': 'る', 'レ': 'れ', 'ロ': 'ろ',
+  'ワ': 'わ', 'ヲ': 'を', 'ン': 'ん',
+  'ガ': 'が', 'ギ': 'ぎ', 'グ': 'ぐ', 'ゲ': 'げ', 'ゴ': 'ご',
+  'ザ': 'ざ', 'ジ': 'じ', 'ズ': 'ず', 'ゼ': 'ぜ', 'ゾ': 'ぞ',
+  'ダ': 'だ', 'ヂ': 'ぢ', 'ヅ': 'づ', 'デ': 'で', 'ド': 'ど',
+  'バ': 'ば', 'ビ': 'び', 'ブ': 'ぶ', 'ベ': 'べ', 'ボ': 'ぼ',
+  'パ': 'ぱ', 'ピ': 'ぴ', 'プ': 'ぷ', 'ペ': 'ぺ', 'ポ': 'ぽ',
+  // Small katakana
+  'ァ': 'ぁ', 'ィ': 'ぃ', 'ゥ': 'ぅ', 'ェ': 'ぇ', 'ォ': 'ぉ',
+  'ャ': 'ゃ', 'ュ': 'ゅ', 'ョ': 'ょ',
+  'ッ': 'っ', 'ー': 'う',
+  'ヴ': 'ゔ'
+};
+
 function katakanaToHiragana(s) {
-  return s.replace(/[\u30A1-\u30F6]/g, ch =>
-    String.fromCharCode(ch.charCodeAt(0) - 0x60)
-  );
+  let result = '';
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    result += KATAKANA_HIRAGANA_MAP[ch] || ch;
+  }
+  return result;
 }
 
 // ── Number word tables ──
@@ -825,9 +1199,9 @@ function numberToHiragana(n) {
   return s || 'ぜろ';
 }
 
-// Live display: raw STT (katakana→hiragana only). Grading uses transcriptToFurigana.
+// Live display: Convert STT output to furigana form (same as grading) for consistency
 function formatLiveTranscript(s) {
-  return katakanaToHiragana(s);
+  return transcriptToFurigana(s);
 }
 
 function sttSegmentText(result) {
@@ -988,13 +1362,42 @@ function gradeAnswerWithRomaji(raw, answer) {
 // is skipped because converting katakana → hiragana can create false particle
 // matches (e.g. イラスト → いらすと where と looks like the particle と).
 function answerHasKatakanaLoanword(answer) {
-  const katakana = (answer.match(/[\u30A1-\u30F6]+/g) || []).join('');
+  const katakana = (answer.match(/[\u30A0-\u30FF]+/g) || []).join('');
   return katakana.length >= 2;
+}
+
+// Extract the main katakana loanword from the answer (e.g., "フランス" from "フランスりょうりが好きです")
+function extractMainKatakana(answer) {
+  const match = answer.match(/[\u30A0-\u30FF]+/);
+  return match ? match[0] : null;
+}
+
+// Check if the main katakana loanword appears (in hiragana form) in the transcript
+function katakanaAppearsInTranscript(katakana, transcriptHiragana) {
+  if (!katakana) return true;
+  const kataHira = katakanaToHiragana(katakana);
+  // Check if the katakana (converted to hiragana) appears in the normalized transcript
+  return transcriptHiragana.includes(kataHira);
 }
 
 function isCorrect(rawTranscript, answer) {
   if (answerHasRomaji(answer)) return gradeAnswerWithRomaji(rawTranscript, answer);
-  if (!answerHasKatakanaLoanword(answer) && !particlesMatch(rawTranscript, answer)) return false;
+  
+  const t = normalizeTranscript(rawTranscript, answer);
+  const a = normalizeAnswer(answer);
+  
+  // If answer has katakana loanword, check that it appears in the transcript
+  if (answerHasKatakanaLoanword(answer)) {
+    const mainKata = extractMainKatakana(answer);
+    if (mainKata && !katakanaAppearsInTranscript(mainKata, t)) {
+      return false; // Main katakana word is missing, answer is wrong
+    }
+    // Require higher similarity for answers with loanwords (0.70 instead of 0.65)
+    return similarity(rawTranscript, answer) >= 0.70;
+  }
+  
+  // For answers without katakana loanwords, check particles first
+  if (!particlesMatch(rawTranscript, answer)) return false;
   return similarity(rawTranscript, answer) >= 0.65;
 }
 
