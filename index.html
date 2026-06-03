@@ -6,6 +6,9 @@
   <title>日本語 Voice Practice</title>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@300;400;700&family=Noto+Sans+JP:wght@300;400;500&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.min.js"></script>
+  <script type="importmap">
+    { "imports": { "@google/genai": "https://cdn.jsdelivr.net/npm/@google/genai/+esm" } }
+  </script>
   <script src="script.js"></script>
   <script>
     // Fallback: if XLSX doesn't load from CDN, load from alternative source
@@ -32,9 +35,10 @@
     <h2>Ready to Practice?</h2>
     <p>The app will read each question aloud in Japanese.<br>Speak your answer clearly into your microphone.<br>Your answer will be checked automatically.</p>
     <div class="info-chips">
-      <span class="chip"><span id="qa-count-chip">🗂 16 Questions</span></span>
+      <span class="chip"><span id="qa-count-chip">🗂 No Questions Loaded</span></span>
       <span class="chip">🇯🇵 Japanese</span>
       <span class="chip">🎤 Voice Input</span>
+      <span class="chip chip-ai" id="ai-status-chip">🤖 AI Grading: <span id="ai-status-text">Not configured</span></span>
     </div>
 
     <!-- Import Section -->
@@ -51,15 +55,35 @@
         <button class="btn btn-import" onclick="document.getElementById('file-input').click()">
           📤 Choose File
         </button>
-        <button class="btn btn-secondary" onclick="resetToDefault()">
-          ↺ Use Default
+        <button class="btn btn-secondary" onclick="clearDatabase()">
+          🗑 Clear
         </button>
       </div>
       <div class="import-status" id="import-status"></div>
     </div>
 
-    <button class="btn btn-primary" onclick="startPractice()">
-      ▶ Start Practice
+    <!-- AI Settings Section -->
+    <div class="settings-section" id="ai-settings-section">
+      <h3>🤖 AI Answer Grading (Gemini)</h3>
+      <p>Enter your Google Gemini API key for intelligent answer checking with detailed feedback.</p>
+      <p style="font-size: 0.75rem; color: var(--muted); margin-bottom: 8px;">
+        Get a free API key at <a href="https://aistudio.google.com/apikey" target="_blank" style="color: var(--teal);">Google AI Studio</a>
+        — Free tier: 15 requests/min, ~1,500/day
+      </p>
+      <div class="api-key-row">
+        <input type="password" id="api-key-input" class="api-key-input" placeholder="Paste your Gemini API key here…" autocomplete="off" />
+        <button class="btn btn-secondary btn-sm" onclick="toggleKeyVisibility()" id="btn-toggle-key" title="Show/hide key">👁</button>
+      </div>
+      <div class="import-buttons" style="margin-top: 8px;">
+        <button class="btn btn-import" onclick="saveApiKeyFromInput()">💾 Save Key</button>
+        <button class="btn btn-secondary" onclick="testApiConnection()">🔌 Test Connection</button>
+        <button class="btn btn-secondary" onclick="clearApiKey()">🗑 Clear Key</button>
+      </div>
+      <div class="import-status" id="api-key-status"></div>
+    </div>
+
+    <button class="btn btn-primary btn-disabled" id="btn-start-practice" onclick="startPractice()" disabled>
+      ⏳ Import a Q&amp;A database to begin
     </button>
   </div>
 
@@ -91,9 +115,10 @@
 
     <div class="result-badge" id="result-badge">
       <span class="icon" id="result-icon"></span>
-      <div>
+      <div class="result-badge-content">
         <div id="result-msg"></div>
         <div class="answer-reveal" id="answer-reveal"></div>
+        <div class="ai-feedback" id="ai-feedback"></div>
       </div>
     </div>
 

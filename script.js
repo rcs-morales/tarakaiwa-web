@@ -42,7 +42,7 @@ const DEFAULT_QA = [
     a: "わたしは　りょうりが　あまり　とくいではありませんが、ときどき　つくります。" },
 ];
 
-let QA = [...DEFAULT_QA];
+let QA = [];
 
 // ─────────────────────────────────────────────
 // FILE IMPORT FUNCTIONALITY
@@ -50,7 +50,23 @@ let QA = [...DEFAULT_QA];
 
 function updateQACount() {
   const count = QA.length;
-  document.getElementById('qa-count-chip').textContent = '🗂 ' + count + ' Question' + (count !== 1 ? 's' : '');
+  document.getElementById('qa-count-chip').textContent = count > 0
+    ? '🗂 ' + count + ' Question' + (count !== 1 ? 's' : '')
+    : '🗂 No Questions Loaded';
+}
+
+function updateStartButton() {
+  const btn = document.getElementById('btn-start-practice');
+  if (!btn) return;
+  if (QA.length === 0) {
+    btn.disabled = true;
+    btn.textContent = '⏳ Import a Q&A database to begin';
+    btn.classList.add('btn-disabled');
+  } else {
+    btn.disabled = false;
+    btn.textContent = '▶ Start Practice';
+    btn.classList.remove('btn-disabled');
+  }
 }
 
 function showImportStatus(message, type) {
@@ -248,11 +264,10 @@ function handleFileImport(event) {
       QA = qa;
       localStorage.setItem('jlpt_qa_data', JSON.stringify(qa));
       updateQACount();
+      updateStartButton();
       showImportStatus('✅ Successfully imported ' + qa.length + ' question' + (qa.length !== 1 ? 's' : '') + ' from ' + file.name, 'success');
     } catch (error) {
       showImportStatus('❌ Import failed: ' + error.message, 'error');
-      QA = [...DEFAULT_QA];
-      updateQACount();
     }
   };
 
@@ -269,11 +284,12 @@ function handleFileImport(event) {
   event.target.value = '';
 }
 
-function resetToDefault() {
+function clearDatabase() {
   localStorage.removeItem('jlpt_qa_data');
-  QA = [...DEFAULT_QA];
+  QA = [];
   updateQACount();
-  showImportStatus('↺ Switched to default Q&A database (' + DEFAULT_QA.length + ' questions)', 'info');
+  updateStartButton();
+  showImportStatus('🗑 Database cleared. Import a Q&A file to begin practice.', 'info');
   document.getElementById('file-input').value = '';
 }
 
@@ -286,13 +302,181 @@ document.addEventListener('DOMContentLoaded', () => {
   const savedQA = localStorage.getItem('jlpt_qa_data');
   if (savedQA) {
     try {
-      QA = JSON.parse(savedQA);
+      const parsed = JSON.parse(savedQA);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        QA = parsed;
+      }
     } catch (e) {
       console.error('Error loading saved QA data:', e);
     }
   }
   updateQACount();
+  updateStartButton();
+
+  // Load saved API key
+  const savedKey = localStorage.getItem('gemini_api_key');
+  if (savedKey) {
+    const input = document.getElementById('api-key-input');
+    if (input) input.value = savedKey;
+    updateAIStatusChip(true);
+  }
 });
+
+// ─────────────────────────────────────────────
+// GEMINI AI INTEGRATION
+// ─────────────────────────────────────────────
+let _geminiAI = null;
+
+async function getGeminiAI() {
+  if (_geminiAI) return _geminiAI;
+  try {
+    const { GoogleGenAI } = await import('@google/genai');
+    const apiKey = localStorage.getItem('gemini_api_key');
+    if (!apiKey) return null;
+    _geminiAI = new GoogleGenAI({ apiKey });
+    return _geminiAI;
+  } catch (e) {
+    console.error('Failed to load Gemini SDK:', e);
+    return null;
+  }
+}
+
+function updateAIStatusChip(hasKey) {
+  const chip = document.getElementById('ai-status-chip');
+  const text = document.getElementById('ai-status-text');
+  if (!chip || !text) return;
+  if (hasKey) {
+    text.textContent = 'Ready';
+    chip.classList.add('active');
+  } else {
+    text.textContent = 'Not configured';
+    chip.classList.remove('active');
+  }
+}
+
+function showApiKeyStatus(message, type) {
+  const statusDiv = document.getElementById('api-key-status');
+  if (!statusDiv) return;
+  statusDiv.textContent = message;
+  statusDiv.className = 'import-status ' + type;
+  if (type !== 'info') {
+    setTimeout(() => { statusDiv.className = 'import-status'; }, 5000);
+  }
+}
+
+function saveApiKeyFromInput() {
+  const input = document.getElementById('api-key-input');
+  const key = (input ? input.value : '').trim();
+  if (!key) {
+    showApiKeyStatus('❌ Please enter an API key.', 'error');
+    return;
+  }
+  localStorage.setItem('gemini_api_key', key);
+  _geminiAI = null; // Reset cached instance so it uses the new key
+  updateAIStatusChip(true);
+  showApiKeyStatus('✅ API key saved!', 'success');
+}
+
+function clearApiKey() {
+  localStorage.removeItem('gemini_api_key');
+  _geminiAI = null;
+  const input = document.getElementById('api-key-input');
+  if (input) input.value = '';
+  updateAIStatusChip(false);
+  showApiKeyStatus('🗑 API key cleared. Grading will use local fallback.', 'info');
+}
+
+function toggleKeyVisibility() {
+  const input = document.getElementById('api-key-input');
+  if (!input) return;
+  input.type = input.type === 'password' ? 'text' : 'password';
+}
+
+async function testApiConnection() {
+  const key = (document.getElementById('api-key-input')?.value || '').trim();
+  if (!key) {
+    showApiKeyStatus('❌ Please enter an API key first.', 'error');
+    return;
+  }
+  showApiKeyStatus('🔄 Testing connection…', 'info');
+  try {
+    const { GoogleGenAI } = await import('@google/genai');
+    const ai = new GoogleGenAI({ apiKey: key });
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.0-flash',
+      contents: 'Reply with exactly: OK',
+    });
+    const text = response.text || '';
+    if (text.toLowerCase().includes('ok')) {
+      showApiKeyStatus('✅ Connection successful! Gemini is ready.', 'success');
+    } else {
+      showApiKeyStatus('✅ Connected, got response: ' + text.substring(0, 50), 'success');
+    }
+  } catch (e) {
+    const msg = e.message || String(e);
+    if (msg.includes('API_KEY_INVALID') || msg.includes('401')) {
+      showApiKeyStatus('❌ Invalid API key. Check your key at aistudio.google.com.', 'error');
+    } else if (msg.includes('429')) {
+      showApiKeyStatus('⚠️ Rate limited — key works but you\'ve hit the free tier limit. Try again in a minute.', 'error');
+    } else {
+      showApiKeyStatus('❌ Connection failed: ' + msg.substring(0, 80), 'error');
+    }
+  }
+}
+
+const GRADING_PROMPT_TEMPLATE = `You are a Japanese language teacher grading a JLPT N5 speaking practice answer.
+
+Question asked: {question}
+Expected answer: {expectedAnswer}
+Student's spoken answer (speech-to-text transcript): {transcript}
+
+Evaluate the student's answer. Consider that the transcript comes from speech recognition and may contain minor recognition errors or kanji/katakana variations.
+
+Respond ONLY with valid JSON (no markdown, no code fences, no explanation outside JSON):
+{"correct":true or false,"score":0 to 100,"feedback":"1-2 sentence explanation in English","grammar_notes":"Grammar issues found, or empty string if none","particle_notes":"Particle usage issues, or empty string if none","vocabulary_notes":"Vocabulary issues, or empty string if none","suggested_answer":"The ideal answer if incorrect, or empty string if correct"}
+
+Grading rules:
+- Be LENIENT with: katakana vs hiragana differences, kanji vs kana representations, minor speech recognition artifacts, semantically equivalent answers using different but valid vocabulary
+- Be STRICT with: particle usage (で/に/を/が/は/へ), verb tense and conjugation (ます/ました/ません), answering the actual question asked
+- A student who answers with correct grammar and appropriate meaning but different vocabulary should generally be marked correct
+- If the transcript is garbled or empty, mark as incorrect with helpful feedback
+- Set score 80-100 for correct answers, 40-79 for partially correct, 0-39 for incorrect`;
+
+async function gradeWithGemini(question, expectedAnswer, transcript) {
+  try {
+    const ai = await getGeminiAI();
+    if (!ai) return null; // No API key configured, fall back to local
+
+    const prompt = GRADING_PROMPT_TEMPLATE
+      .replace('{question}', question)
+      .replace('{expectedAnswer}', expectedAnswer)
+      .replace('{transcript}', transcript);
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.0-flash',
+      contents: prompt,
+    });
+
+    let text = (response.text || '').trim();
+    // Strip markdown code fences if present
+    text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+
+    const result = JSON.parse(text);
+    return {
+      correct: !!result.correct,
+      score: typeof result.score === 'number' ? result.score : (result.correct ? 100 : 0),
+      feedback: result.feedback || '',
+      grammarNotes: result.grammar_notes || '',
+      particleNotes: result.particle_notes || '',
+      vocabularyNotes: result.vocabulary_notes || '',
+      suggestedAnswer: result.suggested_answer || '',
+      source: 'gemini'
+    };
+  } catch (e) {
+    console.error('Gemini grading error:', e);
+    return null; // Fallback to local grading
+  }
+}
 
 // ─────────────────────────────────────────────
 // STATE
@@ -699,6 +883,9 @@ function sttSegmentText(result) {
   return result[0].transcript;
 }
 
+// ─────────────────────────────────────────────
+// LOCAL FALLBACK GRADING (used when Gemini is unavailable)
+// ─────────────────────────────────────────────
 const STRIP_RE = /[\s　、。！？・「」『』【】〜〈〉（）,，.]/g;
 
 function normalizeAnswer(s) {
@@ -710,35 +897,6 @@ function normalizeTranscript(raw, answer) {
     ? transcriptToFuriganaForGrading(raw, answer)
     : transcriptToFurigana(raw);
   return furigana.replace(STRIP_RE, '').toLowerCase();
-}
-
-const ROMAJI_READING_VARIANTS = {
-  salamatpo: ['salamatpo', 'salamat', 'さらまっと', 'さらまっとぽ', 'さらまっとぽ'],
-  salamat: ['salamat', 'さらまっと', 'さらまっとぽ'],
-};
-
-function answerHasRomaji(s) {
-  return /[a-zA-Z]/.test(s);
-}
-
-function extractRomajiPhrases(answer) {
-  return (answer.match(/[a-zA-Z]+(?:\s+[a-zA-Z]+)*/g) || [])
-    .map((p) => p.trim().toLowerCase());
-}
-
-function compactLatin(s) {
-  return s.toLowerCase().replace(/\s+/g, '');
-}
-
-function transcriptHasRomajiPhrase(raw, furiganaNorm, phrase) {
-  const compact = compactLatin(phrase);
-  if (compactLatin(raw).includes(compact)) return true;
-  const variants = ROMAJI_READING_VARIANTS[compact]
-    || ROMAJI_READING_VARIANTS[compact.replace(/po$/, '')]
-    || [];
-  return variants.some((v) =>
-    (/^[a-z]+$/.test(v) ? compactLatin(raw).includes(v) : furiganaNorm.includes(v))
-  );
 }
 
 function lcsLength(s1, s2) {
@@ -764,105 +922,18 @@ function similarity(transcript, answer) {
   return lcsLength(t, a) / a.length;
 }
 
-const PARTICLES_COMPOUND = ['から','まで','より','ので','のに','ては','では','には','とは',
-  'ながら','として','について','によって','において'];
-const PARTICLES_SINGLE   = ['で','に','を','が','は','へ','と','も','か','や','の'];
-
-function extractParticleTokens(s) {
-  const tokens = [];
-  let i = 0;
-  while (i < s.length) {
-    let matched = false;
-    for (const p of PARTICLES_COMPOUND) {
-      if (s.startsWith(p, i)) {
-        const prefix = s.slice(Math.max(0, i - 4), i);
-        tokens.push(prefix + '|' + p);
-        i += p.length;
-        matched = true;
-        break;
-      }
-    }
-    if (!matched) {
-      for (const p of PARTICLES_SINGLE) {
-        if (s.startsWith(p, i) && i >= 3) {
-          const prefix = s.slice(Math.max(0, i - 4), i);
-          tokens.push(prefix + '|' + p);
-          i += p.length;
-          matched = true;
-          break;
-        }
-      }
-    }
-    if (!matched) i++;
-  }
-  return tokens;
-}
-
-function particlesMatchNorm(tNorm, aNorm) {
-  const answerParticles = extractParticleTokens(aNorm);
-  if (answerParticles.length === 0) return true;
-  const transcriptParticles = new Set(extractParticleTokens(tNorm));
-  for (const pt of answerParticles) {
-    if (!transcriptParticles.has(pt)) return false;
-  }
-  return true;
-}
-
-function particlesMatch(transcript, answer) {
-  return particlesMatchNorm(normalizeTranscript(transcript, answer), normalizeAnswer(answer));
-}
-
-function stripLatin(s) {
-  return s.replace(/[a-zA-Z]+/g, '');
-}
-
-function gradeAnswerWithRomaji(raw, answer) {
-  const furiganaNorm = normalizeTranscript(raw, answer);
-  const aNorm = normalizeAnswer(answer);
-  const tJp = stripLatin(furiganaNorm);
-  const aJp = stripLatin(aNorm);
-  if (!particlesMatchNorm(tJp, aJp)) return false;
-  const coreScore = !aJp.length ? 1
-    : tJp === aJp ? 1
-    : lcsLength(tJp, aJp) / aJp.length;
-  if (coreScore < 0.55) return false;
-  const phrases = extractRomajiPhrases(answer);
-  const hasRomaji = phrases.some((p) => transcriptHasRomajiPhrase(raw, furiganaNorm, p));
-  return hasRomaji ? coreScore >= 0.55 : coreScore >= 0.75;
-}
-
-function answerHasKatakanaLoanword(answer) {
-  const katakana = (answer.match(/[゠-ヿ]+/g) || []).join('');
-  return katakana.length >= 2;
-}
-
-function extractMainKatakana(answer) {
-  const match = answer.match(/[゠-ヿ]+/);
-  return match ? match[0] : null;
-}
-
-function katakanaAppearsInTranscript(katakana, transcriptHiragana) {
-  if (!katakana) return true;
-  const kataHira = katakanaToHiragana(katakana);
-  return transcriptHiragana.includes(kataHira);
-}
-
-function isCorrect(rawTranscript, answer) {
-  if (answerHasRomaji(answer)) return gradeAnswerWithRomaji(rawTranscript, answer);
-
-  const t = normalizeTranscript(rawTranscript, answer);
-  const a = normalizeAnswer(answer);
-
-  if (answerHasKatakanaLoanword(answer)) {
-    const mainKata = extractMainKatakana(answer);
-    if (mainKata && !katakanaAppearsInTranscript(mainKata, t)) {
-      return false;
-    }
-    return similarity(rawTranscript, answer) >= 0.70;
-  }
-
-  if (!particlesMatch(rawTranscript, answer)) return false;
-  return similarity(rawTranscript, answer) >= 0.65;
+function isCorrectLocal(rawTranscript, answer) {
+  const sim = similarity(rawTranscript, answer);
+  return {
+    correct: sim >= 0.65,
+    score: Math.round(sim * 100),
+    feedback: sim >= 0.65 ? 'Answer matched (local check).' : 'Answer did not match closely enough (local check).',
+    grammarNotes: '',
+    particleNotes: '',
+    vocabularyNotes: '',
+    suggestedAnswer: sim >= 0.65 ? '' : answer,
+    source: 'local'
+  };
 }
 
 // ─────────────────────────────────────────────
@@ -909,21 +980,72 @@ function showCheckedTranscript(raw, furiganaReading) {
   ct.replaceChildren(heard, checked);
 }
 
-function showResult(correct, transcript, answer) {
+function showResult(gradeResult, answer) {
   const badge = document.getElementById('result-badge');
   const icon  = document.getElementById('result-icon');
   const msg   = document.getElementById('result-msg');
   const rev   = document.getElementById('answer-reveal');
+  const aiFb  = document.getElementById('ai-feedback');
+  const correct = gradeResult.correct;
+
   badge.className = 'result-badge ' + (correct ? 'correct' : 'wrong');
   icon.textContent = correct ? '✅' : '❌';
   msg.textContent  = correct ? '正解！ Correct!' : '不正解。 Incorrect.';
-  if (!correct) {
+
+  if (!correct && gradeResult.suggestedAnswer) {
     rev.replaceChildren();
     const strong = document.createElement('strong');
     strong.textContent = 'Correct answer: ';
+    rev.append(strong, document.createTextNode(gradeResult.suggestedAnswer || answer));
+  } else if (!correct) {
+    rev.replaceChildren();
+    const strong = document.createElement('strong');
+    strong.textContent = 'Expected: ';
     rev.append(strong, document.createTextNode(answer));
   } else {
     rev.textContent = '';
+  }
+
+  // Show AI feedback details
+  aiFb.replaceChildren();
+  if (gradeResult.source === 'gemini' && gradeResult.feedback) {
+    const fbText = document.createElement('div');
+    fbText.className = 'ai-feedback-text';
+    fbText.textContent = '🤖 ' + gradeResult.feedback;
+    aiFb.appendChild(fbText);
+
+    const notes = document.createElement('div');
+    notes.className = 'ai-feedback-notes';
+
+    const noteTypes = [
+      { label: 'Grammar', text: gradeResult.grammarNotes },
+      { label: 'Particles', text: gradeResult.particleNotes },
+      { label: 'Vocab', text: gradeResult.vocabularyNotes },
+    ];
+
+    for (const nt of noteTypes) {
+      if (nt.text && nt.text.toLowerCase() !== 'none' && nt.text.trim()) {
+        const note = document.createElement('div');
+        note.className = 'ai-note';
+        const lbl = document.createElement('span');
+        lbl.className = 'ai-note-label';
+        lbl.textContent = nt.label;
+        const txt = document.createElement('span');
+        txt.className = 'ai-note-text';
+        txt.textContent = nt.text;
+        note.append(lbl, txt);
+        notes.appendChild(note);
+      }
+    }
+
+    if (notes.children.length > 0) {
+      aiFb.appendChild(notes);
+    }
+  } else if (gradeResult.source === 'local') {
+    const fbText = document.createElement('div');
+    fbText.className = 'ai-feedback-text';
+    fbText.textContent = '⚙️ ' + gradeResult.feedback + ' (AI unavailable — used local matching)';
+    aiFb.appendChild(fbText);
   }
 }
 
@@ -1021,6 +1143,10 @@ function releaseMic() {
 }
 
 function startPractice() {
+  if (QA.length === 0) {
+    alert('Please import a Q&A database before starting practice.');
+    return;
+  }
   if (!isSpeechRecognitionSupported()) {
     alert('Voice recognition requires Chrome or Microsoft Edge. Safari and Firefox are not supported.');
     return;
@@ -1087,10 +1213,12 @@ function beginListen() {
   });
 }
 
-function submitAnswer() {
+async function submitAnswer() {
   abortRecognition();
   showBtn('btn-submit', false);
-  const item       = QA[current];
+  showBtn('btn-rerecord', false);
+  showBtn('btn-skip', false);
+  const item = QA[current];
   const raw = liveTranscript.trim();
 
   if (!raw) {
@@ -1101,16 +1229,26 @@ function submitAnswer() {
   }
 
   const furiganaReading = transcriptToFuriganaForGrading(raw, item.a);
-  setStatus('checking', 'Checking your answer…');
   showCheckedTranscript(raw, furiganaReading);
-  const correct = isCorrect(raw, item.a);
-  if (correct) score++;
-  results.push({ q: item.q, a: item.a, transcript: raw, furigana: furiganaReading, correct });
-  showResult(correct, raw, item.a);
+
+  // Try AI grading first, fall back to local
+  setStatus('checking', '🤖 AI is checking your answer…');
+  let gradeResult = await gradeWithGemini(item.q, item.a, raw);
+  if (!gradeResult) {
+    setStatus('checking', '⚙️ Using local grading…');
+    gradeResult = isCorrectLocal(raw, item.a);
+  }
+
+  if (gradeResult.correct) score++;
+  results.push({
+    q: item.q, a: item.a, transcript: raw, furigana: furiganaReading,
+    correct: gradeResult.correct, gradeResult: gradeResult
+  });
+  showResult(gradeResult, item.a);
   showBtn('btn-next',     true);
-  showBtn('btn-rerecord', !correct);
+  showBtn('btn-rerecord', !gradeResult.correct);
   showBtn('btn-skip',     false);
-  setStatus('', correct ? 'Correct! 🎉' : 'Incorrect. Review the answer.');
+  setStatus('', gradeResult.correct ? 'Correct! 🎉' : 'Incorrect. Review the feedback.');
 }
 
 function rerecordAnswer() {
@@ -1185,15 +1323,42 @@ function showResults() {
     rq.textContent = r.q;
     const ans = document.createElement('div');
     ans.className = r.correct ? 'rc' : 'rw';
-    let label = 'Heard: ' + r.transcript;
-    if (r.furigana) label += ' · Checked: ' + r.furigana;
-    ans.textContent = label;
+    ans.textContent = 'Heard: ' + r.transcript;
     div.append(tag, rq, ans);
     if (!r.correct) {
       const expected = document.createElement('div');
       expected.className = 'ra';
       expected.textContent = '✔ Expected: ' + r.a;
       div.appendChild(expected);
+    }
+    // Show AI feedback in results
+    if (r.gradeResult && r.gradeResult.feedback) {
+      const fbDiv = document.createElement('div');
+      fbDiv.className = 'ai-result-feedback';
+      const src = r.gradeResult.source === 'gemini' ? '🤖' : '⚙️';
+      fbDiv.textContent = src + ' ' + r.gradeResult.feedback;
+
+      const gr = r.gradeResult;
+      const noteTypes = [
+        { label: 'Grammar', text: gr.grammarNotes },
+        { label: 'Particles', text: gr.particleNotes },
+        { label: 'Vocab', text: gr.vocabularyNotes },
+      ];
+      for (const nt of noteTypes) {
+        if (nt.text && nt.text.toLowerCase() !== 'none' && nt.text.trim()) {
+          const note = document.createElement('div');
+          note.className = 'ai-note';
+          const lbl = document.createElement('span');
+          lbl.className = 'ai-note-label';
+          lbl.textContent = nt.label;
+          const txt = document.createElement('span');
+          txt.className = 'ai-note-text';
+          txt.textContent = nt.text;
+          note.append(lbl, txt);
+          fbDiv.appendChild(note);
+        }
+      }
+      div.appendChild(fbDiv);
     }
     list.appendChild(div);
   });
@@ -1206,6 +1371,8 @@ function restartApp() {
   document.getElementById('screen-results').style.display = 'none';
   document.getElementById('screen-start').classList.remove('hidden');
   document.getElementById('screen-practice').classList.add('hidden');
+  updateQACount();
+  updateStartButton();
 }
 
 window.speechSynthesis.getVoices();
