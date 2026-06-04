@@ -20,8 +20,8 @@
 <body>
 
 <header>
-  <div class="title-jp">日本語 練習</div>
-  <div class="title-en">Voice Practice App</div>
+  <div class="title-jp">日本語会話練習</div>
+  <div class="title-en">Japanese Speaking Practice App</div>
 </header>
 
 <div class="card">
@@ -61,16 +61,9 @@
 
     <!-- AI Settings Section -->
     <div class="settings-section" id="ai-settings-section">
-      <h3>🤖 AI Answer Grading</h3>
-      <p>Select a provider and enter your API key for intelligent answer checking.</p>
-      <div style="margin-bottom: 8px;">
-        <label for="api-provider-select" style="font-size: 0.85rem; font-weight: bold; margin-right: 8px;">Provider:</label>
-        <select id="api-provider-select" style="padding: 4px; border-radius: 4px; border: 1px solid var(--border); background: var(--paper-2); color: var(--text);" onchange="updateProviderHint()">
-          <option value="groq">Groq (Ultra-Fast Llama 3)</option>
-          <option value="openrouter">OpenRouter (Free Models)</option>
-        </select>
-      </div>
-      <p id="provider-hint" style="font-size: 0.75rem; color: var(--muted); margin-bottom: 8px;">
+      <h3>🤖 AI Answer Grading (Groq)</h3>
+      <p>Enter your Groq API key for fast grading and optional Whisper speech recognition.</p>
+      <p style="font-size: 0.75rem; color: var(--muted); margin-bottom: 8px;">
         Get a free API key at <a href="https://console.groq.com/keys" target="_blank" style="color: var(--teal);">Groq Console</a> — Generous free tier for testing!
       </p>
       <div class="api-key-row">
@@ -83,6 +76,16 @@
         <button class="btn btn-secondary" onclick="clearApiKey()">🗑 Clear Key</button>
       </div>
       <div class="import-status" id="api-key-status"></div>
+      <div style="margin-top: 12px;">
+        <label for="grading-model-select" style="font-size: 0.85rem; font-weight: bold; margin-right: 8px;">Grading speed:</label>
+        <select id="grading-model-select" style="padding: 4px; border-radius: 4px; border: 1px solid var(--border); background: var(--paper-2); color: var(--text);" onchange="saveGradingModel()">
+          <option value="llama-3.3-70b-versatile">⚖️ Balanced — Llama 3.3 70B (default)</option>
+          <option value="llama-3.1-8b-instant">⚡ Fast — Llama 3.1 8B</option>
+        </select>
+        <p style="font-size: 0.72rem; color: var(--muted); margin-top: 4px;">
+          Fast mode returns grading sooner; balanced mode gives richer Japanese feedback.
+        </p>
+      </div>
       <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
         <label for="stt-mode-select" style="font-size: 0.85rem; font-weight: bold; margin-right: 8px;">Speech Recognition:</label>
         <select id="stt-mode-select" style="padding: 4px; border-radius: 4px; border: 1px solid var(--border); background: var(--paper-2); color: var(--text);" onchange="saveSTTMode()">
@@ -90,8 +93,56 @@
           <option value="browser">🌐 Browser Built-in — Live preview</option>
         </select>
         <p style="font-size: 0.72rem; color: var(--muted); margin-top: 4px;">
-          AI mode uses Groq Whisper for superior Japanese recognition. Requires a Groq API key above.
+          AI mode uses Groq Whisper for Japanese recognition. Requires a Groq API key above.
         </p>
+      </div>
+      <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
+        <label for="tts-mode-select" style="font-size: 0.85rem; font-weight: bold; margin-right: 8px;">Text-to-Speech (TTS):</label>
+        <select id="tts-mode-select" style="padding: 4px; border-radius: 4px; border: 1px solid var(--border); background: var(--paper-2); color: var(--text);" onchange="saveTTSMode()">
+          <option value="browser" selected>🌐 Browser Built-in — Free, instant</option>
+          <option value="ai">🤖 AI (ElevenLabs) — Ultra-realistic</option>
+        </select>
+        <p style="font-size: 0.72rem; color: var(--muted); margin-top: 4px;">
+          ElevenLabs uses your monthly character quota (free tier is limited). If you see 402 errors, credits are exhausted — use Browser TTS instead.
+        </p>
+        <div id="browser-voice-container" style="margin-top: 8px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
+          <label style="font-size: 0.8rem; color: var(--muted);">Browser voice:</label>
+          <select id="browser-voice-select" style="padding: 2px 4px; border-radius: 4px; border: 1px solid var(--border); background: var(--paper-2); color: var(--text); font-size: 0.8rem; min-width: 12rem;" onchange="saveBrowserVoice()">
+            <option value="">Auto — best Japanese voice</option>
+          </select>
+        </div>
+      </div>
+      <div id="elevenlabs-settings-section" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
+        <h4 style="font-size: 0.95rem; margin: 0 0 6px 0;">🔊 ElevenLabs API Key</h4>
+        <p style="font-size: 0.75rem; color: var(--muted); margin-bottom: 8px;">
+          Required only when TTS mode is <strong>ElevenLabs</strong> above. Get a key at
+          <a href="https://elevenlabs.io/app/settings/api-keys" target="_blank" style="color: var(--teal);">elevenlabs.io</a>.
+        </p>
+        <div class="api-key-row">
+          <input type="password" id="elevenlabs-key-input" class="api-key-input" placeholder="Paste ElevenLabs API key…" autocomplete="off" />
+          <button class="btn btn-secondary btn-sm" onclick="toggleElevenLabsKey()" id="btn-toggle-elevenlabs-key" title="Show/hide key">👁</button>
+        </div>
+        <div class="import-buttons" style="margin-top: 8px;">
+          <button class="btn btn-import" onclick="saveElevenLabsKey()">💾 Save Key</button>
+          <button class="btn btn-secondary" onclick="testElevenLabsConnection()">🔌 Test Connection</button>
+          <button class="btn btn-secondary" onclick="clearElevenLabsKey()">🗑 Clear Key</button>
+        </div>
+        <div class="import-status" id="elevenlabs-key-status"></div>
+        <div id="elevenlabs-voice-options" style="margin-top: 10px; flex-wrap: wrap; gap: 12px; align-items: center; display: none;">
+          <label style="font-size: 0.8rem; color: var(--muted);">Voice:</label>
+          <select id="elevenlabs-voice-select" style="padding: 4px; border-radius: 4px; border: 1px solid var(--border); background: var(--paper-2); color: var(--text); font-size: 0.8rem;" onchange="saveElevenLabsSettings()">
+            <option value="21m00Tcm4TlvDq8ikWAM">Rachel — female (Japanese mode)</option>
+            <option value="EXAVITQu4vr4xnSDxMaL">Bella — soft female (Japanese mode)</option>
+            <option value="ErXwobaYiN019PkySvjV">Antoni — male (Japanese mode)</option>
+            <option value="29vD33N1CtxCmqQRPOHJ">Drew — male news (Japanese mode)</option>
+          </select>
+          <label style="font-size: 0.8rem; color: var(--muted);">Speed:</label>
+          <select id="elevenlabs-speed-select" style="padding: 4px; border-radius: 4px; border: 1px solid var(--border); background: var(--paper-2); color: var(--text); font-size: 0.8rem;" onchange="saveElevenLabsSettings()">
+            <option value="1.0">Normal (1.0x)</option>
+            <option value="0.85" selected>Slow (0.85x)</option>
+            <option value="0.75">Very Slow (0.75x)</option>
+          </select>
+        </div>
       </div>
       <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
         <label for="jlpt-level-select" style="font-size: 0.85rem; font-weight: bold; margin-right: 8px;">Grading Strictness:</label>

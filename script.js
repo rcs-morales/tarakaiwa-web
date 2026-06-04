@@ -313,17 +313,22 @@ document.addEventListener('DOMContentLoaded', () => {
   updateQACount();
   updateStartButton();
 
-  // Load saved API key
+  // Load saved API key (Groq only)
+  const savedProvider = localStorage.getItem('api_provider');
+  if (savedProvider && savedProvider !== 'groq') {
+    localStorage.removeItem('api_provider');
+    localStorage.removeItem('api_key');
+    showApiKeyStatus('Previous provider removed. Please save a Groq API key (starts with gsk_).', 'info');
+  }
   const savedKey = localStorage.getItem('api_key') || localStorage.getItem('gemini_api_key');
-  const savedProvider = localStorage.getItem('api_provider') || 'groq';
   if (savedKey) {
     const input = document.getElementById('api-key-input');
     if (input) input.value = savedKey;
-    const providerSelect = document.getElementById('api-provider-select');
-    if (providerSelect) providerSelect.value = savedProvider;
-    if (typeof updateProviderHint === 'function') updateProviderHint();
     updateAIStatusChip();
   }
+
+  const gradingModelSelect = document.getElementById('grading-model-select');
+  if (gradingModelSelect) gradingModelSelect.value = getGradingModel();
 
   // Load saved STT Mode
   const savedSTTMode = localStorage.getItem('stt_mode') || 'ai';
@@ -334,26 +339,66 @@ document.addEventListener('DOMContentLoaded', () => {
   const savedJLPTLevel = localStorage.getItem('jlpt_level') || 'N5';
   const jlptSelect = document.getElementById('jlpt-level-select');
   if (jlptSelect) jlptSelect.value = savedJLPTLevel;
+
+  // Load saved TTS Mode (default: browser)
+  const TTS_DEFAULT = 'browser';
+  if (!localStorage.getItem('tts_default_browser_v1')) {
+    localStorage.setItem('tts_mode', TTS_DEFAULT);
+    localStorage.setItem('tts_default_browser_v1', '1');
+  } else if (!localStorage.getItem('tts_mode')) {
+    localStorage.setItem('tts_mode', TTS_DEFAULT);
+  } else if (localStorage.getItem('tts_mode') === 'ai' && !localStorage.getItem('elevenlabs_key')) {
+    localStorage.setItem('tts_mode', TTS_DEFAULT);
+  }
+  const savedTTSMode = localStorage.getItem('tts_mode') || TTS_DEFAULT;
+  const ttsSelect = document.getElementById('tts-mode-select');
+  if (ttsSelect) {
+    ttsSelect.value = savedTTSMode === 'ai' ? 'ai' : TTS_DEFAULT;
+    toggleTTSVoicePanels(ttsSelect.value);
+  }
+
+  // Load saved ElevenLabs Key and Settings
+  const savedElevenLabsKey = localStorage.getItem('elevenlabs_key');
+  if (savedElevenLabsKey) {
+    const elInput = document.getElementById('elevenlabs-key-input');
+    if (elInput) elInput.value = savedElevenLabsKey;
+  }
+  
+  syncElevenLabsVoiceSelect();
+
+  populateBrowserVoiceSelect();
+  const browserVoiceSelect = document.getElementById('browser-voice-select');
+  const savedBrowserVoice = localStorage.getItem('browser_tts_voice') || '';
+  if (browserVoiceSelect) browserVoiceSelect.value = savedBrowserVoice;
+  
+  const savedElSpeed = localStorage.getItem('elevenlabs_speed') || '0.85';
+  const elSpeedSelect = document.getElementById('elevenlabs-speed-select');
+  if (elSpeedSelect) elSpeedSelect.value = savedElSpeed;
 });
 
 // ─────────────────────────────────────────────
 // AI INTEGRATION
 // ─────────────────────────────────────────────
 
-function updateProviderHint() {
-  const provider = document.getElementById('api-provider-select')?.value || 'groq';
-  const hintEl = document.getElementById('provider-hint');
-  if (hintEl) {
-    if (provider === 'groq') {
-      hintEl.innerHTML = 'Get a free API key at <a href="https://console.groq.com/keys" target="_blank" style="color: var(--teal);">Groq Console</a> — Generous free tier for testing!';
-    } else if (provider === 'openrouter') {
-      hintEl.innerHTML = 'Get a free API key at <a href="https://openrouter.ai/settings/keys" target="_blank" style="color: var(--teal);">OpenRouter</a> — Huge selection of free models.';
-    }
+const GROQ_GRADING_MODELS = {
+  balanced: 'llama-3.3-70b-versatile',
+  fast: 'llama-3.1-8b-instant',
+};
+
+function getGradingModel() {
+  const saved = localStorage.getItem('groq_grading_model');
+  if (saved === GROQ_GRADING_MODELS.fast || saved === GROQ_GRADING_MODELS.balanced) {
+    return saved;
   }
+  return GROQ_GRADING_MODELS.balanced;
+}
+
+function saveGradingModel() {
+  const select = document.getElementById('grading-model-select');
+  if (select) localStorage.setItem('groq_grading_model', select.value);
 }
 
 function updateAIStatusChip() {
-  const provider = localStorage.getItem('api_provider') || 'groq';
   const apiKey = localStorage.getItem('api_key') || localStorage.getItem('gemini_api_key');
   const chip = document.getElementById('ai-status-chip');
   const text = document.getElementById('ai-status-text');
@@ -361,7 +406,7 @@ function updateAIStatusChip() {
   if (!chip || !text) return;
   if (apiKey) {
     chip.classList.add('active');
-    text.textContent = provider === 'groq' ? 'Groq Active' : 'OpenRouter Active';
+    text.textContent = 'Groq Active';
   } else {
     chip.classList.remove('active');
     text.textContent = 'Not configured';
@@ -380,30 +425,22 @@ function showApiKeyStatus(message, type) {
 
 function saveApiKeyFromInput() {
   const input = document.getElementById('api-key-input');
-  let provider = document.getElementById('api-provider-select')?.value || 'groq';
   let key = input ? input.value : '';
   key = key.replace(/[^\x21-\x7E]/g, ''); // Remove any non-visible/non-ASCII characters
   if (input) input.value = key;
-  
-  // Auto-detect OpenRouter or Groq keys
-  const providerSelect = document.getElementById('api-provider-select');
-  if (key.startsWith('sk-or-v1-')) {
-    provider = 'openrouter';
-    if (providerSelect) providerSelect.value = 'openrouter';
-  } else if (key.startsWith('gsk_')) {
-    provider = 'groq';
-    if (providerSelect) providerSelect.value = 'groq';
-  }
-  if (providerSelect && typeof updateProviderHint === 'function') updateProviderHint();
 
   if (!key) {
     showApiKeyStatus('❌ Please enter an API key.', 'error');
     return;
   }
+  if (!key.startsWith('gsk_')) {
+    showApiKeyStatus('❌ This app uses Groq only. Keys start with gsk_ — get one at console.groq.com.', 'error');
+    return;
+  }
   localStorage.setItem('api_key', key);
-  localStorage.setItem('api_provider', provider);
+  localStorage.setItem('api_provider', 'groq');
   updateAIStatusChip();
-  showApiKeyStatus('✅ API key saved!', 'success');
+  showApiKeyStatus('✅ Groq API key saved!', 'success');
 }
 
 function clearApiKey() {
@@ -423,11 +460,81 @@ function saveSTTMode() {
   }
 }
 
+function hasGroqApiKey() {
+  return !!localStorage.getItem('api_key');
+}
+
 function saveJLPTLevel() {
   const select = document.getElementById('jlpt-level-select');
   if (select) {
     localStorage.setItem('jlpt_level', select.value);
   }
+}
+
+function toggleTTSVoicePanels(mode) {
+  const elVoiceOptions = document.getElementById('elevenlabs-voice-options');
+  const browserContainer = document.getElementById('browser-voice-container');
+  if (elVoiceOptions) elVoiceOptions.style.display = (mode === 'ai') ? 'flex' : 'none';
+  if (browserContainer) browserContainer.style.display = (mode === 'browser') ? 'flex' : 'none';
+}
+
+function saveTTSMode() {
+  const select = document.getElementById('tts-mode-select');
+  if (select) {
+    const mode = select.value;
+    localStorage.setItem('tts_mode', mode);
+    toggleTTSVoicePanels(mode);
+    if (mode === 'ai') sessionStorage.removeItem('elevenlabs_blocked');
+  }
+}
+
+function saveBrowserVoice() {
+  const select = document.getElementById('browser-voice-select');
+  if (select) localStorage.setItem('browser_tts_voice', select.value);
+}
+
+function toggleElevenLabsKey() {
+  const input = document.getElementById('elevenlabs-key-input');
+  if (!input) return;
+  input.type = input.type === 'password' ? 'text' : 'password';
+}
+
+function showElevenLabsStatus(message, type) {
+  const statusDiv = document.getElementById('elevenlabs-key-status');
+  if (!statusDiv) return;
+  statusDiv.textContent = message;
+  statusDiv.className = 'import-status ' + type;
+  if (type !== 'info') {
+    setTimeout(() => { statusDiv.className = 'import-status'; }, 8000);
+  }
+}
+
+function saveElevenLabsKey() {
+  const input = document.getElementById('elevenlabs-key-input');
+  const key = input ? input.value.trim() : '';
+  if (!key) {
+    showElevenLabsStatus('❌ Please enter an ElevenLabs API key.', 'error');
+    return;
+  }
+  localStorage.setItem('elevenlabs_key', key);
+  sessionStorage.removeItem('elevenlabs_blocked');
+  showElevenLabsStatus('✅ ElevenLabs API key saved!', 'success');
+}
+
+function clearElevenLabsKey() {
+  localStorage.removeItem('elevenlabs_key');
+  const input = document.getElementById('elevenlabs-key-input');
+  if (input) input.value = '';
+  sessionStorage.removeItem('elevenlabs_blocked');
+  showElevenLabsStatus('🗑 ElevenLabs API key cleared.', 'info');
+}
+
+function saveElevenLabsSettings() {
+  const voiceSelect = document.getElementById('elevenlabs-voice-select');
+  if (voiceSelect) localStorage.setItem('elevenlabs_voice', voiceSelect.value);
+  
+  const speedSelect = document.getElementById('elevenlabs-speed-select');
+  if (speedSelect) localStorage.setItem('elevenlabs_speed', speedSelect.value);
 }
 
 function toggleKeyVisibility() {
@@ -438,73 +545,41 @@ function toggleKeyVisibility() {
 
 async function testApiConnection() {
   const input = document.getElementById('api-key-input');
-  let provider = document.getElementById('api-provider-select')?.value || 'gemini';
   let key = input ? input.value : '';
-  key = key.replace(/[^\x21-\x7E]/g, ''); // Remove any non-visible/non-ASCII characters
+  key = key.replace(/[^\x21-\x7E]/g, '');
   if (input) input.value = key;
-
-  // Auto-detect OpenRouter keys
-  if (key.startsWith('sk-or-v1-')) {
-    provider = 'openrouter';
-    const providerSelect = document.getElementById('api-provider-select');
-    if (providerSelect) {
-      providerSelect.value = 'openrouter';
-      if (typeof updateProviderHint === 'function') updateProviderHint();
-    }
-  }
 
   if (!key) {
     showApiKeyStatus('❌ Please enter an API key first.', 'error');
     return;
   }
+  if (!key.startsWith('gsk_')) {
+    showApiKeyStatus('❌ Groq keys start with gsk_. Get one at console.groq.com.', 'error');
+    return;
+  }
   showApiKeyStatus('🔄 Testing connection…', 'info');
   try {
-    if (provider === 'groq') {
-      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': 'Bearer ' + key,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
-          messages: [{role: 'user', content: 'Reply with exactly: OK'}]
-        })
-      });
-      if (!response.ok) {
-        if (response.status === 401) throw new Error('API_KEY_INVALID');
-        throw new Error(`HTTP ${response.status}`);
-      }
-      const data = await response.json();
-      const text = data.choices[0].message.content || '';
-      if (text.toLowerCase().includes('ok')) {
-        showApiKeyStatus('✅ Connection successful! Groq is ready.', 'success');
-      } else {
-        showApiKeyStatus('✅ Connected, got response: ' + text.substring(0, 50), 'success');
-      }
-    } else if (provider === 'openrouter') {
-      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': 'Bearer ' + key,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          model: 'openrouter/free',
-          messages: [{role: 'user', content: 'Reply with exactly: OK'}]
-        })
-      });
-      if (!response.ok) {
-        if (response.status === 401) throw new Error('API_KEY_INVALID');
-        throw new Error(`HTTP ${response.status}`);
-      }
-      const data = await response.json();
-      const text = data.choices[0].message.content || '';
-      if (text.toLowerCase().includes('ok')) {
-        showApiKeyStatus('✅ Connection successful! OpenRouter is ready.', 'success');
-      } else {
-        showApiKeyStatus('✅ Connected, got response: ' + text.substring(0, 50), 'success');
-      }
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + key,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: getGradingModel(),
+        messages: [{role: 'user', content: 'Reply with exactly: OK'}]
+      })
+    });
+    if (!response.ok) {
+      if (response.status === 401) throw new Error('API_KEY_INVALID');
+      throw new Error(`HTTP ${response.status}`);
+    }
+    const data = await response.json();
+    const text = data.choices[0].message.content || '';
+    if (text.toLowerCase().includes('ok')) {
+      showApiKeyStatus('✅ Connection successful! Groq is ready.', 'success');
+    } else {
+      showApiKeyStatus('✅ Connected, got response: ' + text.substring(0, 50), 'success');
     }
   } catch (e) {
     const msg = e.message || String(e);
@@ -558,7 +633,6 @@ Grading rules:${strictnessRules}
 - Set score 80-100 for correct answers, 40-79 for partially correct, 0-39 for incorrect.`;
 }
 async function gradeWithAI(question, expectedAnswer, transcript) {
-  const provider = localStorage.getItem('api_provider') || 'groq';
   const apiKey = localStorage.getItem('api_key') || localStorage.getItem('gemini_api_key');
   if (!apiKey) return null;
 
@@ -566,54 +640,28 @@ async function gradeWithAI(question, expectedAnswer, transcript) {
     const level = localStorage.getItem('jlpt_level') || 'N5';
     const prompt = getGradingPrompt(level, question, expectedAnswer, transcript);
 
-    let text = '';
-
-    if (provider === 'groq') {
-      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': 'Bearer ' + apiKey,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
-          response_format: { type: "json_object" },
-          messages: [
-            { role: 'system', content: 'You are a Japanese language teacher.' },
-            { role: 'user', content: prompt }
-          ]
-        })
-      });
-      if (!response.ok) {
-        const errText = await response.text();
-        console.error('Groq API failed:', response.status, errText);
-        return null;
-      }
-      const data = await response.json();
-      text = data.choices?.[0]?.message?.content || '';
-    } else if (provider === 'openrouter') {
-      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': 'Bearer ' + apiKey,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          model: 'openrouter/free',
-          messages: [
-            { role: 'system', content: 'You are a Japanese language teacher.' },
-            { role: 'user', content: prompt }
-          ]
-        })
-      });
-      if (!response.ok) {
-        const errText = await response.text();
-        console.error('OpenRouter API failed:', response.status, errText);
-        return null;
-      }
-      const data = await response.json();
-      text = data.choices?.[0]?.message?.content || '';
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + apiKey,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: getGradingModel(),
+        response_format: { type: 'json_object' },
+        messages: [
+          { role: 'system', content: 'You are a Japanese language teacher.' },
+          { role: 'user', content: prompt }
+        ]
+      })
+    });
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error('Groq API failed:', response.status, errText);
+      return null;
     }
+    const data = await response.json();
+    let text = data.choices?.[0]?.message?.content || '';
 
     if (!text) {
       console.error('AI returned empty text');
@@ -647,7 +695,7 @@ async function gradeWithAI(question, expectedAnswer, transcript) {
       particleNotes: result.particle_notes || '',
       vocabularyNotes: result.vocabulary_notes || '',
       suggestedAnswer: result.suggested_answer || '',
-      source: provider
+      source: 'groq'
     };
   } catch (e) {
     console.error('AI grading error:', e);
@@ -1193,8 +1241,7 @@ function showResult(gradeResult, answer) {
   if (gradeResult.source !== 'local' && gradeResult.feedback) {
     const fbText = document.createElement('div');
     fbText.className = 'ai-feedback-text';
-    const sourceIcon = gradeResult.source === 'openrouter' ? '🤖' : '🤖';
-    fbText.textContent = sourceIcon + ' ' + gradeResult.feedback;
+    fbText.textContent = '🤖 ' + gradeResult.feedback;
     aiFb.appendChild(fbText);
 
     const notes = document.createElement('div');
@@ -1239,20 +1286,290 @@ function showBtn(id, visible) {
 // ─────────────────────────────────────────────
 // SPEECH SYNTHESIS (TTS)
 // ─────────────────────────────────────────────
+const ELEVENLABS_FREE_FALLBACK_VOICE = '21m00Tcm4TlvDq8ikWAM'; // Rachel (premade)
+const ELEVENLABS_PREMADE_VOICE_IDS = new Set([
+  '21m00Tcm4TlvDq8ikWAM', 'EXAVITQu4vr4xnSDxMaL', 'ErXwobaYiN019PkySvjV', '29vD33N1CtxCmqQRPOHJ',
+]);
+function isElevenLabsPremadeVoice(voiceId) {
+  return ELEVENLABS_PREMADE_VOICE_IDS.has(voiceId);
+}
+
+function getElevenLabsVoiceId() {
+  const saved = localStorage.getItem('elevenlabs_voice');
+  if (saved && isElevenLabsPremadeVoice(saved)) return saved;
+  if (saved) localStorage.setItem('elevenlabs_voice', ELEVENLABS_FREE_FALLBACK_VOICE);
+  return ELEVENLABS_FREE_FALLBACK_VOICE;
+}
+
+function syncElevenLabsVoiceSelect() {
+  const select = document.getElementById('elevenlabs-voice-select');
+  if (select) select.value = getElevenLabsVoiceId();
+}
+
+function isElevenLabsBlocked() {
+  return sessionStorage.getItem('elevenlabs_blocked') === '1';
+}
+
+function getElevenLabsFailureMessage(err) {
+  const code = err.detail?.detail?.code || err.detail?.code || '';
+  const msg = err.detail?.detail?.message || err.detail?.message || '';
+  if (err.status === 402) {
+    if (code === 'paid_plan_required') {
+      return 'ElevenLabs voice not on your plan. Switched to browser TTS.';
+    }
+    if (code === 'insufficient_credits' || /credit/i.test(msg)) {
+      return 'ElevenLabs credits used up. Switched to browser TTS — check usage at elevenlabs.io.';
+    }
+    return 'ElevenLabs quota exceeded (402). Switched to browser TTS.';
+  }
+  if (err.status === 401) return 'Invalid ElevenLabs API key. Using browser TTS.';
+  return 'ElevenLabs unavailable. Using browser TTS.';
+}
+
+function blockElevenLabsTTS(message) {
+  sessionStorage.setItem('elevenlabs_blocked', '1');
+  localStorage.setItem('tts_mode', 'browser');
+  const ttsSelect = document.getElementById('tts-mode-select');
+  if (ttsSelect) ttsSelect.value = 'browser';
+  toggleTTSVoicePanels('browser');
+  showElevenLabsStatus('⚠️ ' + message, 'error');
+}
+
+async function fetchElevenLabsSubscription(apiKey) {
+  const response = await fetch('https://api.elevenlabs.io/v1/user/subscription', {
+    headers: { 'xi-api-key': apiKey },
+  });
+  if (!response.ok) throw new Error('Subscription check failed: HTTP ' + response.status);
+  return response.json();
+}
+
+async function fetchElevenLabsSpeechOnce(apiKey, voiceId, text, modelOpts) {
+  const body = {
+    text: text,
+    model_id: modelOpts.model_id,
+    voice_settings: { stability: 0.55, similarity_boost: 0.75 },
+  };
+  if (modelOpts.language_code) body.language_code = modelOpts.language_code;
+
+  const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+    method: 'POST',
+    headers: {
+      'xi-api-key': apiKey,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const err = new Error('ElevenLabs API error: ' + response.status);
+    err.status = response.status;
+    try {
+      err.detail = await response.json();
+    } catch (_) { /* ignore */ }
+    throw err;
+  }
+  return response.blob();
+}
+
+async function fetchElevenLabsSpeech(apiKey, voiceId, text) {
+  const models = [
+    { model_id: 'eleven_flash_v2_5', language_code: 'ja' },
+    { model_id: 'eleven_turbo_v2_5', language_code: 'ja' },
+    { model_id: 'eleven_multilingual_v2', language_code: 'ja' },
+  ];
+  let lastErr;
+  for (const modelOpts of models) {
+    try {
+      return await fetchElevenLabsSpeechOnce(apiKey, voiceId, text, modelOpts);
+    } catch (err) {
+      lastErr = err;
+      if (err.status === 402 || err.status === 401 || err.status === 403) throw err;
+    }
+  }
+  throw lastErr;
+}
+
+async function testElevenLabsConnection() {
+  const input = document.getElementById('elevenlabs-key-input');
+  const key = (input ? input.value : localStorage.getItem('elevenlabs_key') || '').trim();
+  if (!key) {
+    showElevenLabsStatus('❌ Enter an API key first.', 'error');
+    return;
+  }
+  showElevenLabsStatus('🔄 Checking ElevenLabs…', 'info');
+  try {
+    const sub = await fetchElevenLabsSubscription(key);
+    const used = sub.character_count ?? 0;
+    const limit = sub.character_limit ?? 0;
+    const remaining = Math.max(0, limit - used);
+    if (remaining < 10) {
+      showElevenLabsStatus(
+        '⚠️ ' + remaining + ' characters left this month (' + used + '/' + limit + '). Use Browser TTS or wait for reset.',
+        'error'
+      );
+      return;
+    }
+    await fetchElevenLabsSpeech(key, ELEVENLABS_FREE_FALLBACK_VOICE, 'テスト');
+    sessionStorage.removeItem('elevenlabs_blocked');
+    showElevenLabsStatus(
+      '✅ ElevenLabs OK — ' + remaining + ' characters remaining (' + used + '/' + limit + ' used).',
+      'success'
+    );
+  } catch (err) {
+    const msg = getElevenLabsFailureMessage(err);
+    showElevenLabsStatus('❌ ' + msg, 'error');
+    if (err.status === 402) blockElevenLabsTTS(msg);
+  }
+}
+
+function getJapaneseVoices() {
+  return synth.getVoices().filter(v => v.lang && v.lang.toLowerCase().startsWith('ja'));
+}
+
+function scoreJapaneseBrowserVoice(voice) {
+  const name = voice.name.toLowerCase();
+  const lang = voice.lang.toLowerCase();
+  let score = lang === 'ja-jp' ? 20 : 10;
+  const preferred = [
+    'google 日本語', 'google japanese', 'haruka', 'nanami', 'ichiro', 'ayumi',
+    'kyoko', 'otoya', 'sakura', 'japanese', '日本語', 'microsoft',
+  ];
+  for (const hint of preferred) {
+    if (name.includes(hint)) score += 15;
+  }
+  if (name.includes('english') || name.includes(' us ') || name.includes('uk ')) score -= 100;
+  if (name.includes('male') && !name.includes('female')) score += 2;
+  return score;
+}
+
+function pickJapaneseBrowserVoice() {
+  const voices = getJapaneseVoices();
+  if (!voices.length) return null;
+
+  const savedUri = localStorage.getItem('browser_tts_voice');
+  if (savedUri) {
+    const chosen = voices.find(v => v.voiceURI === savedUri);
+    if (chosen) return chosen;
+  }
+
+  return voices.reduce((best, v) => {
+    const score = scoreJapaneseBrowserVoice(v);
+    const bestScore = best ? scoreJapaneseBrowserVoice(best) : -1;
+    return score > bestScore ? v : best;
+  }, null);
+}
+
+function populateBrowserVoiceSelect() {
+  const select = document.getElementById('browser-voice-select');
+  if (!select) return;
+
+  const savedUri = localStorage.getItem('browser_tts_voice') || '';
+  const voices = getJapaneseVoices().sort((a, b) => {
+    return scoreJapaneseBrowserVoice(b) - scoreJapaneseBrowserVoice(a);
+  });
+
+  select.replaceChildren();
+  const autoOpt = document.createElement('option');
+  autoOpt.value = '';
+  autoOpt.textContent = 'Auto — best Japanese voice';
+  select.appendChild(autoOpt);
+
+  for (const v of voices) {
+    const opt = document.createElement('option');
+    opt.value = v.voiceURI;
+    opt.textContent = v.name + ' (' + v.lang + ')';
+    select.appendChild(opt);
+  }
+  select.value = savedUri;
+}
+
+// Helper to convert Blob to Base64
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+// Helper to convert Base64 back to Blob
+function base64ToBlob(base64) {
+  const arr = base64.split(',');
+  const mime = arr[0].match(/:(.*?);/)[1];
+  const bstr = atob(arr[1]);
+  let n = bstr.length;
+  const u8arr = new Uint8Array(n);
+  while(n--){
+      u8arr[n] = bstr.charCodeAt(n);
+  }
+  return new Blob([u8arr], {type: mime});
+}
+
+async function loadElevenLabsBlob(apiKey, voiceId, text) {
+  const cacheKey = 'tts_cache_v2_' + voiceId + '_' + text;
+  const cachedBase64 = localStorage.getItem(cacheKey);
+  if (cachedBase64) {
+    console.log('Using cached ElevenLabs audio');
+    return base64ToBlob(cachedBase64);
+  }
+  console.log('Fetching new ElevenLabs audio');
+  const blob = await fetchElevenLabsSpeech(apiKey, voiceId, text);
+  try {
+    const base64Data = await blobToBase64(blob);
+    localStorage.setItem(cacheKey, base64Data);
+  } catch (e) {
+    console.warn('Failed to cache audio (quota full?)', e);
+  }
+  return blob;
+}
+
+async function speakWithElevenLabs(text, onEnd) {
+  const apiKey = localStorage.getItem('elevenlabs_key');
+  if (!apiKey) throw new Error('No API key');
+
+  const voiceId = getElevenLabsVoiceId();
+  const speed = parseFloat(localStorage.getItem('elevenlabs_speed') || '0.85');
+  const blob = await loadElevenLabsBlob(apiKey, voiceId, text);
+
+  const audio = new Audio(URL.createObjectURL(blob));
+  audio.playbackRate = speed;
+  audio.onended = onEnd;
+  audio.onerror = onEnd;
+  audio.play();
+}
+
 function speakQuestion(text, onEnd) {
+  setStatus('speaking', 'Speaking question…');
+  
+  const mode = localStorage.getItem('tts_mode') || 'browser'; // default: browser
+  const apiKey = localStorage.getItem('elevenlabs_key');
+
+  if (mode === 'ai' && apiKey && !isElevenLabsBlocked()) {
+    speakWithElevenLabs(text, onEnd).catch(err => {
+      console.error('ElevenLabs TTS failed, falling back to browser TTS', err);
+      const msg = getElevenLabsFailureMessage(err);
+      if (err.status === 402 || err.status === 401) blockElevenLabsTTS(msg);
+      setStatus('speaking', msg);
+      speakWithBrowser(text, onEnd);
+    });
+  } else {
+    speakWithBrowser(text, onEnd);
+  }
+}
+
+function speakWithBrowser(text, onEnd) {
   if (synth.speaking) synth.cancel();
   const utter = new SpeechSynthesisUtterance(text);
   utter.lang  = 'ja-JP';
   utter.rate  = 0.85;
   utter.pitch = 1.0;
 
-  const voices = synth.getVoices();
-  const jpVoice = voices.find(v => v.lang === 'ja-JP') || voices.find(v => v.lang.startsWith('ja'));
+  const jpVoice = pickJapaneseBrowserVoice();
   if (jpVoice) utter.voice = jpVoice;
 
   utter.onend   = onEnd;
   utter.onerror = onEnd;
-  setStatus('speaking', 'Speaking question…');
   synth.speak(utter);
 }
 
@@ -1320,10 +1637,8 @@ function startAIRecording(onError) {
     onError('Microphone not available.');
     return;
   }
-  const provider = localStorage.getItem('api_provider') || 'groq';
-  const apiKey = localStorage.getItem('api_key');
-  if (provider !== 'groq' || !apiKey) {
-    onError('AI recording requires Groq API key.');
+  if (!hasGroqApiKey()) {
+    onError('AI Whisper requires a Groq API key. Save your key in settings, or use Browser speech recognition.');
     return;
   }
 
@@ -1383,8 +1698,8 @@ function stopAIRecording() {
 }
 
 async function transcribeWithWhisper(audioBlob) {
+  if (!hasGroqApiKey()) return null;
   const apiKey = localStorage.getItem('api_key');
-  if (!apiKey) return null;
 
   const formData = new FormData();
   formData.append('file', audioBlob, 'audio.webm');
@@ -1487,8 +1802,9 @@ function speakThenListen(item) {
 
 function beginListen() {
   const sttMode = localStorage.getItem('stt_mode') || 'ai';
-  
-  if (sttMode === 'ai') {
+  const useWhisper = sttMode === 'ai' && hasGroqApiKey();
+
+  if (useWhisper) {
     startAIRecording((err) => {
       setStatus('', 'Error: ' + err);
       if (err.includes('permission')) {
@@ -1498,6 +1814,9 @@ function beginListen() {
       showBtn('btn-skip',     true);
     });
   } else {
+    if (sttMode === 'ai' && !hasGroqApiKey()) {
+      setStatus('listening', '🌐 Browser recognition (save a Groq key for AI Whisper)');
+    }
     startListening((err) => {
       setStatus('', 'Error: ' + err);
       if (err.includes('permission')) {
@@ -1518,8 +1837,8 @@ async function submitAnswer() {
   showBtn('btn-skip', false);
   
   const sttMode = localStorage.getItem('stt_mode') || 'ai';
-  
-  if (sttMode === 'ai' && mediaRecorder && mediaRecorder.state === 'recording') {
+
+  if (sttMode === 'ai' && hasGroqApiKey() && mediaRecorder && mediaRecorder.state === 'recording') {
     setStatus('checking', '🤖 Transcribing audio…');
     const ct = document.getElementById('transcript-content');
     ct.innerHTML = '<div class="ai-transcribing-indicator">Transcribing<span class="dots"></span></div>';
@@ -1692,3 +2011,4 @@ function restartApp() {
 }
 
 window.speechSynthesis.getVoices();
+window.speechSynthesis.addEventListener('voiceschanged', populateBrowserVoiceSelect);
