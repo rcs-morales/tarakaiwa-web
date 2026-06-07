@@ -348,6 +348,7 @@ header {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
+  justify-content: center;
 }
 .btn-import {
   background: var(--paper-2);

@@ -472,8 +472,10 @@ function saveJLPTLevel() {
 }
 
 function toggleTTSVoicePanels(mode) {
+  const elSettings = document.getElementById('elevenlabs-settings-section');
   const elVoiceOptions = document.getElementById('elevenlabs-voice-options');
   const browserContainer = document.getElementById('browser-voice-container');
+  if (elSettings) elSettings.style.display = (mode === 'ai') ? 'block' : 'none';
   if (elVoiceOptions) elVoiceOptions.style.display = (mode === 'ai') ? 'flex' : 'none';
   if (browserContainer) browserContainer.style.display = (mode === 'browser') ? 'flex' : 'none';
 }
@@ -1749,6 +1751,11 @@ function startPractice() {
     alert('Voice recognition requires Chrome or Microsoft Edge. Safari and Firefox are not supported.');
     return;
   }
+  // Shuffle questions (Fisher-Yates) for a fresh order each session
+  for (let i = QA.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [QA[i], QA[j]] = [QA[j], QA[i]];
+  }
   current = 0; score = 0; results = [];
   document.getElementById('screen-start').classList.add('hidden');
   document.getElementById('screen-practice').classList.remove('hidden');
@@ -1881,7 +1888,7 @@ async function submitAnswer() {
   });
   showResult(gradeResult, item.a);
   showBtn('btn-next',     true);
-  showBtn('btn-rerecord', !gradeResult.correct);
+  showBtn('btn-rerecord', false);
   showBtn('btn-skip',     false);
   setStatus('', gradeResult.correct ? 'Correct! 🎉' : 'Incorrect. Review the feedback.');
   isChecking = false;
