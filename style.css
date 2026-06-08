@@ -417,7 +417,37 @@ header {
 .tag-ok  { background:#1a7a4a22; color:var(--correct); }
 .tag-ng  { background:#c0392b22; color:var(--wrong); }
 
-/* ── Mic permission warning ── */
+.target-answer-box {
+  display: none;
+  background: #f0fdf4;
+  border: 1.5px solid #bbf7d0;
+  border-radius: 10px;
+  padding: 14px 18px;
+  margin-bottom: 16px;
+  text-align: center;
+  transition: all 0.3s ease;
+}
+.target-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  color: #16a34a;
+  letter-spacing: 0.1em;
+  margin-bottom: 8px;
+  font-weight: bold;
+}
+#target-answer-text {
+  font-family: 'Noto Serif JP', serif;
+  font-size: 1.1rem;
+  color: var(--ink);
+  margin-bottom: 4px;
+}
+.target-romaji {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.85rem;
+  color: var(--muted);
+  font-style: italic;
+}
 .warning-box {
   display: none;
   background: #fff8e1;

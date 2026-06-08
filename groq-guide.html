@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Groq API Key Guide - Japanese Speaking Practice</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@300;400;700&family=Noto+Sans+JP:wght@300;400;500&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .guide-container {
+      max-width: 600px;
+      margin: 40px auto;
+      text-align: left;
+    }
+    .step {
+      margin-bottom: 24px;
+      padding: 20px;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+      border-left: 4px solid var(--teal);
+    }
+    .step-number {
+      font-family: 'DM Mono', monospace;
+      font-weight: bold;
+      color: var(--teal);
+      font-size: 1.2rem;
+      display: block;
+      margin-bottom: 8px;
+    }
+    .step-text {
+      font-size: 1rem;
+      line-height: 1.6;
+      color: var(--ink);
+    }
+    .external-link {
+      display: inline-block;
+      margin-top: 12px;
+      color: var(--teal);
+      font-weight: 500;
+      text-decoration: none;
+      border-bottom: 1px solid var(--teal);
+    }
+    .back-btn {
+      margin-bottom: 32px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="guide-container">
+    <a href="index.html" class="btn btn-secondary back-btn" style="text-decoration: none;">← Back to App</a>
+
+    <header>
+      <div class="title-jp">Groq API 設定ガイド</div>
+      <div class="title-en">Groq API Key Setup Guide</div>
+    </header>
+
+    <div class="card" style="text-align: left;">
+      <p style="margin-bottom: 24px; color: var(--muted); font-size: 0.9rem;">
+        Follow these simple steps to get your free API key for AI grading and transcription.
+      </p>
+
+      <div class="step">
+        <span class="step-number">Step 1: Visit Groq Console</span>
+        <div class="step-text">
+          Go to the Groq Cloud Console.
+          <br>
+          <a href="https://console.groq.com/" target="_blank" class="external-link">Open console.groq.com →</a>
+        </div>
+      </div>
+
+      <div class="step">
+        <span class="step-number">Step 2: Sign in with Google</span>
+        <div class="step-text">
+          On the sign-in page, click the <strong>"Continue with Google"</strong> button to use your Gmail account for instant SSO setup.
+        </div>
+      </div>
+
+      <div class="step">
+        <span class="step-number">Step 3: Go to API Keys</span>
+        <div class="step-text">
+          Once logged in, locate the <strong>"API Keys"</strong> tab in the left-hand sidebar menu.
+          <br>
+          <a href="https://console.groq.com/keys" target="_blank" class="external-link">Go directly to API Keys →</a>
+        </div>
+      </div>
+
+      <div class="step">
+        <span class="step-number">Step 4: Create Your Key</span>
+        <div class="step-text">
+          Click the <strong>"Create API Key"</strong> button. Give your key a name (for example: <em>"JLPT-App"</em>) and click create.
+        </div>
+      </div>
+
+      <div class="step">
+        <span class="step-number">Step 5: Copy and Paste</span>
+        <div class="step-text">
+          Copy the generated key immediately (it starts with <code>gsk_</code>).
+          Go back to the app, paste it into the <strong>Groq API Key</strong> field, and click <strong>"Save Key"</strong>.
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

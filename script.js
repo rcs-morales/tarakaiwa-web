@@ -3,25 +3,35 @@
 // ─────────────────────────────────────────────
 const DEFAULT_QA = [
   { q: "まいにち　なんで　しごとへ　いきますか。",
-    a: "でんしゃで　いきます。" },
+    a: "でんしゃで　いきます。",
+    r: "Densha de ikimasu." },
   { q: "まいにち　だれと　しごとへ　いきますか。",
-    a: "ひとりで　いきます。" },
+    a: "ひとりで　いきます。",
+    r: "Hitori de ikimasu." },
   { q: "たんじょうびは　いつですか。",
-    a: "たんじょうびは　くがつじゅうににちです。" },
+    a: "たんじょうびは　くがつじゅうににちです。",
+    r: "Tanjōbi wa kugatsu jū-ni-nichi desu." },
   { q: "やすみのひ　になにを　しますか。",
-    a: "イラストを　かきます。" },
+    a: "イラストを　かきます。",
+    r: "Irasuto o kakimasu." },
   { q: "せんしゅうの　どようび　なにを　しましたか。それからは？",
-    a: "えいがかんへ　いきました。それから　ともだちに　あいました。" },
+    a: "えいがかんへ　いきました。それから　ともだちに　あいました。",
+    r: "Eigakan e ikimashita. Sorekara tomodachi ni aimashita." },
   { q: "あなたは　まいにちどこで　ひるごはんを　たべますか。",
-    a: "ともだちと　ちかくの　しょくどうで　たべます。" },
+    a: "ともだちと　ちかくの　しょくどうで　たべます。",
+    r: "Tomodachi to chikaku no shokudō de tabemasu." },
   { q: "あなたは　テニスを　しますか。いっしょに　いきませんか。",
-    a: "ええ、そうしましょう。なんようびに　いきますか。" },
+    a: "ええ、そうしましょう。なんようびに　いきますか。",
+    r: "Ee, sō shimashō. Nan-yōbi ni ikimasuka?" },
   { q: "まいあさ　なにを　たべますか。なにで　たべますか",
-    a: "くだものと　やさいを　たべます。てで　たべます。" },
+    a: "くだものと　やさいを　たべます。てで　たべます。",
+    r: "Kudamono to yasai o tabemasu. Te de tabemasu." },
   { q: "「ありがとうございます」はじぶんの　げんごで　なんですか。",
-    a: "ありがとうございますは　たがルゴごで　Salamat Poです。" },
+    a: "ありがとうございますは　たがルゴごで　Salamat Poです。",
+    r: "Arigatō gozaimasu wa Tagalog-go de 'Salamat Po' desu." },
   { q: "きょねんのたんじょうびに　かぞくに　なにを　もらいましたか。",
-    a: "たんじょうびに　ちちに　シャツを　もらいました。そして　あねに　おかねを　もらいました。" },
+    a: "たんじょうびに　ちちに　シャツを　もらいました。そして　あねに　おかねを　もらいました。",
+    r: "Tanjōbi ni chichi ni shatsu o moraimashita. Soshite ane ni okane o moraimashita." },
   { q: "にほんごの　べんきょうは　もうおわりましたか。",
     a: "いいえ、まだです。ことしの　しちがつに　おわります。" },
   { q: "にほんは？",
@@ -309,6 +319,9 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (e) {
       console.error('Error loading saved QA data:', e);
     }
+  } else {
+    // Preload 10 sample questions for first-time users
+    QA = DEFAULT_QA.slice(0, 10);
   }
   updateQACount();
   updateStartButton();
@@ -1214,16 +1227,81 @@ function similarity(transcript, answer) {
   return lcsLength(t, a) / a.length;
 }
 
+function escapeRegExp(text) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function getParticleMismatches(transcript, answer) {
+  const particles = ['は', 'が', 'に', 'へ', 'で', 'を', 'の'];
+  const t = normalizeTranscript(transcript, answer);
+  const a = normalizeAnswer(answer);
+
+  const missing = [];
+
+  particles.forEach(p => {
+    const countA = (a.match(new RegExp(p, 'g')) || []).length;
+    const countT = (t.match(new RegExp(p, 'g')) || []).length;
+
+    if (countA > 0 && countT < countA) {
+      missing.push(p);
+    }
+  });
+
+  return { missing };
+}
+
+function getVerbConjugationMismatches(transcript, answer) {
+  const markers = ['ます', 'ました', 'ません', 'です', 'でした', 'ましょう', 'ますか', 'ませんか'];
+  const t = normalizeTranscript(transcript, answer);
+  const a = normalizeAnswer(answer);
+  const missing = [];
+
+  markers.forEach(marker => {
+    const pattern = new RegExp(escapeRegExp(marker), 'g');
+    const countA = (a.match(pattern) || []).length;
+    const countT = (t.match(pattern) || []).length;
+
+    if ((countA > 0 || countT > 0) && countA !== countT) {
+      missing.push(marker);
+    }
+  });
+
+  return { missing };
+}
+
 function isCorrectLocal(rawTranscript, answer) {
   const sim = similarity(rawTranscript, answer);
+  let finalScore = Math.round(sim * 100);
+  let grammarNotes = '';
+  let particleNotes = '';
+
+  const { missing: particleMissing } = getParticleMismatches(rawTranscript, answer);
+  const { missing: verbMissing } = getVerbConjugationMismatches(rawTranscript, answer);
+
+  const particlePenalty = particleMissing.length * 10;
+  const verbPenalty = verbMissing.length * 15;
+  if (particlePenalty + verbPenalty > 0) {
+    finalScore -= particlePenalty + verbPenalty;
+
+    if (particleMissing.length > 0) {
+      particleNotes = 'Check your particles: ' + particleMissing.join(', ') + ' seems missing or incorrect.';
+    }
+    if (verbMissing.length > 0) {
+      grammarNotes = 'Check your verb tense/conjugation: ' + verbMissing.join(', ') + ' seems missing or incorrect.';
+    }
+  }
+
+  finalScore = Math.max(0, finalScore);
+  const isCorrect = finalScore >= 65;
+
   return {
-    correct: sim >= 0.65,
-    score: Math.round(sim * 100),
-    feedback: sim >= 0.65 ? 'Answer matched (local check).' : 'Answer did not match closely enough (local check).',
-    grammarNotes: '',
-    particleNotes: '',
+    correct: isCorrect,
+    score: finalScore,
+    feedback: isCorrect ? 'Answer matched (local check).' : 'Answer did not match closely enough (local check).',
+    grammarNotes: grammarNotes,
+    particleNotes: particleNotes,
     vocabularyNotes: '',
-    suggestedAnswer: sim >= 0.65 ? '' : answer,
+    suggestedAnswer: isCorrect ? '' : answer,
     source: 'local'
   };
 }
@@ -1848,7 +1926,7 @@ function loadQuestion() {
   qText.style.display = 'none';
   const toggleBtn = document.getElementById('btn-toggle-question');
   if (toggleBtn) toggleBtn.textContent = '👁 Show Text';
-  
+
   document.getElementById('result-badge').className = 'result-badge';
   document.getElementById('warning-box').style.display = 'none';
   showTranscript('');
@@ -1856,6 +1934,20 @@ function loadQuestion() {
   showBtn('btn-next',     false);
   showBtn('btn-rerecord', false);
   showBtn('btn-skip',     true);
+
+  // Tutorial Mode: Show target answer for first 3 questions only if romaji exists
+  const targetBox = document.getElementById('target-answer-box');
+  if (targetBox) {
+    if (item.r && current < 3) {
+      const label = document.getElementById('target-label');
+      if (label) label.textContent = '🎯 Tutorial Mode (' + (current + 1) + '/3) Please say the sample answer clearly:';
+      document.getElementById('target-answer-text').textContent = item.a;
+      document.getElementById('target-romaji-text').textContent = item.r;
+      targetBox.style.display = 'block';
+    } else {
+      targetBox.style.display = 'none';
+    }
+  }
 
   const pct = (current / QA.length) * 100;
   document.getElementById('progress-bar').style.width = pct + '%';

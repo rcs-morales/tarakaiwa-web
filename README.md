@@ -7,13 +7,15 @@ A web-based application designed to help Japanese language learners practice the
 ## ✨ Key Features
 
 - **AI Speech Recognition**: Powered by Groq's Whisper API (`whisper-large-v3-turbo`) for incredibly fast and accurate Japanese speech-to-text, natively handling kanji and katakana.
-- **Intelligent Grading**: Uses Llama 3 (via Groq) to grade your answers. It provides detailed feedback on grammar, particle usage, and vocabulary.
+- **Intelligent Grading**: Uses Llama 3 (via Groq) to grade your answers. It provides detailed feedback on grammar, particle usage, vocabulary, and—when AI is unavailable—local fallback scoring with particle/conjugation penalties.
 - **Adjustable Strictness**: Choose your JLPT level (N5, N4, N3). The AI dynamically adjusts its grading rules, forgiving common Speech-to-Text kanji homophone errors at lower levels.
 - **Dual STT Modes**: Seamlessly toggle between AI (Groq Whisper) for maximum accuracy, or your browser's built-in Web Speech API for live text preview.
 - **Dual TTS Modes**: Hear questions with the browser's built-in Japanese voice (free, instant) or **ElevenLabs** AI voices (ultra-realistic). AI TTS caches audio in `localStorage` to reduce API usage. Configure voice and playback speed in settings.
 - **Immersive Live2D Avatar**: A bust-sized avatar that provides visual engagement and performs basic lip-sync animations while questions are read aloud.
 - **Furigana Support**: Automatically generates furigana readings for spoken kanji to help you review your transcripts.
+- **Tutorial Mode**: The first few questions display the target answer and romaji to help beginners practice with guided prompts.
 - **Randomized Practice Sessions**: Questions are presented in a fresh, randomized order every time you start a new practice session.
+- **Starter Q&A Included**: First-time users get a 10-question sample set so the app is usable immediately without importing data.
 - **Local Privacy**: No backend server required. Your API keys and imported Q&A databases are stored entirely in your browser's `localStorage`.
 
 ## 🚀 Getting Started
@@ -22,7 +24,7 @@ You can use the live deployed version on Vercel immediately, or run it locally. 
 
 ### Prerequisites
 
-1. A modern web browser (Chrome or Edge recommended if using the browser's built-in Speech Recognition).
+1. A modern web browser. Chrome or Edge is required for the live voice-recognition workflow in this app.
 2. A free [Groq API Key](https://console.groq.com/keys) for AI speech recognition and grading.
 3. *(Optional)* An [ElevenLabs API Key](https://elevenlabs.io/) if you want AI text-to-speech instead of the browser voice.
 
@@ -41,21 +43,24 @@ You can use the live deployed version on Vercel immediately, or run it locally. 
    python -m http.server 8000
    ```
 4. Open `http://localhost:8000` in your browser.
+5. If you are setting up Groq for the first time, use the in-app setup guide link or open `groq-guide.html` for the recommended configuration steps.
 
 ## 📖 How to Use
 
 1. **Configure AI**: On the home screen, paste your Groq API key into the AI Settings section and click **Save Key**.
 2. **Adjust settings**: Choose grading speed (balanced or fast Groq model), speech recognition engine, text-to-speech mode (browser or ElevenLabs), JLPT grading strictness, and—if using AI TTS—voice and speed.
-3. **Import Data**: Import your Japanese Q&A database (JSON format).
-4. **Practice**: Click **Start Practice!** The app speaks the question aloud, records your answer, and returns instant AI grading and feedback.
+3. **Use the setup guide if needed**: If Groq or Whisper setup is unclear, open the included guide page (`groq-guide.html`) for the recommended flow.
+4. **Import Data**: Import your Japanese Q&A database (JSON format).
+5. **Practice**: Click **Start Practice!** The app speaks the question aloud, records your answer, and returns instant AI grading and feedback.
 
 ## 🏗️ Project Structure
 
 | File | Role |
 |------|------|
-| `index.html` | Markup and settings UI |
-| `script.js` | Practice flow, STT/TTS, grading, and `localStorage` |
-| `style.css` | Layout and theme |
+| `index.html` | Markup, settings UI, and tutorial answer display |
+| `script.js` | Practice flow, STT/TTS, grading, local fallback scoring, and `localStorage` |
+| `style.css` | Layout, theme, and tutorial/target-answer styling |
+| `groq-guide.html` | Recommended Groq setup and key configuration guide |
 
 ## 🗺️ Roadmap
 

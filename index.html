@@ -78,7 +78,7 @@
         <p>Enter your Groq API key for fast grading and optional Whisper speech recognition.</p>
         <p style="font-size: 0.75rem; color: var(--muted); margin-bottom: 8px;">
           Get a free API key at <a href="https://console.groq.com/keys" target="_blank" style="color: var(--teal);">Groq
-            Console</a>
+            Console</a> or <a href="groq-guide.html" style="color: var(--teal); text-decoration: underline;">follow our setup guide</a>.
         </p>
         <div class="api-key-row">
           <input type="password" id="api-key-input" class="api-key-input" placeholder="Paste your API key here…"
@@ -226,6 +226,12 @@
       <div class="status-area">
         <div class="pulse-dot" id="pulse"></div>
         <div class="status-text" id="status-text">Initializing...</div>
+      </div>
+
+      <div class="target-answer-box" id="target-answer-box">
+        <div class="target-label" id="target-label">🎯 Target Answer</div>
+        <div id="target-answer-text">—</div>
+        <div id="target-romaji-text" class="target-romaji">—</div>
       </div>
 
       <div class="transcript-box" id="transcript-box">
