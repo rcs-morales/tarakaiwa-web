@@ -9,6 +9,12 @@
     href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@300;400;700&family=Noto+Sans+JP:wght@300;400;500&family=DM+Mono:wght@300;400&display=swap"
     rel="stylesheet" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/6.5.10/browser/pixi.min.js"></script>
+  <script>
+    window.live2d = window.live2d || {};
+  </script>
+  <script src="https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pixi-live2d-display/dist/cubism4.min.js"></script>
   <script src="script.js"></script>
   <script>
     // Fallback: if XLSX doesn't load from CDN, load from alternative source
@@ -197,15 +203,19 @@
       </button>
     </div>
 
-    <!-- ── PRACTICE SCREEN ── -->
-    <div id="screen-practice" class="hidden">
-      <div class="progress-label" id="progress-label">Question 1 / 16</div>
-      <div class="progress-bar-wrap">
-        <div class="progress-bar-fill" id="progress-bar"></div>
-      </div>
+  <!-- ── PRACTICE SCREEN ── -->
+  <div id="screen-practice" class="hidden">
+    <div id="avatar-container"></div>
+    <div class="progress-label" id="progress-label">Question 1 / 16</div>
+    <div class="progress-bar-wrap">
+      <div class="progress-bar-fill" id="progress-bar"></div>
+    </div>
 
-      <div class="question-label">Question</div>
-      <div class="question-text" id="question-text">—</div>
+    <div class="question-label" style="display: flex; justify-content: space-between; align-items: center;">
+      <span>Question</span>
+      <button class="btn btn-secondary" id="btn-toggle-question" onclick="toggleQuestionText()" style="padding: 4px 8px; font-size: 0.8rem; height: auto; min-height: 0;">👁 Show Text</button>
+    </div>
+    <div class="question-text" id="question-text" style="display: none;">—</div>
 
       <div class="warning-box" id="warning-box">
         ⚠️ Microphone access is required. Please allow microphone permission when prompted,

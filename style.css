@@ -559,3 +559,17 @@ header {
 /* ── Utility ── */
 .hidden { display: none !important; }
 .divider { border: none; border-top: 1.5px solid var(--paper-2); margin: 24px 0; }
+
+/* ── Live2D Avatar ── */
+#avatar-container {
+  width: 100%;
+  max-width: 400px;
+  height: 400px;
+  margin: 0 auto 20px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  overflow: hidden;
+  position: relative;
+  pointer-events: none; /* Prevent avatar from blocking clicks on buttons */
+}

@@ -706,6 +706,64 @@ async function gradeWithAI(question, expectedAnswer, transcript) {
 }
 
 // ─────────────────────────────────────────────
+// LIVE2D AVATAR
+// ─────────────────────────────────────────────
+
+let live2dModel = null;
+let live2dApp = null;
+let isAvatarSpeaking = false;
+
+async function initLive2D() {
+  const container = document.getElementById('avatar-container');
+  if (!container) return;
+
+  try {
+    if (live2dApp) {
+      live2dApp.destroy(true, { children: true, texture: true, baseTexture: true });
+    }
+    container.innerHTML = '';
+
+    live2dApp = new PIXI.Application({
+      width: 400,
+      height: 400,
+      backgroundAlpha: 0,
+      antialias: true,
+    });
+    container.appendChild(live2dApp.view);
+
+    const model = await PIXI.live2d.Live2DModel.from('simple/runtime/simple.model3.json');
+    live2dModel = model;
+
+    live2dApp.stage.addChild(model);
+
+    // Position and scale the model to be bust-sized and centered
+    model.scale.set(0.32); // Adjust based on model's natural size
+    model.anchor.set(0.5, 0.5);
+    model.position.set(live2dApp.screen.width / 2, live2dApp.screen.height * 0.7);
+
+    // Start the mouth animation loop natively in the Live2D update cycle
+    model.internalModel.on('beforeModelUpdate', () => {
+      if (isAvatarSpeaking && live2dModel && live2dModel.internalModel && live2dModel.internalModel.coreModel) {
+        const mouthOpen = Math.sin(Date.now() * 0.015) * 0.5 + 0.5;
+        live2dModel.internalModel.coreModel.setParameterValueById('PARAM_MOUTH_OPEN_Y', mouthOpen);
+      } else if (live2dModel && live2dModel.internalModel && live2dModel.internalModel.coreModel) {
+        live2dModel.internalModel.coreModel.setParameterValueById('PARAM_MOUTH_OPEN_Y', 0);
+      }
+    });
+
+    console.log('Live2D Avatar initialized successfully');
+  } catch (e) {
+    console.error('Live2D initialization failed:', e);
+  }
+}
+
+function toggleSpeaking(speaking) {
+  isAvatarSpeaking = speaking;
+}
+
+
+
+// ─────────────────────────────────────────────
 // STATE
 // ─────────────────────────────────────────────
 let current   = 0;
@@ -1543,20 +1601,26 @@ async function speakWithElevenLabs(text, onEnd) {
 
 function speakQuestion(text, onEnd) {
   setStatus('speaking', 'Speaking question…');
-  
+  toggleSpeaking(true);
+
   const mode = localStorage.getItem('tts_mode') || 'browser'; // default: browser
   const apiKey = localStorage.getItem('elevenlabs_key');
 
+  const wrapOnEnd = () => {
+    toggleSpeaking(false);
+    if (onEnd) onEnd();
+  };
+
   if (mode === 'ai' && apiKey && !isElevenLabsBlocked()) {
-    speakWithElevenLabs(text, onEnd).catch(err => {
+    speakWithElevenLabs(text, wrapOnEnd).catch(err => {
       console.error('ElevenLabs TTS failed, falling back to browser TTS', err);
       const msg = getElevenLabsFailureMessage(err);
       if (err.status === 402 || err.status === 401) blockElevenLabsTTS(msg);
       setStatus('speaking', msg);
-      speakWithBrowser(text, onEnd);
+      speakWithBrowser(text, wrapOnEnd);
     });
   } else {
-    speakWithBrowser(text, onEnd);
+    speakWithBrowser(text, wrapOnEnd);
   }
 }
 
@@ -1760,6 +1824,8 @@ function startPractice() {
   document.getElementById('screen-start').classList.add('hidden');
   document.getElementById('screen-practice').classList.remove('hidden');
 
+  initLive2D();
+
   navigator.mediaDevices.getUserMedia({ audio: true })
     .then(stream => {
       micStream = stream;
@@ -1777,7 +1843,12 @@ function startPractice() {
 
 function loadQuestion() {
   const item = QA[current];
-  document.getElementById('question-text').textContent = item.q;
+  const qText = document.getElementById('question-text');
+  qText.textContent = item.q;
+  qText.style.display = 'none';
+  const toggleBtn = document.getElementById('btn-toggle-question');
+  if (toggleBtn) toggleBtn.textContent = '👁 Show Text';
+  
   document.getElementById('result-badge').className = 'result-badge';
   document.getElementById('warning-box').style.display = 'none';
   showTranscript('');
@@ -1797,6 +1868,19 @@ function loadQuestion() {
     synth.addEventListener('voiceschanged', () => speakThenListen(item), { once: true });
   } else {
     speakThenListen(item);
+  }
+}
+
+function toggleQuestionText() {
+  const qText = document.getElementById('question-text');
+  const btn = document.getElementById('btn-toggle-question');
+  if (!qText || !btn) return;
+  if (qText.style.display === 'none') {
+    qText.style.display = 'block';
+    btn.textContent = '👁 Hide Text';
+  } else {
+    qText.style.display = 'none';
+    btn.textContent = '👁 Show Text';
   }
 }
 
