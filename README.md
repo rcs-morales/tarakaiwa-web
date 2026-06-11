@@ -2,7 +2,7 @@
 
 A web-based application designed to help Japanese language learners practice their speaking skills. Currently tailored for **JLPT N5** level practice, the app uses AI to evaluate pronunciation, vocabulary, and grammar in real-time.
 
-**🌍 Live Demo**: [Play JLPT Speaking Practice App on Vercel](https://jlpt-speaking-app-web.vercel.app/) *(Add a Groq API key in settings for AI speech recognition and grading. ElevenLabs is optional for AI text-to-speech.)*
+**🌍 Live Demo**: [Play JLPT Speaking Practice App on Vercel](https://jlpt-speaking-app-web.vercel.app/) *(Add a Groq API key in settings for AI speech recognition and grading. VOICEVOX is optional for local AI text-to-speech.)*
 
 ## ✨ Key Features
 
@@ -10,7 +10,7 @@ A web-based application designed to help Japanese language learners practice the
 - **Intelligent Grading**: Uses Llama 3 (via Groq) to grade your answers. It provides detailed feedback on grammar, particle usage, vocabulary, and—when AI is unavailable—local fallback scoring with particle/conjugation penalties.
 - **Adjustable Strictness**: Choose your JLPT level (N5, N4, N3). The AI dynamically adjusts its grading rules, forgiving common Speech-to-Text kanji homophone errors at lower levels.
 - **Dual STT Modes**: Seamlessly toggle between AI (Groq Whisper) for maximum accuracy, or your browser's built-in Web Speech API for live text preview.
-- **Dual TTS Modes**: Hear questions with the browser's built-in Japanese voice (free, instant) or **ElevenLabs** AI voices (ultra-realistic). AI TTS caches audio in `localStorage` to reduce API usage. Configure voice and playback speed in settings.
+- **Dual TTS Modes**: Hear questions with the browser's built-in Japanese voice (free, instant) or **VOICEVOX** for local AI voices. Configure voice in settings.
 - **Immersive Live2D Avatar**: A bust-sized avatar that provides visual engagement and performs basic lip-sync animations while questions are read aloud.
 - **Furigana Support**: Automatically generates furigana readings for spoken kanji to help you review your transcripts.
 - **Tutorial Mode**: The first few questions display the target answer and romaji to help beginners practice with guided prompts.
@@ -26,7 +26,7 @@ You can use the live deployed version on Vercel immediately, or run it locally. 
 
 1. A modern web browser. Chrome or Edge is required for the live voice-recognition workflow in this app.
 2. A free [Groq API Key](https://console.groq.com/keys) for AI speech recognition and grading.
-3. *(Optional)* An [ElevenLabs API Key](https://elevenlabs.io/) if you want AI text-to-speech instead of the browser voice.
+3. *(Optional)* A local running instance of [VOICEVOX](https://voicevox.hiroshiba.jp/) if you want AI text-to-speech instead of the browser voice.
 
 ### Installation
 
@@ -48,7 +48,7 @@ You can use the live deployed version on Vercel immediately, or run it locally. 
 ## 📖 How to Use
 
 1. **Configure AI**: On the home screen, paste your Groq API key into the AI Settings section and click **Save Key**.
-2. **Adjust settings**: Choose grading speed (balanced or fast Groq model), speech recognition engine, text-to-speech mode (browser or ElevenLabs), JLPT grading strictness, and—if using AI TTS—voice and speed.
+2. **Adjust settings**: Choose grading speed (balanced or fast Groq model), speech recognition engine, text-to-speech mode (browser or VOICEVOX), JLPT grading strictness, and voice.
 3. **Use the setup guide if needed**: If Groq or Whisper setup is unclear, open the included guide page (`groq-guide.html`) for the recommended flow.
 4. **Import Data**: Import your Japanese Q&A database (JSON format).
 5. **Practice**: Click **Start Practice!** The app speaks the question aloud, records your answer, and returns instant AI grading and feedback.
@@ -67,7 +67,7 @@ You can use the live deployed version on Vercel immediately, or run it locally. 
 - [x] N5 Speaking Practice Support
 - [x] Advanced AI Grading (Groq)
 - [x] High-accuracy AI Speech Recognition (Whisper)
-- [x] Optional AI text-to-speech (ElevenLabs) with local audio cache
+- [x] Optional local AI text-to-speech (VOICEVOX)
 - [x] Integrated Live2D avatar with lip-sync
 - [x] Randomized Question Order per Session
 - [ ] Add N4 & N3 Q&A Databases

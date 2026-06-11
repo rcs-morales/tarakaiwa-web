@@ -586,6 +586,107 @@ header {
   margin-top: 4px;
 }
 
+/* ── VOICEVOX Setup Guide ── */
+.vv-connection-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 99px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  margin-bottom: 16px;
+  border: 1px solid transparent;
+}
+.vv-connection-badge.disconnected {
+  background: #fdf0ef;
+  color: var(--wrong);
+  border-color: #f0b8b2;
+}
+.vv-connection-badge.connected {
+  background: #e6f4ee;
+  color: var(--correct);
+  border-color: #b2dfc5;
+}
+.vv-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.vv-connection-badge.disconnected .vv-status-dot { background: var(--wrong); }
+.vv-connection-badge.connected .vv-status-dot { background: var(--correct); }
+
+.vv-setup-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.vv-step {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.vv-step-num {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: var(--teal);
+  color: #fff;
+  border-radius: 50%;
+  font-size: 0.8rem;
+  font-weight: bold;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.vv-step-content {
+  flex: 1;
+}
+.vv-step-content strong {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--ink);
+  margin-bottom: 4px;
+}
+.vv-step-content p {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.vv-advanced-details {
+  background: var(--paper-2);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.vv-advanced-summary {
+  padding: 10px 14px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--ink);
+  cursor: pointer;
+  user-select: none;
+}
+.vv-advanced-summary:hover {
+  background: rgba(0,0,0,0.03);
+}
+.vv-advanced-content {
+  padding: 14px;
+  border-top: 1px solid rgba(0,0,0,0.05);
+}
+.vv-cors-note {
+  background: #fff8e1;
+  border: 1px solid #f0c040;
+  border-radius: 6px;
+  padding: 10px;
+  font-size: 0.75rem;
+  color: #7a5c00;
+  margin-top: 12px;
+}
+
 /* ── Utility ── */
 .hidden { display: none !important; }
 .divider { border: none; border-top: 1.5px solid var(--paper-2); margin: 24px 0; }

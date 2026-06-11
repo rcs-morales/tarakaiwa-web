@@ -15,7 +15,7 @@
   </script>
   <script src="https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/pixi-live2d-display/dist/cubism4.min.js"></script>
-  <script src="script.js"></script>
+  <script type="module" src="app.js"></script>
   <script>
     // Fallback: if XLSX doesn't load from CDN, load from alternative source
     if (typeof XLSX === 'undefined') {
@@ -125,12 +125,8 @@
             style="padding: 4px; border-radius: 4px; border: 1px solid var(--border); background: var(--paper-2); color: var(--text);"
             onchange="saveTTSMode()">
             <option value="browser" selected>🌐 Browser Built-in — Free, instant</option>
-            <option value="ai">🤖 AI (ElevenLabs) — Ultra-realistic</option>
+            <option value="voicevox">🎙️ VOICEVOX — Local, High Quality</option>
           </select>
-          <p style="font-size: 0.72rem; color: var(--muted); margin-top: 4px;">
-            ElevenLabs uses your monthly character quota (free tier is limited). If you see 402 errors, credits are
-            exhausted — use Browser TTS instead.
-          </p>
           <div id="browser-voice-container"
             style="margin-top: 8px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
             <label style="font-size: 0.8rem; color: var(--muted);">Browser voice:</label>
@@ -141,46 +137,102 @@
             </select>
           </div>
         </div>
-        <div id="elevenlabs-settings-section"
+
+        <div id="voicevox-settings-section"
           style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
-          <h4 style="font-size: 0.95rem; margin: 0 0 6px 0;">🔊 ElevenLabs API Key</h4>
-          <p style="font-size: 0.75rem; color: var(--muted); margin-bottom: 8px;">
-            Required only when TTS mode is <strong>ElevenLabs</strong> above. Get a key at
-            <a href="https://elevenlabs.io/app/settings/api-keys" target="_blank"
-              style="color: var(--teal);">elevenlabs.io</a>.
+          <h4 style="font-size: 0.95rem; margin: 0 0 10px 0;">🎙️ VOICEVOX Setup Guide</h4>
+
+          <!-- Connection Status Badge -->
+          <div id="voicevox-connection-badge" class="vv-connection-badge disconnected">
+            <span class="vv-status-dot"></span>
+            <span id="voicevox-connection-text">Not connected</span>
+          </div>
+
+          <!-- Setup Steps -->
+          <div class="vv-setup-steps">
+            <div class="vv-step">
+              <span class="vv-step-num">1</span>
+              <div class="vv-step-content">
+                <strong>Download VOICEVOX</strong>
+                <p>Download and install the VOICEVOX app (free, ~200 MB):</p>
+                <a href="https://voicevox.hiroshiba.jp/" target="_blank" class="btn btn-import" style="font-size: 0.8rem; padding: 8px 14px; text-decoration: none; display: inline-flex; margin-top: 4px;">
+                  ⬇️ Download VOICEVOX (Official Site)
+                </a>
+              </div>
+            </div>
+
+            <div class="vv-step">
+              <span class="vv-step-num">2</span>
+              <div class="vv-step-content">
+                <strong>Launch the VOICEVOX app</strong>
+                <p>Open the VOICEVOX application on your PC. The engine starts automatically in the background on port <code style="background: var(--paper-2); padding: 1px 5px; border-radius: 3px;">50021</code>.</p>
+              </div>
+            </div>
+
+            <div class="vv-step">
+              <span class="vv-step-num">3</span>
+              <div class="vv-step-content">
+                <strong>Test the connection</strong>
+                <p>Click the button below to check if VOICEVOX is running and reachable:</p>
+                <div class="import-buttons" style="margin-top: 6px;">
+                  <button class="btn btn-import" onclick="testVoicevoxConnection()" id="btn-test-voicevox">
+                    🔌 Test Connection
+                  </button>
+                </div>
+                <div class="import-status" id="voicevox-status"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Advanced Settings (collapsed by default) -->
+          <details class="vv-advanced-details">
+            <summary class="vv-advanced-summary">⚙️ Advanced Settings</summary>
+            <div class="vv-advanced-content">
+              <div style="margin-bottom: 12px;">
+                <label style="font-size: 0.8rem; color: var(--muted); display: block; margin-bottom: 4px;">Engine Port:</label>
+                <div class="api-key-row">
+                  <input type="text" id="voicevox-url-input" class="api-key-input"
+                    placeholder="50021" autocomplete="off" />
+                  <button class="btn btn-secondary btn-sm" onclick="saveVoicevoxSettings()"
+                    title="Save Port">💾 Save</button>
+                </div>
+                <p style="font-size: 0.7rem; color: var(--muted); margin-top: 4px;">
+                  Default is <strong>50021</strong>. Only change if you configured a custom port.
+                </p>
+              </div>
+
+              <div style="margin-bottom: 12px;">
+                <label style="font-size: 0.8rem; color: var(--muted); display: block; margin-bottom: 4px;">Voice / Speaker:</label>
+                <select id="voicevox-speaker-select"
+                  style="width: 100%; padding: 6px 8px; border-radius: 6px; border: 1px solid #d0c8b8; background: #fff; color: var(--ink); font-size: 0.82rem;"
+                  onchange="saveVoicevoxSpeaker()">
+                  <option value="1">Press "Test Connection" to load available voices</option>
+                </select>
+                <!-- Keep hidden input for backward compat -->
+                <input type="hidden" id="voicevox-speaker-input" />
+              </div>
+
+              <div class="vv-cors-note">
+                <strong>⚠️ CORS Note:</strong> If the test connection fails with a network error, you may need to
+                enable CORS. Close VOICEVOX, then restart the engine from a terminal with:
+                <code style="display: block; background: var(--paper-2); padding: 6px 10px; border-radius: 4px; margin-top: 6px; font-size: 0.78rem; word-break: break-all;">
+                  run.exe --cors --allow_origin "*"
+                </code>
+              </div>
+            </div>
+          </details>
+        </div>
+        <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
+          <label for="avatar-model-select" style="font-size: 0.85rem; font-weight: bold; margin-right: 8px;">Avatar model:</label>
+          <select id="avatar-model-select"
+            style="padding: 4px; border-radius: 4px; border: 1px solid var(--border); background: var(--paper-2); color: var(--text);"
+            onchange="saveAvatarModel(); initLive2D();">
+            <option value="simple">Simple (default)</option>
+            <option value="shizuku">Shizuku</option>
+          </select>
+          <p style="font-size: 0.72rem; color: var(--muted); margin-top: 4px;">
+            Choose the Live2D avatar you want to use when practice starts.
           </p>
-          <div class="api-key-row">
-            <input type="password" id="elevenlabs-key-input" class="api-key-input"
-              placeholder="Paste ElevenLabs API key…" autocomplete="off" />
-            <button class="btn btn-secondary btn-sm" onclick="toggleElevenLabsKey()" id="btn-toggle-elevenlabs-key"
-              title="Show/hide key">👁</button>
-          </div>
-          <div class="import-buttons" style="margin-top: 8px;">
-            <button class="btn btn-import" onclick="saveElevenLabsKey()">💾 Save Key</button>
-            <button class="btn btn-secondary" onclick="testElevenLabsConnection()">🔌 Test Connection</button>
-            <button class="btn btn-secondary" onclick="clearElevenLabsKey()">🗑 Clear Key</button>
-          </div>
-          <div class="import-status" id="elevenlabs-key-status"></div>
-          <div id="elevenlabs-voice-options"
-            style="margin-top: 10px; flex-wrap: wrap; gap: 12px; align-items: center; display: none;">
-            <label style="font-size: 0.8rem; color: var(--muted);">Voice:</label>
-            <select id="elevenlabs-voice-select"
-              style="padding: 4px; border-radius: 4px; border: 1px solid var(--border); background: var(--paper-2); color: var(--text); font-size: 0.8rem;"
-              onchange="saveElevenLabsSettings()">
-              <option value="21m00Tcm4TlvDq8ikWAM">Rachel — female (Japanese mode)</option>
-              <option value="EXAVITQu4vr4xnSDxMaL">Bella — soft female (Japanese mode)</option>
-              <option value="ErXwobaYiN019PkySvjV">Antoni — male (Japanese mode)</option>
-              <option value="29vD33N1CtxCmqQRPOHJ">Drew — male news (Japanese mode)</option>
-            </select>
-            <label style="font-size: 0.8rem; color: var(--muted);">Speed:</label>
-            <select id="elevenlabs-speed-select"
-              style="padding: 4px; border-radius: 4px; border: 1px solid var(--border); background: var(--paper-2); color: var(--text); font-size: 0.8rem;"
-              onchange="saveElevenLabsSettings()">
-              <option value="1.0">Normal (1.0x)</option>
-              <option value="0.85" selected>Slow (0.85x)</option>
-              <option value="0.75">Very Slow (0.75x)</option>
-            </select>
-          </div>
         </div>
         <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
           <label for="jlpt-level-select" style="font-size: 0.85rem; font-weight: bold; margin-right: 8px;">Grading
@@ -251,7 +303,7 @@
 
       <div class="btn-row">
         <div class="btn-group-record">
-          <button class="btn btn-submit hidden" id="btn-submit" onclick="submitAnswer()">✔ Submit Answer</button>
+          <button class="btn btn-submit hidden" id="btn-submit" onclick="submitAnswer()">✔ Submit</button>
           <button class="btn btn-secondary hidden" id="btn-rerecord" onclick="rerecordAnswer()">🎤 Re-record</button>
         </div>
         <button class="btn btn-primary hidden" id="btn-next" onclick="nextQuestion()">Next →</button>

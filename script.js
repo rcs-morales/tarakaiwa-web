@@ -353,6 +353,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const jlptSelect = document.getElementById('jlpt-level-select');
   if (jlptSelect) jlptSelect.value = savedJLPTLevel;
 
+  const avatarModelSelect = document.getElementById('avatar-model-select');
+  if (avatarModelSelect) avatarModelSelect.value = getAvatarModelName();
+
   // Load saved TTS Mode (default: browser)
   const TTS_DEFAULT = 'browser';
   if (!localStorage.getItem('tts_default_browser_v1')) {
@@ -360,33 +363,32 @@ document.addEventListener('DOMContentLoaded', () => {
     localStorage.setItem('tts_default_browser_v1', '1');
   } else if (!localStorage.getItem('tts_mode')) {
     localStorage.setItem('tts_mode', TTS_DEFAULT);
-  } else if (localStorage.getItem('tts_mode') === 'ai' && !localStorage.getItem('elevenlabs_key')) {
-    localStorage.setItem('tts_mode', TTS_DEFAULT);
   }
   const savedTTSMode = localStorage.getItem('tts_mode') || TTS_DEFAULT;
   const ttsSelect = document.getElementById('tts-mode-select');
   if (ttsSelect) {
-    ttsSelect.value = savedTTSMode === 'ai' ? 'ai' : TTS_DEFAULT;
+    ttsSelect.value = savedTTSMode;
     toggleTTSVoicePanels(ttsSelect.value);
   }
-
-  // Load saved ElevenLabs Key and Settings
-  const savedElevenLabsKey = localStorage.getItem('elevenlabs_key');
-  if (savedElevenLabsKey) {
-    const elInput = document.getElementById('elevenlabs-key-input');
-    if (elInput) elInput.value = savedElevenLabsKey;
-  }
-  
-  syncElevenLabsVoiceSelect();
 
   populateBrowserVoiceSelect();
   const browserVoiceSelect = document.getElementById('browser-voice-select');
   const savedBrowserVoice = localStorage.getItem('browser_tts_voice') || '';
   if (browserVoiceSelect) browserVoiceSelect.value = savedBrowserVoice;
   
-  const savedElSpeed = localStorage.getItem('elevenlabs_speed') || '0.85';
-  const elSpeedSelect = document.getElementById('elevenlabs-speed-select');
-  if (elSpeedSelect) elSpeedSelect.value = savedElSpeed;
+
+
+  // Load saved Voicevox Settings
+  const savedVxUrl = localStorage.getItem('voicevox_server_url') || 'http://localhost:50021';
+  const vxUrlInput = document.getElementById('voicevox-url-input');
+  if (vxUrlInput) {
+    const portMatch = savedVxUrl.match(/:(\d+)$/);
+    vxUrlInput.value = portMatch ? portMatch[1] : savedVxUrl;
+  }
+
+  const savedVxSpeaker = localStorage.getItem('voicevox_speaker') || '1';
+  const vxSpeakerInput = document.getElementById('voicevox-speaker-input');
+  if (vxSpeakerInput) vxSpeakerInput.value = savedVxSpeaker;
 });
 
 // ─────────────────────────────────────────────
@@ -397,6 +399,37 @@ const GROQ_GRADING_MODELS = {
   balanced: 'llama-3.3-70b-versatile',
   fast: 'llama-3.1-8b-instant',
 };
+
+const AVATAR_MODELS = {
+  simple: {
+    label: 'Simple',
+    paths: [
+      'models/simple/runtime/simple.model3.json',
+      'simple/runtime/simple.model3.json'
+    ]
+  },
+  shizuku: {
+    label: 'Shizuku',
+    paths: [
+      'models/shizuku/shizuku/runtime/shizuku.model3.json',
+      'models/shizuku/runtime/shizuku.model3.json'
+    ]
+  }
+};
+
+function getAvatarModelName() {
+  return localStorage.getItem('avatar_model') || 'simple';
+}
+
+function saveAvatarModel() {
+  const select = document.getElementById('avatar-model-select');
+  if (!select) return;
+  localStorage.setItem('avatar_model', select.value);
+}
+
+function getAvatarModelConfig(name = getAvatarModelName()) {
+  return AVATAR_MODELS[name] || AVATAR_MODELS.simple;
+}
 
 function getGradingModel() {
   const saved = localStorage.getItem('groq_grading_model');
@@ -485,12 +518,10 @@ function saveJLPTLevel() {
 }
 
 function toggleTTSVoicePanels(mode) {
-  const elSettings = document.getElementById('elevenlabs-settings-section');
-  const elVoiceOptions = document.getElementById('elevenlabs-voice-options');
   const browserContainer = document.getElementById('browser-voice-container');
-  if (elSettings) elSettings.style.display = (mode === 'ai') ? 'block' : 'none';
-  if (elVoiceOptions) elVoiceOptions.style.display = (mode === 'ai') ? 'flex' : 'none';
+  const vxSettings = document.getElementById('voicevox-settings-section');
   if (browserContainer) browserContainer.style.display = (mode === 'browser') ? 'flex' : 'none';
+  if (vxSettings) vxSettings.style.display = (mode === 'voicevox') ? 'block' : 'none';
 }
 
 function saveTTSMode() {
@@ -499,7 +530,6 @@ function saveTTSMode() {
     const mode = select.value;
     localStorage.setItem('tts_mode', mode);
     toggleTTSVoicePanels(mode);
-    if (mode === 'ai') sessionStorage.removeItem('elevenlabs_blocked');
   }
 }
 
@@ -508,48 +538,92 @@ function saveBrowserVoice() {
   if (select) localStorage.setItem('browser_tts_voice', select.value);
 }
 
-function toggleElevenLabsKey() {
-  const input = document.getElementById('elevenlabs-key-input');
-  if (!input) return;
-  input.type = input.type === 'password' ? 'text' : 'password';
-}
 
-function showElevenLabsStatus(message, type) {
-  const statusDiv = document.getElementById('elevenlabs-key-status');
-  if (!statusDiv) return;
-  statusDiv.textContent = message;
-  statusDiv.className = 'import-status ' + type;
-  if (type !== 'info') {
-    setTimeout(() => { statusDiv.className = 'import-status'; }, 8000);
+
+function saveVoicevoxSettings() {
+  const urlInput = document.getElementById('voicevox-url-input');
+  if (urlInput) {
+    const port = urlInput.value.trim();
+    if (port) {
+      const finalUrl = port.startsWith('http') ? port : `http://localhost:${port.replace(/^:/, '')}`;
+      localStorage.setItem('voicevox_server_url', finalUrl);
+    }
   }
 }
 
-function saveElevenLabsKey() {
-  const input = document.getElementById('elevenlabs-key-input');
-  const key = input ? input.value.trim() : '';
-  if (!key) {
-    showElevenLabsStatus('❌ Please enter an ElevenLabs API key.', 'error');
-    return;
-  }
-  localStorage.setItem('elevenlabs_key', key);
-  sessionStorage.removeItem('elevenlabs_blocked');
-  showElevenLabsStatus('✅ ElevenLabs API key saved!', 'success');
-}
-
-function clearElevenLabsKey() {
-  localStorage.removeItem('elevenlabs_key');
-  const input = document.getElementById('elevenlabs-key-input');
-  if (input) input.value = '';
-  sessionStorage.removeItem('elevenlabs_blocked');
-  showElevenLabsStatus('🗑 ElevenLabs API key cleared.', 'info');
-}
-
-function saveElevenLabsSettings() {
-  const voiceSelect = document.getElementById('elevenlabs-voice-select');
-  if (voiceSelect) localStorage.setItem('elevenlabs_voice', voiceSelect.value);
+async function testVoicevoxConnection() {
+  const statusDiv = document.getElementById('voicevox-status');
+  const badge = document.getElementById('voicevox-connection-badge');
+  const badgeText = document.getElementById('voicevox-connection-text');
+  const speakerSelect = document.getElementById('voicevox-speaker-select');
   
-  const speedSelect = document.getElementById('elevenlabs-speed-select');
-  if (speedSelect) localStorage.setItem('elevenlabs_speed', speedSelect.value);
+  const showStatus = (msg, isError) => {
+    if (statusDiv) {
+      statusDiv.textContent = msg;
+      statusDiv.style.display = 'block';
+      statusDiv.className = 'import-status ' + (isError ? 'error' : 'success');
+    }
+  };
+
+  showStatus('Testing connection...', false);
+
+  try {
+    const url = localStorage.getItem('voicevox_server_url') || 'http://localhost:50021';
+    const res = await fetch(`${url}/speakers`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const speakers = await res.json();
+
+    if (badge) {
+      badge.className = 'vv-connection-badge connected';
+      badgeText.textContent = 'Connected to VOICEVOX';
+    }
+    
+    if (speakerSelect) {
+      speakerSelect.replaceChildren();
+      let hasSavedSpeaker = false;
+      const savedSpeaker = localStorage.getItem('voicevox_speaker') || '1';
+
+      speakers.forEach(speaker => {
+        speaker.styles.forEach(style => {
+          const opt = document.createElement('option');
+          opt.value = style.id;
+          opt.textContent = `${speaker.name} (${style.name})`;
+          speakerSelect.appendChild(opt);
+          if (String(style.id) === String(savedSpeaker)) {
+            hasSavedSpeaker = true;
+          }
+        });
+      });
+      
+      if (hasSavedSpeaker) {
+        speakerSelect.value = savedSpeaker;
+      } else if (speakerSelect.options.length > 0) {
+        speakerSelect.selectedIndex = 0;
+        localStorage.setItem('voicevox_speaker', speakerSelect.value);
+      }
+    }
+    showStatus('Connected successfully! Found ' + speakers.length + ' speakers.', false);
+  } catch (err) {
+    console.error(err);
+    if (badge) {
+      badge.className = 'vv-connection-badge disconnected';
+      badgeText.textContent = 'Not connected';
+    }
+    let errMsg = 'Could not connect. Is VOICEVOX running?';
+    if (err.message.includes('Failed to fetch') || err.name === 'TypeError') {
+      errMsg += ' (Check CORS settings)';
+    }
+    showStatus(errMsg, true);
+  }
+}
+
+function saveVoicevoxSpeaker() {
+  const select = document.getElementById('voicevox-speaker-select');
+  const input = document.getElementById('voicevox-speaker-input');
+  if (select && select.value) {
+    localStorage.setItem('voicevox_speaker', select.value);
+    if (input) input.value = select.value;
+  }
 }
 
 function toggleKeyVisibility() {
@@ -725,10 +799,15 @@ async function gradeWithAI(question, expectedAnswer, transcript) {
 let live2dModel = null;
 let live2dApp = null;
 let isAvatarSpeaking = false;
+let avatarMotionTimer = null;
+let avatarMotionIndex = 0;
+let originalShouldRequestIdleMotion = null;
 
 async function initLive2D() {
   const container = document.getElementById('avatar-container');
   if (!container) return;
+
+  const avatarConfig = getAvatarModelConfig();
 
   try {
     if (live2dApp) {
@@ -744,8 +823,30 @@ async function initLive2D() {
     });
     container.appendChild(live2dApp.view);
 
-    const model = await PIXI.live2d.Live2DModel.from('simple/runtime/simple.model3.json');
+    const modelPaths = avatarConfig.paths;
+
+    let model = null;
+    for (const modelPath of modelPaths) {
+      try {
+        model = await PIXI.live2d.Live2DModel.from(modelPath);
+        break;
+      } catch (pathError) {
+        console.warn(`Live2D model path failed: ${modelPath}`, pathError);
+      }
+    }
+
+    if (!model) {
+      throw new Error('Failed to load Live2D model from all configured paths.');
+    }
+
     live2dModel = model;
+
+    const motionManager = model.internalModel && model.internalModel.motionManager;
+    if (motionManager && motionManager.state) {
+      originalShouldRequestIdleMotion = motionManager.state.shouldRequestIdleMotion.bind(motionManager.state);
+      motionManager.state.shouldRequestIdleMotion = () => !isAvatarSpeaking && originalShouldRequestIdleMotion();
+    }
+    motionManager && motionManager.stopAllMotions();
 
     live2dApp.stage.addChild(model);
 
@@ -770,8 +871,76 @@ async function initLive2D() {
   }
 }
 
+function clearAvatarMotionLoop() {
+  if (avatarMotionTimer) {
+    clearTimeout(avatarMotionTimer);
+    avatarMotionTimer = null;
+  }
+}
+
+function startAvatarMotionLoop() {
+  if (!live2dModel || !live2dModel.internalModel || !live2dModel.internalModel.motionManager) {
+    return;
+  }
+
+  const motionManager = live2dModel.internalModel.motionManager;
+  const motionGroups = Object.keys(motionManager.definitions || {});
+
+  if (!motionGroups.length) {
+    return;
+  }
+
+  clearAvatarMotionLoop();
+  avatarMotionIndex = 0;
+
+  const playNextMotion = () => {
+    if (isAvatarSpeaking || !live2dModel || !live2dModel.internalModel || !live2dModel.internalModel.motionManager) {
+      return;
+    }
+
+    const manager = live2dModel.internalModel.motionManager;
+    const groups = Object.keys(manager.definitions || {});
+    if (!groups.length) {
+      return;
+    }
+
+    const group = groups[avatarMotionIndex % groups.length];
+    avatarMotionIndex += 1;
+
+    manager.stopAllMotions();
+
+    live2dModel.motion(group, 0).catch((error) => {
+      console.warn(`Failed to start avatar motion ${group}:`, error);
+    });
+
+    const intervalMs = 5000 + Math.floor(Math.random() * 3000); // 5-8 seconds for a natural rhythm
+    avatarMotionTimer = setTimeout(playNextMotion, intervalMs);
+  };
+
+  playNextMotion();
+}
+
 function toggleSpeaking(speaking) {
   isAvatarSpeaking = speaking;
+
+  const motionManager = live2dModel && live2dModel.internalModel && live2dModel.internalModel.motionManager;
+  const state = motionManager && motionManager.state;
+
+  if (state && originalShouldRequestIdleMotion) {
+    state.shouldRequestIdleMotion = () => !isAvatarSpeaking && originalShouldRequestIdleMotion();
+  }
+
+  if (!motionManager) {
+    return;
+  }
+
+  if (speaking) {
+    clearAvatarMotionLoop();
+    motionManager.stopAllMotions();
+    return;
+  }
+
+  startAvatarMotionLoop();
 }
 
 
@@ -1424,141 +1593,7 @@ function showBtn(id, visible) {
 // ─────────────────────────────────────────────
 // SPEECH SYNTHESIS (TTS)
 // ─────────────────────────────────────────────
-const ELEVENLABS_FREE_FALLBACK_VOICE = '21m00Tcm4TlvDq8ikWAM'; // Rachel (premade)
-const ELEVENLABS_PREMADE_VOICE_IDS = new Set([
-  '21m00Tcm4TlvDq8ikWAM', 'EXAVITQu4vr4xnSDxMaL', 'ErXwobaYiN019PkySvjV', '29vD33N1CtxCmqQRPOHJ',
-]);
-function isElevenLabsPremadeVoice(voiceId) {
-  return ELEVENLABS_PREMADE_VOICE_IDS.has(voiceId);
-}
 
-function getElevenLabsVoiceId() {
-  const saved = localStorage.getItem('elevenlabs_voice');
-  if (saved && isElevenLabsPremadeVoice(saved)) return saved;
-  if (saved) localStorage.setItem('elevenlabs_voice', ELEVENLABS_FREE_FALLBACK_VOICE);
-  return ELEVENLABS_FREE_FALLBACK_VOICE;
-}
-
-function syncElevenLabsVoiceSelect() {
-  const select = document.getElementById('elevenlabs-voice-select');
-  if (select) select.value = getElevenLabsVoiceId();
-}
-
-function isElevenLabsBlocked() {
-  return sessionStorage.getItem('elevenlabs_blocked') === '1';
-}
-
-function getElevenLabsFailureMessage(err) {
-  const code = err.detail?.detail?.code || err.detail?.code || '';
-  const msg = err.detail?.detail?.message || err.detail?.message || '';
-  if (err.status === 402) {
-    if (code === 'paid_plan_required') {
-      return 'ElevenLabs voice not on your plan. Switched to browser TTS.';
-    }
-    if (code === 'insufficient_credits' || /credit/i.test(msg)) {
-      return 'ElevenLabs credits used up. Switched to browser TTS — check usage at elevenlabs.io.';
-    }
-    return 'ElevenLabs quota exceeded (402). Switched to browser TTS.';
-  }
-  if (err.status === 401) return 'Invalid ElevenLabs API key. Using browser TTS.';
-  return 'ElevenLabs unavailable. Using browser TTS.';
-}
-
-function blockElevenLabsTTS(message) {
-  sessionStorage.setItem('elevenlabs_blocked', '1');
-  localStorage.setItem('tts_mode', 'browser');
-  const ttsSelect = document.getElementById('tts-mode-select');
-  if (ttsSelect) ttsSelect.value = 'browser';
-  toggleTTSVoicePanels('browser');
-  showElevenLabsStatus('⚠️ ' + message, 'error');
-}
-
-async function fetchElevenLabsSubscription(apiKey) {
-  const response = await fetch('https://api.elevenlabs.io/v1/user/subscription', {
-    headers: { 'xi-api-key': apiKey },
-  });
-  if (!response.ok) throw new Error('Subscription check failed: HTTP ' + response.status);
-  return response.json();
-}
-
-async function fetchElevenLabsSpeechOnce(apiKey, voiceId, text, modelOpts) {
-  const body = {
-    text: text,
-    model_id: modelOpts.model_id,
-    voice_settings: { stability: 0.55, similarity_boost: 0.75 },
-  };
-  if (modelOpts.language_code) body.language_code = modelOpts.language_code;
-
-  const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
-    method: 'POST',
-    headers: {
-      'xi-api-key': apiKey,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(body),
-  });
-
-  if (!response.ok) {
-    const err = new Error('ElevenLabs API error: ' + response.status);
-    err.status = response.status;
-    try {
-      err.detail = await response.json();
-    } catch (_) { /* ignore */ }
-    throw err;
-  }
-  return response.blob();
-}
-
-async function fetchElevenLabsSpeech(apiKey, voiceId, text) {
-  const models = [
-    { model_id: 'eleven_flash_v2_5', language_code: 'ja' },
-    { model_id: 'eleven_turbo_v2_5', language_code: 'ja' },
-    { model_id: 'eleven_multilingual_v2', language_code: 'ja' },
-  ];
-  let lastErr;
-  for (const modelOpts of models) {
-    try {
-      return await fetchElevenLabsSpeechOnce(apiKey, voiceId, text, modelOpts);
-    } catch (err) {
-      lastErr = err;
-      if (err.status === 402 || err.status === 401 || err.status === 403) throw err;
-    }
-  }
-  throw lastErr;
-}
-
-async function testElevenLabsConnection() {
-  const input = document.getElementById('elevenlabs-key-input');
-  const key = (input ? input.value : localStorage.getItem('elevenlabs_key') || '').trim();
-  if (!key) {
-    showElevenLabsStatus('❌ Enter an API key first.', 'error');
-    return;
-  }
-  showElevenLabsStatus('🔄 Checking ElevenLabs…', 'info');
-  try {
-    const sub = await fetchElevenLabsSubscription(key);
-    const used = sub.character_count ?? 0;
-    const limit = sub.character_limit ?? 0;
-    const remaining = Math.max(0, limit - used);
-    if (remaining < 10) {
-      showElevenLabsStatus(
-        '⚠️ ' + remaining + ' characters left this month (' + used + '/' + limit + '). Use Browser TTS or wait for reset.',
-        'error'
-      );
-      return;
-    }
-    await fetchElevenLabsSpeech(key, ELEVENLABS_FREE_FALLBACK_VOICE, 'テスト');
-    sessionStorage.removeItem('elevenlabs_blocked');
-    showElevenLabsStatus(
-      '✅ ElevenLabs OK — ' + remaining + ' characters remaining (' + used + '/' + limit + ' used).',
-      'success'
-    );
-  } catch (err) {
-    const msg = getElevenLabsFailureMessage(err);
-    showElevenLabsStatus('❌ ' + msg, 'error');
-    if (err.status === 402) blockElevenLabsTTS(msg);
-  }
-}
 
 function getJapaneseVoices() {
   return synth.getVoices().filter(v => v.lang && v.lang.toLowerCase().startsWith('ja'));
@@ -1644,62 +1679,91 @@ function base64ToBlob(base64) {
   return new Blob([u8arr], {type: mime});
 }
 
-async function loadElevenLabsBlob(apiKey, voiceId, text) {
-  const cacheKey = 'tts_cache_v2_' + voiceId + '_' + text;
-  const cachedBase64 = localStorage.getItem(cacheKey);
-  if (cachedBase64) {
-    console.log('Using cached ElevenLabs audio');
-    return base64ToBlob(cachedBase64);
-  }
-  console.log('Fetching new ElevenLabs audio');
-  const blob = await fetchElevenLabsSpeech(apiKey, voiceId, text);
+
+
+let currentAudio = null;
+let currentAudioUrl = null;
+
+async function fetchVoicevoxAudio(text, speakerId = 1) {
+  const url = localStorage.getItem('voicevox_server_url') || 'http://localhost:50021';
   try {
-    const base64Data = await blobToBase64(blob);
-    localStorage.setItem(cacheKey, base64Data);
-  } catch (e) {
-    console.warn('Failed to cache audio (quota full?)', e);
+    const queryParams = new URLSearchParams({ text, speaker: speakerId });
+    const queryResponse = await fetch(`${url}/audio_query?${queryParams}`, {
+      method: 'POST',
+    });
+
+    if (!queryResponse.ok) throw new Error(`Query failed: ${queryResponse.status}`);
+    const queryData = await queryResponse.json();
+
+    const synthParams = new URLSearchParams({ speaker: speakerId });
+    const synthResponse = await fetch(`${url}/synthesis?${synthParams}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'audio/wav',
+      },
+      body: JSON.stringify(queryData),
+    });
+
+    if (!synthResponse.ok) throw new Error(`Synthesis failed: ${synthResponse.status}`);
+    return synthResponse.blob();
+  } catch (err) {
+    console.error('Voicevox fetch error:', err);
+    throw err;
   }
-  return blob;
 }
 
-async function speakWithElevenLabs(text, onEnd) {
-  const apiKey = localStorage.getItem('elevenlabs_key');
-  if (!apiKey) throw new Error('No API key');
+async function speakWithVoicevox(text, onEnd) {
+  try {
+    const speakerId = parseInt(localStorage.getItem('voicevox_speaker')) || 1;
+    const blob = await fetchVoicevoxAudio(text, speakerId);
 
-  const voiceId = getElevenLabsVoiceId();
-  const speed = parseFloat(localStorage.getItem('elevenlabs_speed') || '0.85');
-  const blob = await loadElevenLabsBlob(apiKey, voiceId, text);
+    if (currentAudioUrl) URL.revokeObjectURL(currentAudioUrl);
+    currentAudioUrl = URL.createObjectURL(blob);
+    currentAudio = new Audio(currentAudioUrl);
 
-  const audio = new Audio(URL.createObjectURL(blob));
-  audio.playbackRate = speed;
-  audio.onended = onEnd;
-  audio.onerror = onEnd;
-  audio.play();
+    const speed = parseFloat(localStorage.getItem('tts_speed') || '0.85');
+    currentAudio.playbackRate = speed;
+
+    currentAudio.onplay = () => {
+      toggleSpeaking(true);
+    };
+
+    currentAudio.onended = () => {
+      if (currentAudioUrl) URL.revokeObjectURL(currentAudioUrl);
+      currentAudioUrl = null;
+      currentAudio = null;
+      if (onEnd) onEnd();
+    };
+    currentAudio.onerror = () => {
+      if (currentAudioUrl) URL.revokeObjectURL(currentAudioUrl);
+      currentAudioUrl = null;
+      currentAudio = null;
+      if (onEnd) onEnd();
+    };
+    currentAudio.play();
+  } catch (err) {
+    console.error('Voicevox TTS failed, falling back to browser TTS:', err);
+    speakWithBrowser(text, onEnd);
+  }
 }
 
 function speakQuestion(text, onEnd) {
   setStatus('speaking', 'Speaking question…');
-  toggleSpeaking(true);
 
   const mode = localStorage.getItem('tts_mode') || 'browser'; // default: browser
-  const apiKey = localStorage.getItem('elevenlabs_key');
 
   const wrapOnEnd = () => {
     toggleSpeaking(false);
     if (onEnd) onEnd();
   };
 
-  if (mode === 'ai' && apiKey && !isElevenLabsBlocked()) {
-    speakWithElevenLabs(text, wrapOnEnd).catch(err => {
-      console.error('ElevenLabs TTS failed, falling back to browser TTS', err);
-      const msg = getElevenLabsFailureMessage(err);
-      if (err.status === 402 || err.status === 401) blockElevenLabsTTS(msg);
-      setStatus('speaking', msg);
-      speakWithBrowser(text, wrapOnEnd);
-    });
-  } else {
-    speakWithBrowser(text, wrapOnEnd);
+  if (mode === 'voicevox') {
+    speakWithVoicevox(text, wrapOnEnd);
+    return;
   }
+
+  speakWithBrowser(text, wrapOnEnd);
 }
 
 function speakWithBrowser(text, onEnd) {
@@ -1712,6 +1776,9 @@ function speakWithBrowser(text, onEnd) {
   const jpVoice = pickJapaneseBrowserVoice();
   if (jpVoice) utter.voice = jpVoice;
 
+  utter.onstart = () => {
+    toggleSpeaking(true);
+  };
   utter.onend   = onEnd;
   utter.onerror = onEnd;
   synth.speak(utter);
@@ -1741,7 +1808,7 @@ function startListening(onError) {
 
   recog.onstart = () => {
     listening = true;
-    setStatus('listening', '🎤 Recording… click Submit or Re-record when done');
+    setStatus('listening', '🎤 Recording… click Done or Re-record when done');
     showTranscript('', true);
     showBtn('btn-submit', true);
     showBtn('btn-rerecord', true);
@@ -1802,7 +1869,7 @@ function startAIRecording(onError) {
 
   mediaRecorder.onstart = () => {
     listening = true;
-    setStatus('listening', '🤖 AI Recording… speak clearly then click Submit');
+    setStatus('listening', '🤖 AI Recording… speak clearly then click Done');
     
     const ct = document.getElementById('transcript-content');
     const ph = document.getElementById('transcript-placeholder');
