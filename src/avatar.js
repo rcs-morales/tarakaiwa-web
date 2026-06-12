@@ -21,9 +21,43 @@ export function getAvatarModelConfig(name = getAvatarModelName()) {
   return AVATAR_MODELS[name] || AVATAR_MODELS.simple;
 }
 
-export async function initLive2D() {
+export async function initAvatar() {
   const container = document.getElementById('avatar-container');
   if (!container) return;
+
+  const ttsMode = localStorage.getItem('tts_mode') || 'browser';
+
+  if (ttsMode === 'voicevox') {
+    if (live2dApp) {
+      live2dApp.destroy(true, { children: true, texture: true, baseTexture: true });
+      live2dApp = null;
+      live2dModel = null;
+    }
+
+    container.classList.add('voicevox-mode');
+
+    const speakerId = localStorage.getItem('voicevox_speaker') || '3';
+    const speakerMap = {
+      '3': 'zundamon',
+      '2': 'shikoku_metan',
+      '8': 'kasukabe_tsumugi',
+      '46': 'sayo',
+      '13': 'aoyama_ryusei',
+      '12': 'shirakami_kotarou',
+      '11': 'kurono_takehiro'
+    };
+
+    const charName = speakerMap[speakerId] || 'zundamon';
+    const isSquare = charName === 'kyushu_sora';
+
+    container.innerHTML = `
+      <img src="assets/${charName}.png" class="voicevox-avatar ${isSquare ? 'avatar-square' : ''}" id="vv-avatar-img" onerror="this.onerror=null; this.src='assets/zundamon.png';" alt="${charName}">
+    `;
+    console.log('Voicevox static avatar initialized with local image:', charName);
+    return;
+  }
+
+  container.classList.remove('voicevox-mode');
 
   const avatarConfig = getAvatarModelConfig();
 
@@ -116,7 +150,7 @@ export function resetAvatarPose() {
   try {
     const motionManager = live2dModel && live2dModel.internalModel && live2dModel.internalModel.motionManager;
     motionManager && motionManager.stopAllMotions();
-  } catch (_) {}
+  } catch (_) { }
 }
 
 export function startAvatarMotionLoop() {
@@ -163,6 +197,15 @@ export function startAvatarMotionLoop() {
 
 export function toggleSpeaking(speaking) {
   isAvatarSpeaking = speaking;
+
+  const img = document.getElementById('vv-avatar-img');
+  if (img) {
+    if (speaking) {
+      img.classList.add('bouncing');
+    } else {
+      img.classList.remove('bouncing');
+    }
+  }
 
   const motionManager = live2dModel && live2dModel.internalModel && live2dModel.internalModel.motionManager;
   const state = motionManager && motionManager.state;

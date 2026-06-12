@@ -55,11 +55,20 @@ You can use the live deployed version on Vercel immediately, or run it locally. 
 
 ## 🏗️ Project Structure
 
+The codebase is built with vanilla JavaScript using ES6 Modules:
+
 | File | Role |
 |------|------|
 | `index.html` | Markup, settings UI, and tutorial answer display |
-| `script.js` | Practice flow, STT/TTS, grading, local fallback scoring, and `localStorage` |
-| `style.css` | Layout, theme, and tutorial/target-answer styling |
+| `style.css` | Layout, theme, and UI component styling |
+| `app.js` | Main entry point; coordinates state, practice flow, and module integration |
+| `ai.js` | Groq API integration (Llama 3 grading & Whisper STT) |
+| `stt.js` | Speech-to-Text logic (Web Speech API & audio recording for Whisper) |
+| `tts.js` | Text-to-Speech logic (Browser built-in & VOICEVOX) |
+| `avatar.js` | Live2D avatar initialization and lip-sync handling (PixiJS) |
+| `parser.js` | File parsing (JSON, CSV, Excel) and fuzzy furigana conversion |
+| `ui.js` | DOM manipulation and UI state updates |
+| `data.js` | Default starter Q&A dataset |
 | `groq-guide.html` | Recommended Groq setup and key configuration guide |
 
 ## 🗺️ Roadmap

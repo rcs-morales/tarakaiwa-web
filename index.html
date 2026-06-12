@@ -15,7 +15,7 @@
   </script>
   <script src="https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/pixi-live2d-display/dist/cubism4.min.js"></script>
-  <script type="module" src="app.js"></script>
+  <script type="module" src="src/app.js"></script>
   <script>
     // Fallback: if XLSX doesn't load from CDN, load from alternative source
     if (typeof XLSX === 'undefined') {
@@ -24,7 +24,7 @@
       document.head.appendChild(script);
     }
   </script>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="assets/style.css" />
 </head>
 
 <body>
@@ -140,93 +140,35 @@
 
         <div id="voicevox-settings-section"
           style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
-          <h4 style="font-size: 0.95rem; margin: 0 0 10px 0;">🎙️ VOICEVOX Setup Guide</h4>
-
-          <!-- Connection Status Badge -->
-          <div id="voicevox-connection-badge" class="vv-connection-badge disconnected">
-            <span class="vv-status-dot"></span>
-            <span id="voicevox-connection-text">Not connected</span>
+          <div style="margin-bottom: 8px; text-align: left;">
+            <label style="font-size: 0.8rem; font-weight: bold; color: var(--text); display: block; margin-bottom: 6px;">Cloud Voice:</label>
+            <select id="voicevox-speaker-select"
+              style="width: 100%; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--paper-2); color: var(--text); font-size: 0.82rem;"
+              onchange="saveVoicevoxSpeaker(); initAvatar();">
+              <optgroup label="👩 Clear Female Voices">
+                <option value="3">Zundamon (Neutral & Clear)</option>
+                <option value="2">Shikoku Metan (Bright & Friendly)</option>
+                <option value="8">Kasukabe Tsumugi (Calm)</option>
+                <option value="46">Sayo (Standard Announcer)</option>
+              </optgroup>
+              <optgroup label="👨 Clear Male Voices">
+                <option value="13">Aoyama Ryusei (Standard Young Male)</option>
+                <option value="12">Shirakami Kotarou (Friendly & Energetic)</option>
+                <option value="11">Takehiro (Mature Male)</option>
+              </optgroup>
+            </select>
+            <!-- Keep hidden input for backward compat -->
+            <input type="hidden" id="voicevox-speaker-input" />
           </div>
-
-          <!-- Setup Steps -->
-          <div class="vv-setup-steps">
-            <div class="vv-step">
-              <span class="vv-step-num">1</span>
-              <div class="vv-step-content">
-                <strong>Download VOICEVOX</strong>
-                <p>Download and install the VOICEVOX app (free, ~200 MB):</p>
-                <a href="https://voicevox.hiroshiba.jp/" target="_blank" class="btn btn-import" style="font-size: 0.8rem; padding: 8px 14px; text-decoration: none; display: inline-flex; margin-top: 4px;">
-                  ⬇️ Download VOICEVOX (Official Site)
-                </a>
-              </div>
-            </div>
-
-            <div class="vv-step">
-              <span class="vv-step-num">2</span>
-              <div class="vv-step-content">
-                <strong>Launch the VOICEVOX app</strong>
-                <p>Open the VOICEVOX application on your PC. The engine starts automatically in the background on port <code style="background: var(--paper-2); padding: 1px 5px; border-radius: 3px;">50021</code>.</p>
-              </div>
-            </div>
-
-            <div class="vv-step">
-              <span class="vv-step-num">3</span>
-              <div class="vv-step-content">
-                <strong>Test the connection</strong>
-                <p>Click the button below to check if VOICEVOX is running and reachable:</p>
-                <div class="import-buttons" style="margin-top: 6px;">
-                  <button class="btn btn-import" onclick="testVoicevoxConnection()" id="btn-test-voicevox">
-                    🔌 Test Connection
-                  </button>
-                </div>
-                <div class="import-status" id="voicevox-status"></div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Advanced Settings (collapsed by default) -->
-          <details class="vv-advanced-details">
-            <summary class="vv-advanced-summary">⚙️ Advanced Settings</summary>
-            <div class="vv-advanced-content">
-              <div style="margin-bottom: 12px;">
-                <label style="font-size: 0.8rem; color: var(--muted); display: block; margin-bottom: 4px;">Engine Port:</label>
-                <div class="api-key-row">
-                  <input type="text" id="voicevox-url-input" class="api-key-input"
-                    placeholder="50021" autocomplete="off" />
-                  <button class="btn btn-secondary btn-sm" onclick="saveVoicevoxSettings()"
-                    title="Save Port">💾 Save</button>
-                </div>
-                <p style="font-size: 0.7rem; color: var(--muted); margin-top: 4px;">
-                  Default is <strong>50021</strong>. Only change if you configured a custom port.
-                </p>
-              </div>
-
-              <div style="margin-bottom: 12px;">
-                <label style="font-size: 0.8rem; color: var(--muted); display: block; margin-bottom: 4px;">Voice / Speaker:</label>
-                <select id="voicevox-speaker-select"
-                  style="width: 100%; padding: 6px 8px; border-radius: 6px; border: 1px solid #d0c8b8; background: #fff; color: var(--ink); font-size: 0.82rem;"
-                  onchange="saveVoicevoxSpeaker()">
-                  <option value="1">Press "Test Connection" to load available voices</option>
-                </select>
-                <!-- Keep hidden input for backward compat -->
-                <input type="hidden" id="voicevox-speaker-input" />
-              </div>
-
-              <div class="vv-cors-note">
-                <strong>⚠️ CORS Note:</strong> If the test connection fails with a network error, you may need to
-                enable CORS. Close VOICEVOX, then restart the engine from a terminal with:
-                <code style="display: block; background: var(--paper-2); padding: 6px 10px; border-radius: 4px; margin-top: 6px; font-size: 0.78rem; word-break: break-all;">
-                  run.exe --cors --allow_origin "*"
-                </code>
-              </div>
-            </div>
-          </details>
+          <p style="font-size: 0.72rem; color: var(--muted);">
+            Audio is generated instantly via the free community <strong>api.tts.quest</strong> service.
+          </p>
         </div>
-        <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
+        <div id="avatar-settings-section" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); text-align: left;">
           <label for="avatar-model-select" style="font-size: 0.85rem; font-weight: bold; margin-right: 8px;">Avatar model:</label>
           <select id="avatar-model-select"
             style="padding: 4px; border-radius: 4px; border: 1px solid var(--border); background: var(--paper-2); color: var(--text);"
-            onchange="saveAvatarModel(); initLive2D();">
+            onchange="saveAvatarModel(); initAvatar();">
             <option value="simple">Simple (default)</option>
             <option value="shizuku">Shizuku</option>
           </select>

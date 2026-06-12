@@ -14,13 +14,13 @@ import {
   testApiConnection, gradeWithAI, transcribeWithWhisper, isCorrectLocal
 } from './ai.js';
 import {
-  initLive2D, clearAvatarMotionLoop, startAvatarMotionLoop,
+  initAvatar, clearAvatarMotionLoop, startAvatarMotionLoop,
   toggleSpeaking, getAvatarModelName, saveAvatarModel,
   getAvatarModelConfig
 } from './avatar.js';
 import {
   speakQuestion, cancelCurrentSpeech, populateBrowserVoiceSelect,
-  toggleTTSVoicePanels, testVoicevoxConnection, saveVoicevoxSpeaker
+  toggleTTSVoicePanels, saveVoicevoxSpeaker, preloadVoicevoxAudio
 } from './tts.js';
 import {
   initRecognizer, startListening, abortRecognition,
@@ -31,25 +31,22 @@ import {
 // ─────────────────────────────────────────────
 // GLOBAL EXPORTS (Immediate Registration)
 // ─────────────────────────────────────────────
-window.saveVoicevoxSettings = () => {
-  const urlInput = document.getElementById('voicevox-url-input');
-  if (urlInput) {
-    const port = urlInput.value.trim();
-    if (port) {
-      const finalUrl = port.startsWith('http') ? port : `http://localhost:${port.replace(/^:/, '')}`;
-      localStorage.setItem('voicevox_server_url', finalUrl);
-    }
-  }
-  const speakerInput = document.getElementById('voicevox-speaker-input');
-  if (speakerInput) localStorage.setItem('voicevox_speaker', speakerInput.value);
-};
+
 
 window.saveTTSMode = () => {
   const select = document.getElementById('tts-mode-select');
   if (select) {
     const mode = select.value;
     localStorage.setItem('tts_mode', mode);
+    
+    if (mode === 'voicevox') {
+      localStorage.setItem('voicevox_speaker', '3');
+      const vvSelect = document.getElementById('voicevox-speaker-select');
+      if (vvSelect) vvSelect.value = '3';
+    }
+    
     toggleTTSVoicePanels(mode);
+    initAvatar();
   }
 };
 
@@ -75,7 +72,7 @@ window.saveApiKeyFromInput = saveApiKeyFromInput;
 window.clearApiKey = clearApiKey;
 window.toggleKeyVisibility = toggleKeyVisibility;
 window.saveAvatarModel = saveAvatarModel;
-window.testVoicevoxConnection = testVoicevoxConnection;
+window.initAvatar = initAvatar;
 window.saveVoicevoxSpeaker = saveVoicevoxSpeaker;
 
 
@@ -176,7 +173,7 @@ function startPractice() {
   document.getElementById('screen-start').classList.add('hidden');
   document.getElementById('screen-practice').classList.remove('hidden');
 
-  initLive2D();
+  initAvatar();
 
   navigator.mediaDevices.getUserMedia({ audio: true })
     .then(stream => {
@@ -331,6 +328,14 @@ async function submitAnswer() {
   showCheckedTranscript(raw, furiganaReading, formatLiveTranscript);
 
   setStatus('checking', '🤖 AI is checking your answer…');
+  
+  // Prefetch the next question's audio safely while AI is grading (API is fully idle now)
+  if (current + 1 < QA.length) {
+    if (localStorage.getItem('tts_mode') === 'voicevox') {
+      preloadVoicevoxAudio(QA[current + 1].q);
+    }
+  }
+
   let gradeResult = await gradeWithAI(item.q, item.a, raw);
   if (!gradeResult) {
     setStatus('checking', '⚙️ Using local grading…');
@@ -537,16 +542,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const savedBrowserVoice = localStorage.getItem('browser_tts_voice') || '';
   if (browserVoiceSelect) browserVoiceSelect.value = savedBrowserVoice;
 
-    const savedVvUrl = localStorage.getItem('voicevox_server_url') || 'http://localhost:50021';
-    const vvUrlInput = document.getElementById('voicevox-url-input');
-    if (vvUrlInput) {
-      const portMatch = savedVvUrl.match(/:(\d+)$/);
-      vvUrlInput.value = portMatch ? portMatch[1] : savedVvUrl;
-    }
-
-    const savedVvSpeaker = localStorage.getItem('voicevox_speaker') || '1';
-    const vvSpeakerInput = document.getElementById('voicevox-speaker-input');
-    if (vvSpeakerInput) vvSpeakerInput.value = savedVvSpeaker;
+  const savedVvSpeaker = localStorage.getItem('voicevox_speaker') || '3';
+  const vvSpeakerSelect = document.getElementById('voicevox-speaker-select');
+  if (vvSpeakerSelect) {
+    vvSpeakerSelect.value = savedVvSpeaker;
+  }
 });
 
 // Export functions to window for HTML buttons

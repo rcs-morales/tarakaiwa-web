@@ -3,54 +3,97 @@ import { toggleSpeaking } from './avatar.js';
 
 let currentAudio = null;
 let currentAudioUrl = null;
-
-const VOICEVOX_SERVER_URL = () => localStorage.getItem('voicevox_server_url') || 'http://localhost:50021';
-
-
+const prefetchCache = {};
 
 export function toggleTTSVoicePanels(mode) {
   const browserContainer = document.getElementById('browser-voice-container');
   const vvSettings = document.getElementById('voicevox-settings-section');
+  const avatarSettings = document.getElementById('avatar-settings-section');
+
   if (browserContainer) browserContainer.style.display = (mode === 'browser') ? 'flex' : 'none';
   if (vvSettings) vvSettings.style.display = (mode === 'voicevox') ? 'block' : 'none';
+  if (avatarSettings) avatarSettings.style.display = (mode === 'browser') ? 'block' : 'none';
 }
 
-async function fetchVoicevoxAudio(text, speakerId = 1) {
-  const url = VOICEVOX_SERVER_URL();
-  try {
-    // VOICEVOX expects text & speaker as URL query parameters, not JSON body
-    const queryParams = new URLSearchParams({ text, speaker: speakerId });
-    console.log('VOICEVOX audio_query params:', queryParams.toString());
-    const queryResponse = await fetch(`${url}/audio_query?${queryParams}`, {
-      method: 'POST',
-    });
+export async function preloadVoicevoxAudio(text) {
+  const speakerId = parseInt(localStorage.getItem('voicevox_speaker')) || 3;
+  const cacheKey = `${speakerId}:${text}`;
 
-    if (!queryResponse.ok) throw new Error(`Query failed: ${queryResponse.status}`);
-    const queryData = await queryResponse.json();
+  if (prefetchCache[cacheKey]) return prefetchCache[cacheKey];
 
-    // /synthesis expects speaker as URL param, and the full query object as the JSON body
-    const synthParams = new URLSearchParams({ speaker: speakerId });
-    const synthResponse = await fetch(`${url}/synthesis?${synthParams}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'audio/wav',
-      },
-      body: JSON.stringify(queryData),
-    });
+  const promise = (async () => {
+    try {
+      const apiUrl = `https://api.tts.quest/v3/voicevox/synthesis?text=${encodeURIComponent(text)}&speaker=${speakerId}`;
+      let res;
+      let retries = 3;
+      while (retries > 0) {
+        res = await fetch(apiUrl);
+        if (res.status === 429) {
+          console.warn("TTS Quest API Rate Limited (429). Waiting before retry...");
+          await new Promise(r => setTimeout(r, 2000));
+          retries--;
+          continue;
+        }
+        if (!res.ok) throw new Error(`TTS Quest API failed: ${res.status}`);
+        break;
+      }
 
-    if (!synthResponse.ok) throw new Error(`Synthesis failed: ${synthResponse.status}`);
-    return synthResponse.blob();
-  } catch (err) {
-    console.error('Voicevox fetch error:', err);
-    throw err;
-  }
+      const data = await res.json();
+
+      const statusUrl = data.audioStatusUrl;
+      const audioUrl = data.wavDownloadUrl || data.mp3DownloadUrl;
+
+      if (!statusUrl || !audioUrl) throw new Error("No download URL in response");
+
+      while (true) {
+        const statusRes = await fetch(statusUrl);
+        const statusData = await statusRes.json();
+        if (statusData.isAudioReady) break;
+        if (statusData.isAudioError) throw new Error('Audio generation failed on server');
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+
+      const audioRes = await fetch(audioUrl);
+      if (!audioRes.ok) throw new Error('Failed to download audio blob');
+      return await audioRes.blob();
+    } catch (err) {
+      console.error("Voicevox Prefetch failed:", err);
+      return null;
+    }
+  })();
+
+  prefetchCache[cacheKey] = promise;
+  return promise;
+}
+
+function showVoicevoxLoading() {
+  if (document.getElementById('vv-loading-overlay')) return;
+  const overlay = document.createElement('div');
+  overlay.id = 'vv-loading-overlay';
+  overlay.className = 'vv-loading-overlay';
+  overlay.innerHTML = `
+    <div class="vv-loading-card">
+      <div class="vv-spinner"></div>
+      <h3>☁️ Loading Cloud Voice…</h3>
+      <p>Preparing audio from Voicevox. This may take a few seconds.</p>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+}
+
+function hideVoicevoxLoading() {
+  const overlay = document.getElementById('vv-loading-overlay');
+  if (overlay) overlay.remove();
 }
 
 async function speakWithVoicevox(text, onEnd) {
+  // Only show the loading overlay if the fetch takes longer than 2.5s
+  const loadingTimer = setTimeout(() => showVoicevoxLoading(), 2500);
   try {
-    const speakerId = parseInt(localStorage.getItem('voicevox_speaker')) || 1;
-    const blob = await fetchVoicevoxAudio(text, speakerId);
+    const blob = await preloadVoicevoxAudio(text);
+    clearTimeout(loadingTimer);
+    hideVoicevoxLoading();
+    if (!blob) throw new Error("Could not fetch Voicevox audio");
 
     if (currentAudioUrl) URL.revokeObjectURL(currentAudioUrl);
     currentAudioUrl = URL.createObjectURL(blob);
@@ -61,6 +104,7 @@ async function speakWithVoicevox(text, onEnd) {
 
     currentAudio.onplay = () => {
       toggleSpeaking(true);
+      setStatus('speaking', 'Speaking question…');
     };
 
     currentAudio.onended = () => {
@@ -77,74 +121,10 @@ async function speakWithVoicevox(text, onEnd) {
     };
     currentAudio.play();
   } catch (err) {
+    clearTimeout(loadingTimer);
+    hideVoicevoxLoading();
     console.error('Voicevox TTS failed, falling back to browser TTS:', err);
     speakWithBrowser(text, onEnd);
-  }
-}
-
-export async function testVoicevoxConnection() {
-  const statusDiv = document.getElementById('voicevox-status');
-  const badge = document.getElementById('voicevox-connection-badge');
-  const badgeText = document.getElementById('voicevox-connection-text');
-  const speakerSelect = document.getElementById('voicevox-speaker-select');
-  
-  const showStatus = (msg, isError) => {
-    if (statusDiv) {
-      statusDiv.textContent = msg;
-      statusDiv.style.display = 'block';
-      statusDiv.className = 'import-status ' + (isError ? 'error' : 'success');
-    }
-  };
-
-  showStatus('Testing connection...', false);
-
-  try {
-    const url = VOICEVOX_SERVER_URL();
-    const res = await fetch(`${url}/speakers`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const speakers = await res.json();
-
-    if (badge) {
-      badge.className = 'vv-connection-badge connected';
-      badgeText.textContent = 'Connected to VOICEVOX';
-    }
-    
-    if (speakerSelect) {
-      speakerSelect.replaceChildren();
-      let hasSavedSpeaker = false;
-      const savedSpeaker = localStorage.getItem('voicevox_speaker') || '1';
-
-      speakers.forEach(speaker => {
-        speaker.styles.forEach(style => {
-          const opt = document.createElement('option');
-          opt.value = style.id;
-          opt.textContent = `${speaker.name} (${style.name})`;
-          speakerSelect.appendChild(opt);
-          if (String(style.id) === String(savedSpeaker)) {
-            hasSavedSpeaker = true;
-          }
-        });
-      });
-      
-      if (hasSavedSpeaker) {
-        speakerSelect.value = savedSpeaker;
-      } else if (speakerSelect.options.length > 0) {
-        speakerSelect.selectedIndex = 0;
-        localStorage.setItem('voicevox_speaker', speakerSelect.value);
-      }
-    }
-    showStatus('Connected successfully! Found ' + speakers.length + ' speakers.', false);
-  } catch (err) {
-    console.error(err);
-    if (badge) {
-      badge.className = 'vv-connection-badge disconnected';
-      badgeText.textContent = 'Not connected';
-    }
-    let errMsg = 'Could not connect. Is VOICEVOX running?';
-    if (err.message.includes('Failed to fetch') || err.name === 'TypeError') {
-      errMsg += ' (Check CORS settings)';
-    }
-    showStatus(errMsg, true);
   }
 }
 
@@ -156,8 +136,6 @@ export function saveVoicevoxSpeaker() {
     if (input) input.value = select.value;
   }
 }
-
-
 
 function speakWithBrowser(text, onEnd) {
   const synth = window.speechSynthesis;
@@ -203,13 +181,12 @@ export function cancelCurrentSpeech() {
 
   try {
     toggleSpeaking(false);
-  } catch (_) {}
+  } catch (_) { }
 }
 
 export function speakQuestion(text, onEnd) {
-  setStatus('speaking', 'Speaking question…');
-
   const mode = localStorage.getItem('tts_mode') || 'browser';
+  setStatus('speaking', mode === 'voicevox' ? '☁️ Loading cloud voice...' : 'Speaking question…');
 
   const wrapOnEnd = () => {
     toggleSpeaking(false);

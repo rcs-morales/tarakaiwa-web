@@ -4,6 +4,8 @@ import { hasGroqApiKey } from './ai.js';
 let recog = null;
 let listening = false;
 let liveTranscript = '';
+let finalTranscript = '';
+let intentionalStop = false;
 let micStream = null;
 let mediaRecorder = null;
 let audioChunks = [];
@@ -13,6 +15,7 @@ export function isSpeechRecognitionSupported() {
 }
 
 export function abortRecognition() {
+  intentionalStop = true;
   listening = false;
   if (recog) {
     try { recog.abort(); } catch (e) {}
@@ -39,23 +42,37 @@ export function startListening(onError, formatLiveTranscript) {
     return;
   }
   liveTranscript = '';
+  finalTranscript = '';
+  intentionalStop = false;
 
   recog.onstart = () => {
     listening = true;
     setStatus('listening', '🎤 Recording… click Submit or Re-record when done');
-    showTranscript('', true);
+    showTranscript(formatLiveTranscript(liveTranscript) || '', true);
     showBtn('btn-submit', true);
     showBtn('btn-rerecord', true);
     showBtn('btn-skip', false);
   };
+  
   recog.onend = () => {
-    listening = false;
-    const isSubmitting = window.isChecking === true;
-    if (liveTranscript && document.getElementById('btn-next')?.classList.contains('hidden') && !isSubmitting) {
-      showBtn('btn-submit', true);
-      showBtn('btn-rerecord', true);
+    if (!intentionalStop) {
+      // Browser stopped listening due to silence. Save what we have and restart.
+      finalTranscript = liveTranscript;
+      try { 
+        recog.start(); 
+      } catch(e) { 
+        listening = false; 
+      }
+    } else {
+      listening = false;
+      const isSubmitting = window.isChecking === true;
+      if (liveTranscript && document.getElementById('btn-next')?.classList.contains('hidden') && !isSubmitting) {
+        showBtn('btn-submit', true);
+        showBtn('btn-rerecord', true);
+      }
     }
   };
+  
   recog.onresult = (e) => {
     let accumulated = '';
     let interimRaw  = '';
@@ -64,20 +81,28 @@ export function startListening(onError, formatLiveTranscript) {
       else                      interimRaw  += e.results[i][0].transcript;
     }
 
-    const transcript = accumulated + interimRaw;
+    const transcript = finalTranscript + accumulated + interimRaw;
     liveTranscript = transcript;
     showTranscript(formatLiveTranscript(transcript), true);
   };
+  
   recog.onerror = (e) => {
+    if (e.error === 'no-speech') return; // Ignore silence errors, onend will restart it
+    
+    // Some browsers use 'aborted' when we call recog.abort(). 
+    if (e.error === 'aborted') return;
+
+    intentionalStop = true; // Stop restarting if there's a real error
     listening = false;
-    if (e.error === 'no-speech') return;
     const msg = e.error === 'not-allowed'
       ? 'Microphone permission denied.'
       : 'Recognition error: ' + e.error;
     onError(msg);
   };
 
-  recog.start();
+  try {
+    recog.start();
+  } catch(e) {}
 }
 
 export function startAIRecording(onError) {
