@@ -126,7 +126,8 @@ Rules:
 - Only mark wrong for real changes in core action, tense, polarity, or who does what.
 - Mark wrong if the student gives only a fragment or answers only one part of a multi-part question.
 - If the expected answer contains multiple sentences, clauses, or a follow-up question, the student must cover all required parts.
-- For N5, do not fail for harmless wording differences.
+    - For N5, do not fail for harmless wording differences.
+    - Common STT error: the particle 'は' (ha) is often transcribed as 'わ' (wa). Treat these as identical.
 - Return ONLY valid JSON with these keys:
   {"correct": true, "score": 100, "feedback": "", "grammar_notes": "", "particle_notes": "", "vocabulary_notes": "", "suggested_answer": ""}
 `;
@@ -134,10 +135,10 @@ Rules:
 
 function createGrammarRuleHelper(transcriptToFurigana, katakanaToHiragana) {
   const ROMAJI_PARTICLE_MAP = {
-    ha: 'は', ga: 'が', wo: 'を', ni: 'に', he: 'へ', de: 'で', no: 'の',
-    to: 'と', ya: 'や', mo: 'も', kara: 'から', made: 'まで', yori: 'より'
+    ha: 'は', wa: 'は', ga: 'が', wo: 'を', ni: 'に', he: 'へ', de: 'で', no: 'の',
+    to: 'と', ya: 'や', mo: 'も', kara: 'から', made: 'まで', yori: 'より', 'わ': 'は'
   };
-  const PARTICLE_REGEX = /(?:は|が|を|に|へ|で|の|と|や|も|から|まで|より)/g;
+  const PARTICLE_REGEX = /(?:は|わ|が|を|に|へ|で|の|と|や|も|から|まで|より)/g;
   const ROMAJI_PARTICLE_REGEX = /\b(?:ha|ga|wo|ni|he|de|no|to|ya|mo|kara|made|yori)\b/gi;
 
   const normalizeText = (s) => {
@@ -622,12 +623,12 @@ export async function isCorrectLocal(rawTranscript, answer, question = '') {
     finalScore = Math.max(finalScore, 85);
   }
 
-  const particles = ['は', 'が', 'に', 'へ', 'で', 'を', 'の', 'も'];
+  const particles = ['は', 'わ', 'が', 'に', 'へ', 'で', 'を', 'の', 'も'];
   const romajiParticleMap = {
     ha: 'は', ga: 'が', wo: 'を', ni: 'に', he: 'へ', de: 'で', no: 'の',
     to: 'と', ya: 'や', mo: 'も', kara: 'から', made: 'まで', yori: 'より'
   };
-  const particleSet = /(?:は|が|を|に|へ|で|の|と|や|も|から|まで|より)/g;
+  const particleSet = /(?:は|わ|が|を|に|へ|で|の|と|や|も|から|まで|より)/g;
   const romajiParticleSet = /\b(?:ha|ga|wo|ni|he|de|no|to|ya|mo|kara|made|yori)\b/gi;
   const normalizeParticleToken = (token) => {
     const lower = String(token || '').toLowerCase();

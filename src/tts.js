@@ -201,8 +201,8 @@ export function speakQuestion(text, onEnd) {
   speakWithBrowser(text, wrapOnEnd);
 }
 
-export function speakFeedback(text, onEnd) {
-  setStatus('speaking', 'Speaking feedback…');
+export function speakFeedback(text, onEnd, silent = false) {
+  if (!silent) setStatus('speaking', 'Speaking feedback…');
   const wrapOnEnd = () => {
     toggleSpeaking(false);
     if (onEnd) onEnd();

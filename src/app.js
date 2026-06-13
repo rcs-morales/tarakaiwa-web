@@ -81,6 +81,12 @@ let results   = [];
 let synth         = window.speechSynthesis;
 let isChecking    = false;
 window.isChecking = false;
+function playSound(type) {
+  const sounds = { correct: 'assets/sounds/correct.wav', incorrect: 'assets/sounds/incorrect.wav' };
+  const audio = new Audio(sounds[type]);
+  audio.play().catch(e => console.warn('Audio playback failed:', e));
+}
+
 
 // ─────────────────────────────────────────────
 // FILE IMPORT
@@ -196,6 +202,9 @@ async function loadQuestion() {
     toggleBtn.classList.remove('highlight-pulse');
   }
 
+  const btnNext = document.getElementById('btn-next');
+  if (btnNext) btnNext.textContent = 'Next →';
+
   document.getElementById('result-badge').className = 'result-badge';
   document.getElementById('warning-box').style.display = 'none';
   showTranscript('');
@@ -203,6 +212,8 @@ async function loadQuestion() {
   showBtn('btn-next',     false);
   showBtn('btn-rerecord', false);
   showBtn('btn-skip',     true);
+
+  // ... (rest of the function)
 
   const targetBox = document.getElementById('target-answer-box');
   if (targetBox) {
@@ -248,8 +259,12 @@ function toggleQuestionText() {
 
 function speakThenListen(item) {
   speakQuestion(item.q, () => {
+    if (QA[current] !== item) return;
     setStatus('', 'Starting microphone…');
-    setTimeout(() => beginListen(), 800);
+    setTimeout(() => {
+      if (QA[current] !== item) return;
+      beginListen();
+    }, 800);
   });
 }
 
@@ -347,6 +362,7 @@ async function finishRecording() {
     showBtn('btn-skip',     true);
     isChecking = false;
     window.isChecking = false;
+
     return;
   }
 
@@ -356,6 +372,12 @@ async function finishRecording() {
   showBtn('btn-skip', true);
   isChecking = false;
   window.isChecking = false;
+function playSound(type) {
+  const sounds = { correct: 'assets/sounds/correct.wav', incorrect: 'assets/sounds/incorrect.wav' };
+  const audio = new Audio(sounds[type]);
+  audio.play().catch(e => console.warn('Audio playback failed:', e));
+}
+
 }
 
 async function checkAnswer() {
@@ -387,7 +409,7 @@ async function checkAnswer() {
     gradeResult = await isCorrectLocal(raw, item.a, item.q);
   }
 
-  if (gradeResult.correct) score++;
+  if (gradeResult.correct) { score++; playSound("correct"); } else { playSound("incorrect"); }
   const feedbackText = gradeResult.correct ? '正解です！' : '不正解です。';
   results.push({
     q: item.q, a: item.a, transcript: raw, furigana: furiganaReading,
@@ -410,7 +432,14 @@ async function checkAnswer() {
   speakFeedback(feedbackText, () => {
     setStatus('', gradeResult.correct ? 'Correct! 🎉' : 'Incorrect. Review the feedback.');
   });
-  showBtn('btn-next',     true);
+
+  const btnNext = document.getElementById('btn-next');
+  if (btnNext) {
+    showBtn('btn-next', true);
+    if (current === QA.length - 1) {
+      btnNext.textContent = 'Finish Practice';
+    }
+  }
   showBtn('btn-rerecord', false);
   showBtn('btn-check',    false);
   showBtn('btn-skip',     false);
@@ -433,18 +462,24 @@ function rerecordAnswer() {
 
 function nextQuestion() {
   cancelCurrentSpeech();
+  if (current === QA.length - 1) {
+    handleFinishPractice();
+    return;
+  }
   current++;
-  if (current >= QA.length) showResults();
-  else loadQuestion();
+  loadQuestion();
 }
 
 function skipQuestion() {
   cancelCurrentSpeech();
   abortRecognition();
   results.push({ q: QA[current].q, a: QA[current].a, transcript: '(skipped)', correct: false });
+  if (current === QA.length - 1) {
+    handleFinishPractice();
+    return;
+  }
   current++;
-  if (current >= QA.length) showResults();
-  else loadQuestion();
+  loadQuestion();
 }
 
 function endSession() {
@@ -458,7 +493,39 @@ function endSession() {
   showResults();
 }
 
-function showResults() {
+async function handleFinishPractice() {
+  setStatus('checking', 'Calculating overall score…');
+
+  const responses = {
+    pass: [
+      { jp: 'おめでとう！', en: 'Congratulations!' },
+      { jp: 'すごい！', en: 'Amazing!' },
+      { jp: '完璧です！', en: 'Perfect!' },
+      { jp: 'やったね！', en: 'You did it!' },
+      { jp: '素晴らしい！', en: 'Wonderful!' }
+    ],
+    fail: [
+      { jp: 'あともう少し！', en: 'Just a little more!' },
+      { jp: '諦めないで！', en: 'Don\'t give up!' },
+      { jp: 'ゆっくり頑張ろう！', en: 'Let\'s take it slow and keep trying!' },
+      { jp: '次はきっとできる！', en: 'You\'ll definitely get it next time!' }
+    ]
+  };
+
+  const total = results.length;
+  const scoreVal = score;
+  const pct = total ? Math.round((scoreVal / total) * 100) : 0;
+  const passed = pct >= 75;
+  const choice = responses[passed ? 'pass' : 'fail'][Math.floor(Math.random() * (passed ? responses.pass.length : responses.fail.length))];
+
+  if (localStorage.getItem('tts_mode') === 'voicevox') {
+    await preloadVoicevoxAudio(choice.jp);
+  }
+
+  showResults(choice);
+}
+
+async function showResults(choice) {
   if (synth.speaking) synth.cancel();
   document.getElementById('screen-practice').classList.add('hidden');
   const rs = document.getElementById('screen-results');
@@ -475,6 +542,8 @@ function showResults() {
               pct >= 50   ? '👍 Good effort. Keep practicing!' :
                             '📚 Keep studying, you\'ll improve!';
   document.getElementById('score-message').textContent = msg;
+
+  showFinalOverlay(pct, choice);
 
   const list = document.getElementById('results-list');
   if (list) list.replaceChildren();
@@ -525,6 +594,37 @@ function showResults() {
     }
     list.appendChild(div);
   });
+}
+
+async function showFinalOverlay(pct, choice) {
+  const overlay = document.getElementById('final-score-overlay');
+  const icon = document.getElementById('final-score-icon');
+  const text = document.getElementById('final-score-text');
+
+  if (overlay && icon && text) {
+    // Set the appropriate message and icon based on the score
+    const passed = pct >= 75;
+    icon.textContent = passed ? '🎉' : '💪';
+
+    // Display score and the English message in the overlay
+    text.innerHTML = `<div style="font-size: 1.5rem; font-weight: bold; margin-bottom: 4px;">${score} / ${QA.length}</div>
+                     <div style="font-size: 1.1rem; color: var(--muted);">${choice.en}</div>`;
+
+    // Show the overlay immediately
+    overlay.classList.remove('hidden');
+    overlay.style.opacity = '1';
+
+    // Speak only the Japanese message (silently update status)
+    speakFeedback(choice.jp, () => {
+      // Hide overlay after the message is spoken
+      setTimeout(() => {
+        overlay.style.opacity = '0';
+        setTimeout(() => {
+          overlay.classList.add('hidden');
+        }, 1000);
+      }, 2000);
+    }, null, true); // silent = true
+  }
 }
 
 function restartApp() {
@@ -625,3 +725,4 @@ window.saveTTSMode = saveTTSMode;
 window.saveVoicevoxSpeaker = saveVoicevoxSpeaker;
 window.restartApp = restartApp;
 window.clearDatabase = clearDatabase;
+

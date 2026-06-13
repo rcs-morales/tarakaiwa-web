@@ -697,6 +697,30 @@ header {
   margin-top: 12px;
 }
 
+/* ── Final Score Overlay ── */
+#final-score-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(26, 26, 46, 0.85);
+  backdrop-filter: blur(8px);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 1s ease;
+  opacity: 0;
+}
+
+.final-score-card {
+  background: white;
+  padding: 40px;
+  border-radius: 24px;
+  text-align: center;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+  max-width: 320px;
+  width: 90%;
+}
+
 /* ── Utility ── */
 .hidden { display: none !important; }
 .divider { border: none; border-top: 1.5px solid var(--paper-2); margin: 24px 0; }

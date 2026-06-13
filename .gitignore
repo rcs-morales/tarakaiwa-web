@@ -3,6 +3,8 @@ node_modules/
 .DS_Store
 Thumbs.db
 claude.md
+AGENTS.md
+tests/
 
 # Local test and regression files
 src/*_regression.test.js

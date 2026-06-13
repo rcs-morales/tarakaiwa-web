@@ -115,6 +115,10 @@ export function startAIRecording(onError) {
     return;
   }
 
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    try { mediaRecorder.stop(); } catch (e) {}
+  }
+
   liveTranscript = '';
   audioChunks = [];
 
