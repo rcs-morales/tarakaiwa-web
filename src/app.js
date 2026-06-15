@@ -15,6 +15,7 @@ import {
   testApiConnection, gradeWithAI, transcribeWithWhisper, isCorrectLocal,
   translateWithAI
 } from './ai.js';
+import { bugReporter } from './bugReporter.js';
 import {
   initAvatar, clearAvatarMotionLoop, startAvatarMotionLoop,
   toggleSpeaking, getAvatarModelName, saveAvatarModel,
@@ -814,4 +815,5 @@ window.saveTTSMode = saveTTSMode;
 window.saveVoicevoxSpeaker = saveVoicevoxSpeaker;
 window.restartApp = restartApp;
 window.clearDatabase = clearDatabase;
+window.bugReporter = bugReporter;
 

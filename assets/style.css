@@ -865,7 +865,60 @@ header {
   color: var(--muted);
 }
 
-/* ── Voicevox Loading Overlay ── */
+/* ── Bug Report Modal ── */
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(26, 26, 46, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20000;
+  padding: 20px;
+}
+.modal-card {
+  background: white;
+  width: 100%;
+  max-width: 480px;
+  border-radius: 16px;
+  padding: 32px;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+  animation: modal-slide-up 0.3s ease-out;
+}
+@keyframes modal-slide-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+#bug-message {
+  width: 100%;
+  height: 120px;
+  padding: 12px;
+  border: 1.5px solid var(--paper-2);
+  border-radius: 8px;
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 0.9rem;
+  margin-bottom: 20px;
+  resize: none;
+  outline: none;
+}
+#bug-message:focus { border-color: var(--teal); }
+.file-input-row { margin-bottom: 24px; display: flex; flex-direction: column; gap: 8px; }
+.file-input-row label { font-size: 0.8rem; font-weight: 500; color: var(--ink-mid); }
+.modal-btn-row { display: flex; justify-content: flex-end; gap: 12px; }
+
+.btn-submit {
+  background: linear-gradient(135deg, var(--teal), var(--teal-lt));
+  color: #fff;
+  font-size: 1rem;
+  padding: 14px 32px;
+  box-shadow: 0 4px 18px rgba(13,115,119,0.35);
+  animation: submitPulse 1.8s ease-in-out infinite;
+}
+@keyframes submitPulse {
+  0%,100% { box-shadow: 0 4px 18px rgba(13,115,119,0.30); }
+  50%      { box-shadow: 0 4px 28px rgba(13,115,119,0.65); }
+}
 .vv-loading-overlay {
   position: fixed;
   inset: 0;
