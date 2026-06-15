@@ -6,12 +6,14 @@ import {
 import {
   setStatus, showTranscript, showCheckedTranscript,
   showResult, showResultPanel, showBtn, updateQACount, updateStartButton,
-  showImportStatus, showApiKeyStatus, toggleKeyVisibility
+  showImportStatus, showApiKeyStatus, toggleKeyVisibility,
+  showAnswerTranslation, updateCheckedTranslation
 } from './ui.js';
 import {
   getGradingModel, saveGradingModel, updateAIStatusChip,
   saveApiKeyFromInput, clearApiKey, hasGroqApiKey,
-  testApiConnection, gradeWithAI, transcribeWithWhisper, isCorrectLocal
+  testApiConnection, gradeWithAI, transcribeWithWhisper, isCorrectLocal,
+  translateWithAI
 } from './ai.js';
 import {
   initAvatar, clearAvatarMotionLoop, startAvatarMotionLoop,
@@ -202,6 +204,16 @@ async function loadQuestion() {
     toggleBtn.classList.remove('highlight-pulse');
   }
 
+  // Reset translate UI
+  const translateRow = document.getElementById('translate-row');
+  const translateResult = document.getElementById('translate-result');
+  const translateLink = document.getElementById('btn-translate');
+  if (translateRow) translateRow.style.display = 'none';
+  if (translateResult) { translateResult.textContent = ''; translateResult.classList.remove('visible'); }
+  if (translateLink) { translateLink.textContent = '🌐 Translate'; translateLink.classList.remove('loading'); }
+
+  showAnswerTranslation('');
+
   const btnNext = document.getElementById('btn-next');
   if (btnNext) btnNext.textContent = 'Next →';
 
@@ -244,6 +256,7 @@ async function loadQuestion() {
 function toggleQuestionText() {
   const qText = document.getElementById('question-text');
   const btn = document.getElementById('btn-toggle-question');
+  const translateRow = document.getElementById('translate-row');
   if (!qText || !btn) return;
 
   btn.classList.remove('highlight-pulse');
@@ -251,9 +264,66 @@ function toggleQuestionText() {
   if (qText.style.display === 'none') {
     qText.style.display = 'block';
     btn.textContent = '👁 Hide Text';
+    if (translateRow) translateRow.style.display = 'block';
   } else {
     qText.style.display = 'none';
     btn.textContent = '👁 Show Text';
+    if (translateRow) translateRow.style.display = 'none';
+  }
+}
+
+const translationCache = new Map();
+
+async function translateQuestion() {
+  const item = QA[current];
+  if (!item) return;
+
+  const link = document.getElementById('btn-translate');
+  const result = document.getElementById('translate-result');
+  if (!link || !result) return;
+
+  // Prevent multiple concurrent translation requests
+  if (link.classList.contains('loading')) return;
+
+  // If already showing, toggle hide
+  if (result.classList.contains('visible')) {
+    result.classList.remove('visible');
+    link.textContent = '🌐 Translate';
+    return;
+  }
+
+  // Check cache first
+  if (translationCache.has(item.q)) {
+    result.textContent = translationCache.get(item.q);
+    result.classList.add('visible');
+    link.textContent = '🌐 Hide Translation';
+    return;
+  }
+
+  // Attempt AI translation
+  if (!hasGroqApiKey()) {
+    const query = encodeURIComponent(item.q);
+    const url = `https://translate.google.com/?sl=ja&tl=en&text=${query}&op=translate`;
+    result.innerHTML = `⚠️ AI Translation unavailable. <a href="${url}" target="_blank" style="color: var(--teal); text-decoration: underline;">Translate on Google Translate ↗</a>`;
+    result.classList.add('visible');
+    return;
+  }
+
+  link.textContent = '⏳ Translating…';
+  link.classList.add('loading');
+
+  const translation = await translateWithAI(item.q);
+  link.classList.remove('loading');
+
+  if (translation) {
+    translationCache.set(item.q, translation);
+    result.textContent = translation;
+    result.classList.add('visible');
+    link.textContent = '🌐 Hide Translation';
+  } else {
+    result.textContent = '❌ Translation failed. Check your API key or try again.';
+    result.classList.add('visible');
+    link.textContent = '🌐 Translate';
   }
 }
 
@@ -351,7 +421,10 @@ async function finishRecording() {
       }
     }
   } else {
+    setStatus('checking', '⌛ Processing transcript…');
     abortRecognition();
+    // Small delay to simulate processing and allow UI to update
+    await new Promise(resolve => setTimeout(resolve, 600));
   }
 
   const raw = getLiveTranscript().trim();
@@ -427,6 +500,21 @@ async function checkAnswer() {
 
   showResult(gradeResult, item.a);
   showResultPanel(true);
+
+  // Translate the user's spoken answer for feedback
+  if (hasGroqApiKey()) {
+    updateCheckedTranslation('user-ans-trans', 'Translating your answer...');
+    translateWithAI(raw).then(trans => {
+      updateCheckedTranslation('user-ans-trans', trans ? 'You said: ' + trans : '');
+    }).catch(() => {
+      updateCheckedTranslation('user-ans-trans', '');
+    });
+  } else {
+    const query = encodeURIComponent(raw);
+    const url = `https://translate.google.com/?sl=ja&tl=en&text=${query}&op=translate`;
+    updateCheckedTranslation('user-ans-trans', `🌐 <a href="${url}" target="_blank" style="color: var(--teal); text-decoration: underline;">Translate what you said on Google Translate ↗</a>`);
+  }
+
   cancelCurrentSpeech();
   setStatus('checking', '🔊 Speaking result feedback…');
   speakFeedback(feedbackText, () => {
@@ -710,6 +798,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // Export functions to window for HTML buttons
 window.startPractice = startPractice;
 window.toggleQuestionText = toggleQuestionText;
+window.translateQuestion = translateQuestion;
 window.finishRecording = finishRecording;
 window.checkAnswer = checkAnswer;
 window.rerecordAnswer = rerecordAnswer;

@@ -117,8 +117,53 @@ header {
   line-height: 1.7;
   color: var(--ink);
   min-height: 56px;
+  margin-bottom: 8px;
+}
+
+/* â”€â”€ Translate feature â”€â”€ */
+.translate-row {
   margin-bottom: 28px;
 }
+.translate-link {
+  display: inline-block;
+  font-family: 'DM Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--teal);
+  cursor: pointer;
+  letter-spacing: 0.03em;
+  transition: color 0.2s, opacity 0.2s;
+  user-select: none;
+  opacity: 0.85;
+  text-decoration: none;
+}
+.translate-link:hover {
+  color: var(--teal-lt);
+  opacity: 1;
+  text-decoration: underline;
+}
+.translate-link.loading {
+  pointer-events: none;
+  opacity: 0.5;
+}
+.translate-result {
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 0.82rem;
+  color: var(--muted);
+  font-style: italic;
+  line-height: 1.6;
+  margin-top: 6px;
+  padding-left: 2px;
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: max-height 0.4s ease, opacity 0.4s ease, margin-top 0.3s ease;
+}
+.translate-result.visible {
+  max-height: 200px;
+  opacity: 1;
+  margin-top: 6px;
+}
+
 
 /* ── Status pulse ── */
 .status-area {
@@ -177,6 +222,12 @@ header {
   font-size: 0.88rem;
   color: var(--teal);
   font-family: 'Noto Sans JP', sans-serif;
+}
+.trans-small {
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-style: italic;
+  margin-top: 2px;
 }
 
 /* ── AI Recording indicator ── */

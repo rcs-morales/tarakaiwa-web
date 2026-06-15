@@ -60,7 +60,37 @@ export function clearApiKey() {
 }
 
 export function hasGroqApiKey() {
-  return !!localStorage.getItem('api_key');
+  return !!(localStorage.getItem('api_key') || localStorage.getItem('gemini_api_key'));
+}
+
+export async function translateWithAI(japaneseText) {
+  const apiKey = localStorage.getItem('api_key') || localStorage.getItem('gemini_api_key');
+  if (!apiKey) return null;
+
+  try {
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + apiKey,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: getGradingModel(),
+        temperature: 0.1,
+        max_tokens: 200,
+        messages: [
+          { role: 'system', content: 'You are a Japanese-to-English translator. Translate the following Japanese text to natural English. Return ONLY the English translation, nothing else.' },
+          { role: 'user', content: japaneseText }
+        ]
+      })
+    });
+    if (!response.ok) return null;
+    const data = await response.json();
+    return (data.choices?.[0]?.message?.content || '').trim();
+  } catch (e) {
+    console.error('Translation error:', e);
+    return null;
+  }
 }
 
 export async function testApiConnection() {

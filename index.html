@@ -200,6 +200,10 @@
       <button class="btn btn-secondary" id="btn-toggle-question" onclick="toggleQuestionText()" style="padding: 4px 8px; font-size: 0.8rem; height: auto; min-height: 0;">👁 Show Text</button>
     </div>
     <div class="question-text" id="question-text" style="display: none;">—</div>
+    <div class="translate-row" id="translate-row" style="display: none;">
+      <span class="translate-link" id="btn-translate" onclick="translateQuestion()">🌐 Translate</span>
+      <div class="translate-result" id="translate-result"></div>
+    </div>
 
       <div class="warning-box" id="warning-box">
         ⚠️ Microphone access is required. Please allow microphone permission when prompted,
@@ -229,6 +233,7 @@
         <div class="result-badge-content">
           <div id="result-msg"></div>
           <div class="answer-reveal" id="answer-reveal"></div>
+          <div id="answer-translation" class="ai-feedback-text" style="font-style: normal; opacity: 0.8; margin-bottom: 4px;"></div>
           <div class="ai-feedback" id="ai-feedback"></div>
         </div>
       </div>

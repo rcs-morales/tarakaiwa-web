@@ -1,3 +1,8 @@
+export function showAnswerTranslation(text) {
+  const el = document.getElementById('answer-translation');
+  if (el) el.innerHTML = text;
+}
+
 export function setStatus(state, text) {
   const dot  = document.getElementById('pulse');
   const stxt = document.getElementById('status-text');
@@ -34,11 +39,27 @@ export function showCheckedTranscript(raw, furiganaReading, formatLiveTranscript
   const heard = document.createElement('div');
   heard.textContent = formatLiveTranscript(raw);
 
+  const userTrans = document.createElement('div');
+  userTrans.id = 'user-ans-trans';
+  userTrans.className = 'trans-small';
+
   const checked = document.createElement('div');
   checked.className = 'transcript-furigana';
-  checked.textContent = 'Checked (reading): ' + furiganaReading;
 
-  ct.replaceChildren(heard, checked);
+  const readingLine = document.createElement('div');
+  readingLine.textContent = 'Checked (reading): ' + furiganaReading;
+
+  const expTrans = document.createElement('div');
+  expTrans.id = 'exp-ans-trans';
+  expTrans.className = 'trans-small';
+
+  checked.append(readingLine, expTrans);
+  ct.replaceChildren(heard, userTrans, checked);
+}
+
+export function updateCheckedTranslation(id, text) {
+  const el = document.getElementById(id);
+  if (el) el.innerHTML = text;
 }
 
 export function showResultPanel(visible) {
@@ -62,13 +83,27 @@ export function showResult(gradeResult, answer) {
   if (!correct && gradeResult.suggestedAnswer) {
     rev.replaceChildren();
     const strong = document.createElement('strong');
-    strong.textContent = 'Correct answer: ';
-    rev.append(strong, document.createTextNode(gradeResult.suggestedAnswer || answer));
+    strong.textContent = 'Expected answer: ';
+    const text = document.createTextNode(gradeResult.suggestedAnswer || answer);
+    const link = document.createElement('a');
+    link.href = `https://translate.google.com/?sl=ja&tl=en&text=${encodeURIComponent(gradeResult.suggestedAnswer || answer)}&op=translate`;
+    link.target = '_blank';
+    link.textContent = ' 🌐 Translate';
+    link.title = 'Translate answer';
+    link.className = 'translate-link';
+    rev.append(strong, text, link);
   } else {
     rev.replaceChildren();
     const strong = document.createElement('strong');
     strong.textContent = correct ? 'Expected answer: ' : 'Expected: ';
-    rev.append(strong, document.createTextNode(answer));
+    const text = document.createTextNode(answer);
+    const link = document.createElement('a');
+    link.href = `https://translate.google.com/?sl=ja&tl=en&text=${encodeURIComponent(answer)}&op=translate`;
+    link.target = '_blank';
+    link.textContent = ' 🌐 Translate';
+    link.title = 'Translate answer';
+    link.className = 'translate-link';
+    rev.append(strong, text, link);
   }
 
   aiFb.replaceChildren();

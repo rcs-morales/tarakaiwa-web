@@ -1,22 +1,17 @@
-# 🗣️ JLPT Speaking Practice App
+# 🗣️ TaraKaiwa
 
-A web-based application designed to help Japanese language learners practice their speaking skills. Currently tailored for **JLPT N5** level practice, the app uses AI to evaluate pronunciation, vocabulary, and grammar in real-time.
+TaraKaiwa is a web-based application designed to help Japanese language learners practice their speaking skills. Currently tailored for **JLPT N5** level practice, the app uses AI to evaluate pronunciation, vocabulary, and grammar in real-time.
 
-**🌍 Live Demo**: [Play JLPT Speaking Practice App on Vercel](https://jlpt-speaking-app-web.vercel.app/) *(Add a Groq API key in settings for AI speech recognition and grading. VOICEVOX is optional for local AI text-to-speech.)*
+**🌍 Live Demo**: on Vercel (https://tara-kaiwa-web.vercel.app/) *(Add a Groq API key in settings for AI speech recognition and grading. VOICEVOX is optional for local AI text-to-speech.)*
 
 ## ✨ Key Features
 
-- **AI Speech Recognition**: Powered by Groq's Whisper API (`whisper-large-v3-turbo`) for incredibly fast and accurate Japanese speech-to-text, natively handling kanji and katakana.
-- **Intelligent Grading**: Uses Llama 3 (via Groq) to grade your answers. It provides detailed feedback on grammar, particle usage, vocabulary, and—when AI is unavailable—local fallback scoring with particle/conjugation penalties.
-- **Adjustable Strictness**: Choose your JLPT level (N5, N4, N3). The AI dynamically adjusts its grading rules, forgiving common Speech-to-Text kanji homophone errors at lower levels.
-- **Dual STT Modes**: Seamlessly toggle between AI (Groq Whisper) for maximum accuracy, or your browser's built-in Web Speech API for live text preview.
-- **Dual TTS Modes**: Hear questions with the browser's built-in Japanese voice (free, instant) or **Cloud VOICEVOX** (via api.tts.quest) for high-quality anime voices. Configure voice in settings.
-- **Hybrid Avatar System**: A Live2D avatar (Chitose or Simple) provides visual engagement and lip-syncing for browser TTS. When using Voicevox, the app seamlessly switches to high-quality static character portraits with CSS bounce animations to match the voice.
-- **Furigana Support**: Automatically generates furigana readings for spoken kanji to help you review your transcripts.
-- **Tutorial Mode**: The first few questions display the target answer and romaji to help beginners practice with guided prompts.
-- **Randomized Practice Sessions**: Questions are presented in a fresh, randomized order every time you start a new practice session.
-- **Starter Q&A Included**: First-time users get a 10-question sample set so the app is usable immediately without importing data.
-- **Local Privacy**: No backend server required. Your API keys and imported Q&A databases are stored entirely in your browser's `localStorage`.
+- **AI-Powered Speech Recognition**: High-accuracy STT via Groq Whisper or live preview using the browser's Web Speech API.
+- **Intelligent AI Grading**: Real-time feedback on grammar and vocabulary with adjustable strictness based on JLPT level (N5, N4, N3).
+- **Immersive Audio & Visuals**: High-quality VOICEVOX or browser voices paired with a lip-syncing Live2D avatar that automatically maps to the voice.
+- **Rich Learning Aids**: Furigana readings for kanji, a final score overlay, and sound effects for a responsive, gamified feel.
+- **Guided Practice**: Tutorial mode with romaji, randomized sessions, and a built-in starter dataset.
+- **Local Privacy**: No backend required; API keys and data are stored securely in your browser's `localStorage`.
 
 ## 🚀 Getting Started
 
@@ -83,20 +78,6 @@ The codebase is built with vanilla JavaScript using ES6 Modules:
 - [x] Randomized Question Order per Session
 - [ ] Add N4 & N3 Q&A Databases
 - [ ] Mobile-responsive UI improvements
-
-## 🤔 Why Groq only?
-
-OpenRouter’s free routing was removed because grading felt noticeably slow. For this app, **Groq** is the best fit today: one key powers fast **Llama 3** grading, **JSON** responses, and **Whisper** STT in the browser.
-
-Other options (not built in yet):
-
-| Option | Pros | Cons for this app |
-|--------|------|-------------------|
-| **Hugging Face Inference** ([tokens](https://huggingface.co/settings/tokens)) | Many open models; free tier; OpenAI-compatible API | Cold starts on free tier; variable latency; CORS/key exposure in pure client apps |
-| **Ollama / llama.cpp (local)** | Private, no cloud quota | Requires a local server; not suitable for the hosted Vercel demo without extra setup |
-| **Smaller Groq model** | Faster checks — optional **Fast** mode in settings (`llama-3.1-8b-instant`) | Slightly less nuanced Japanese feedback |
-
-If you want a second provider later, Hugging Face’s router (`https://router.huggingface.co/v1`) is the most practical open-source-friendly choice—ideally behind a small backend proxy so API keys are not exposed in the browser.
 
 ## 📄 License & Credits
 
