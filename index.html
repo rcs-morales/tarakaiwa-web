@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>日本語 Voice Practice</title>
+  <title>TaraKaiwa-日本語 Voice Practice</title>
   <link
     href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@300;400;700&family=Noto+Sans+JP:wght@300;400;500&family=DM+Mono:wght@300;400&display=swap"
     rel="stylesheet" />
@@ -29,10 +29,9 @@
 </head>
 
 <body>
-
   <header>
-    <div class="title-jp">日本語会話練習</div>
-    <div class="title-en">Japanese Speaking Practice App</div>
+    <div class="title-jp">TaraKaiwa</div>
+    <div class="title-en">A Japanese Speaking Practice App</div>
   </header>
 
   <div class="card">
@@ -47,12 +46,17 @@
         <span class="chip"><span id="qa-count-chip">🗂 No Questions Loaded</span></span>
         <span class="chip">🇯🇵 Japanese</span>
         <span class="chip">🎤 Voice Input</span>
-        <span class="chip chip-ai" id="ai-status-chip">🤖 AI Grading: <span id="ai-status-text">Not
+        <span class="chip chip-ai" id="ai-status-chip">🧠 AI Grading: <span id="ai-status-text">Not
             configured</span></span>
       </div>
 
+      <!-- Setup Entry Point -->
+      <div id="setup-entry-point" style="text-align: center; margin-bottom: 20px;">
+        <button class="btn btn-primary" id="btn-setup-env" onclick="startSetupFlow()">⚙️ Setup Practice Environment</button>
+      </div>
+
       <!-- Import Section -->
-      <div class="import-section">
+      <div class="import-section" id="import-section">
         <h3>📁 Import Your Own Q&A Database</h3>
         <p>Load your custom questions and answers from a JSON or CSV file:</p>
         <p style="font-size: 0.75rem; color: var(--muted); margin-bottom: 6px;">
@@ -64,18 +68,20 @@
         <input type="file" id="file-input" accept=".json,.csv,.txt,.xlsx,.xls" />
         <div class="import-buttons">
           <button class="btn btn-import" onclick="document.getElementById('file-input').click()">
-            📤 Choose File
+            Choose File
           </button>
           <button class="btn btn-secondary" onclick="clearDatabase()">
-            🗑 Clear
+            Clear
           </button>
         </div>
         <div class="import-status" id="import-status"></div>
       </div>
 
       <!-- AI Settings Section -->
-      <div class="settings-section" id="ai-settings-section">
-        <h3>🤖 AI Answer Grading (Groq)</h3>
+      <div class="settings-section hidden" id="ai-settings-section">
+        <!-- Step 2: API Key -->
+        <div id="setup-step-api-key">
+        <h3>AI Answer Grading (Groq)</h3>
         <p>Enter your Groq API key for fast grading and optional Whisper speech recognition.</p>
         <p style="font-size: 0.75rem; color: var(--muted); margin-bottom: 8px;">
           Get a free API key at <a href="https://console.groq.com/keys" target="_blank" style="color: var(--teal);">Groq
@@ -88,12 +94,15 @@
             title="Show/hide key">👁</button>
         </form>
         <div class="import-buttons" style="margin-top: 8px;">
-          <button class="btn btn-import" onclick="saveApiKeyFromInput()">💾 Save Key</button>
-          <button class="btn btn-secondary" onclick="testApiConnection()">🔌 Test Connection</button>
-          <button class="btn btn-secondary" onclick="clearApiKey()">🗑 Clear Key</button>
+          <button class="btn btn-import" onclick="saveApiKeyFromInput()">Save Key</button>
+          <button class="btn btn-secondary" onclick="testApiConnection()">Test Connection</button>
+          <button class="btn btn-secondary" onclick="clearApiKey()">Clear Key</button>
         </div>
         <div class="import-status" id="api-key-status"></div>
-        <div style="margin-top: 12px;">
+        </div>
+
+        <!-- Step 3: Voice/Avatar/Level -->
+        <div id="setup-step-settings" class="hidden">
           <label for="grading-model-select" style="font-size: 0.85rem; font-weight: bold; margin-right: 8px;">Grading
             speed:</label>
           <select id="grading-model-select"
@@ -112,7 +121,7 @@
           <select id="stt-mode-select"
             style="padding: 4px; border-radius: 4px; border: 1px solid var(--border); background: var(--paper-2); color: var(--text);"
             onchange="saveSTTMode()">
-            <option value="ai">🤖 AI (Groq Whisper) — Best accuracy</option>
+            <option value="ai">🧠 AI (Groq Whisper) — Best accuracy</option>
             <option value="browser">🌐 Browser Built-in — Live preview</option>
           </select>
           <p style="font-size: 0.72rem; color: var(--muted); margin-top: 4px;">
@@ -136,13 +145,13 @@
           <select id="voicevox-speaker-select"
             style="padding: 4px; border-radius: 4px; border: 1px solid var(--border); background: var(--paper-2); color: var(--text); max-width: 100%;"
             onchange="saveVoicevoxSpeaker(); initAvatar();">
-              <optgroup label="👩 Clear Female Voices">
+              <optgroup label="Clear Female Voices">
                 <option value="3">Zundamon (Neutral & Clear)</option>
                 <option value="2">Shikoku Metan (Bright & Friendly)</option>
                 <option value="8">Kasukabe Tsumugi (Calm)</option>
                 <option value="46">Sayo (Standard Announcer)</option>
               </optgroup>
-              <optgroup label="👨 Clear Male Voices">
+              <optgroup label="Clear Male Voices">
                 <option value="13">Aoyama Ryusei (Standard Young Male)</option>
                 <option value="12">Shirakami Kotarou (Friendly & Energetic)</option>
                 <option value="11">Takehiro (Mature Male)</option>
@@ -153,7 +162,7 @@
             Audio is generated instantly via the free community <strong>api.tts.quest</strong> service.
           </p>
         </div>
-        <div id="avatar-settings-section" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); text-align: left;">
+        <div id="avatar-settings-section" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
           <label for="avatar-model-select" style="font-size: 0.85rem; font-weight: bold; margin-right: 8px;">Avatar model:</label>
           <select id="avatar-model-select"
             style="padding: 4px; border-radius: 4px; border: 1px solid var(--border); background: var(--paper-2); color: var(--text);"
@@ -177,18 +186,18 @@
             <option value="N4">N4 (Moderate, minor vocabulary flexibility)</option>
             <option value="N3">N3 (Strict, expects precise vocabulary & grammar)</option>
           </select>
-          <p style="font-size: 0.72rem; color: var(--muted); margin-top: 4px;">
-            Adjusts how strictly the AI grades your pronunciation and vocabulary variations.
-          </p>
-        <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); text-align: center;">
-          <button class="btn btn-secondary btn-sm" onclick="bugReporter.open()">🐞 Report Bug</button>
-        </div>
+          <div style="margin-top: 20px; text-align: right;">
+            <button class="btn btn-primary" onclick="finishSetup()">Finish Setup ✔</button>
+          </div>
         </div>
       </div>
 
-      <button class="btn btn-primary btn-disabled" id="btn-start-practice" onclick="startPractice()" disabled>
-        ⏳ Import a Q&amp;A database to begin
-      </button>
+      <div style="display: flex; justify-content: center; gap: 10px; align-items: center; margin-top: 20px;">
+        <button class="btn btn-primary btn-disabled" id="btn-start-practice" onclick="startPractice()" disabled>
+          ⏳ Import a Q&amp;A database to begin
+        </button>
+        <button class="btn btn-secondary btn-sm" onclick="bugReporter.open()">🐞 Report Bug</button>
+      </div>
     </div>
 
   <!-- ── PRACTICE SCREEN ── -->
@@ -305,7 +314,21 @@
       </div>
     </div>
   </div>
-  </div><!-- /card -->
+
+  <!-- ── AI Study Assistant ── -->
+  <button id="btn-ai-assistant" class="btn-ai-float" title="AI Study Assistant">📚</button>
+  <div id="ai-assistant-panel" class="ai-panel hidden">
+    <div class="ai-panel-header">
+      <span>🤖 AI Study Assistant</span>
+      <button id="btn-close-ai" class="btn-close-ai">✕</button>
+    </div>
+    <div id="ai-chat-history" class="ai-chat-history"></div>
+    <div class="ai-panel-input">
+      <input type="text" id="ai-chat-input" placeholder="Ask about grammar, vocab..." autocomplete="off" />
+      <button id="btn-ai-send" class="btn-ai-send">Send</button>
+    </div>
+    <div class="ai-panel-resizer"></div>
+  </div>
 
 </body>
 

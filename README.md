@@ -1,6 +1,6 @@
 # 🗣️ TaraKaiwa
 
-TaraKaiwa from the filipino word "Tara = let's go" and japanese word "Kaiwa = talk" is a web-based application designed to help Japanese language learners practice their speaking skills. Currently tailored for **JLPT N5** level practice, the app uses AI to evaluate pronunciation, vocabulary, and grammar in real-time.
+TaraKaiwa from the filipino word "Tara = let's" and japanese word "Kaiwa = talk" is a web-based application designed to help Japanese language learners practice their speaking skills. Currently tailored for **JLPT N5** level practice, the app uses AI to evaluate pronunciation, vocabulary, and grammar in real-time.
 
 **🌍 Live Demo**: on Vercel (https://tarakaiwa-web.vercel.app/) *(Add a Groq API key in settings for AI speech recognition and grading. VOICEVOX is optional for local AI text-to-speech.)*
 

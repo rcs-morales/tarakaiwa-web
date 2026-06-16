@@ -13,7 +13,7 @@ import {
   getGradingModel, saveGradingModel, updateAIStatusChip,
   saveApiKeyFromInput, clearApiKey, hasGroqApiKey,
   testApiConnection, gradeWithAI, transcribeWithWhisper, isCorrectLocal,
-  translateWithAI
+  translateWithAI, askStudyAssistant
 } from './ai.js';
 import { bugReporter } from './bugReporter.js';
 import {
@@ -81,6 +81,8 @@ let QA = [];
 let current   = 0;
 let score     = 0;
 let results   = [];
+const assistantHistory = [];
+export { assistantHistory };
 let synth         = window.speechSynthesis;
 let isChecking    = false;
 window.isChecking = false;
@@ -91,9 +93,46 @@ function playSound(type) {
 }
 
 
+
 // ─────────────────────────────────────────────
-// FILE IMPORT
+// SETUP FLOW
 // ─────────────────────────────────────────────
+
+window.startSetupFlow = () => {
+  document.getElementById('setup-entry-point').classList.add('hidden');
+  nextSetupStep('setup-step-api-key');
+};
+
+window.nextSetupStep = (stepId) => {
+  // Hide all potential steps
+  const steps = ['import-section', 'setup-step-api-key', 'setup-step-settings'];
+  steps.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.add('hidden');
+  });
+
+  // Show the target step
+  const target = document.getElementById(stepId);
+  if (target) {
+    target.classList.remove('hidden');
+    // If the target is inside the ai-settings-section, make sure that section is visible
+    const section = document.getElementById('ai-settings-section');
+    if (section && (stepId === 'setup-step-api-key' || stepId === 'setup-step-settings')) {
+      section.classList.remove('hidden');
+    }
+  }
+};
+
+window.finishSetup = () => {
+  document.getElementById('ai-settings-section').classList.add('hidden');
+  document.getElementById('setup-entry-point').classList.remove('hidden');
+  // Optionally, hide the setup button if they are fully configured
+  if (hasGroqApiKey() && QA.length > 0) {
+    document.getElementById('setup-entry-point').classList.add('hidden');
+  }
+};
+
+// Modified handleFileImport to include "Next" button logic if in setup flow
 async function handleFileImport(event) {
   const file = event.target.files[0];
   if (!file) return;
@@ -129,6 +168,22 @@ async function handleFileImport(event) {
       updateQACount(QA.length);
       updateStartButton(QA.length);
       showImportStatus('✅ Successfully imported ' + qa.length + ' question' + (qa.length !== 1 ? 's' : '') + ' from ' + file.name, 'success');
+
+      // If we are in the setup flow, show the "Next" button
+      const importSection = document.getElementById('import-section');
+      if (importSection && !importSection.classList.contains('hidden')) {
+        const btnContainer = document.createElement('div');
+        btnContainer.id = 'setup-next-import-container';
+        btnContainer.style.marginTop = '20px';
+        btnContainer.style.textAlign = 'right';
+        btnContainer.innerHTML = `<button class="btn btn-primary" onclick="nextSetupStep('setup-step-api-key')">Next: AI Settings →</button>`;
+
+        // Remove existing one if it exists
+        const existing = document.getElementById('setup-next-import-container');
+        if (existing) existing.remove();
+
+        importSection.appendChild(btnContainer);
+      }
     } catch (error) {
       showImportStatus('❌ Import failed: ' + error.message, 'error');
     }
@@ -159,6 +214,67 @@ function clearDatabase() {
 // ─────────────────────────────────────────────
 // FLOW
 // ─────────────────────────────────────────────
+export async function handleAssistantQuery(query) {
+  if (!query) return;
+
+  const historyBox = document.getElementById('ai-chat-history');
+  const inputField = document.getElementById('ai-chat-input');
+  const sendBtn = document.getElementById('btn-ai-send');
+  // Removed micBtn reference as it no longer exists in HTML
+
+  appendAiMessage('user', query);
+
+  inputField.value = '';
+  if (sendBtn) sendBtn.disabled = true;
+
+  const assistantMsgDiv = appendAiMessage('assistant', 'Thinking...');
+
+  const result = await askStudyAssistant(query, assistantHistory);
+
+  if (result && result.response) {
+    // Remove furigana processing for the chatbot to avoid clutter and mismatched readings.
+    // Instead, highlight the readings provided in parentheses by the AI.
+    const formattedResponse = result.response.replace(/(\([a-zA-Z\s-]+\))/g, '<span class="ai-reading-highlight">$1</span>');
+    assistantMsgDiv.innerHTML = formattedResponse;
+
+    assistantHistory.push({ role: 'user', content: query });
+    assistantHistory.push({ role: 'assistant', content: result.response });
+
+    if (assistantHistory.length > 20) {
+      assistantHistory.splice(0, assistantHistory.length - 20);
+    }
+  } else {
+    let errorMsg = '❌ Sorry, I encountered an error.';
+    if (result?.error === 'MISSING_KEY') {
+      errorMsg = '❌ No API key found. Please add one in settings.';
+    } else if (result?.error === 'INVALID_KEY') {
+      errorMsg = '❌ Invalid API key. Please check your key in settings.';
+    } else if (result?.error === 'RATE_LIMIT') {
+      errorMsg = '⚠️ Rate limit exceeded. Please wait a moment and try again.';
+    } else if (result?.error === 'NETWORK_ERROR') {
+      errorMsg = '🌐 Network error. Please check your connection.';
+    } else {
+      errorMsg = `❌ API Error (${result?.error || 'Unknown'}). Please try again.`;
+    }
+    assistantMsgDiv.textContent = errorMsg;
+  }
+
+  if (sendBtn) sendBtn.disabled = false;
+  historyBox.scrollTop = historyBox.scrollHeight;
+}
+
+export function appendAiMessage(role, text) {
+  const historyBox = document.getElementById('ai-chat-history');
+  if (!historyBox) return null;
+
+  const msgDiv = document.createElement('div');
+  msgDiv.className = `ai-msg ${role}`;
+  msgDiv.innerHTML = text;
+  historyBox.appendChild(msgDiv);
+  historyBox.scrollTop = historyBox.scrollHeight;
+  return msgDiv;
+}
+
 function startPractice() {
   if (QA.length === 0) {
     alert('Please import a Q&A database before starting practice.');
@@ -446,12 +562,6 @@ async function finishRecording() {
   showBtn('btn-skip', true);
   isChecking = false;
   window.isChecking = false;
-function playSound(type) {
-  const sounds = { correct: 'assets/sounds/correct.wav', incorrect: 'assets/sounds/incorrect.wav' };
-  const audio = new Audio(sounds[type]);
-  audio.play().catch(e => console.warn('Audio playback failed:', e));
-}
-
 }
 
 async function checkAnswer() {
@@ -653,35 +763,112 @@ async function showResults(choice) {
     expected.className = 'ra';
     expected.textContent = (r.correct ? '📝 Expected: ' : '✔ Expected: ') + r.a;
     div.appendChild(expected);
-    if (r.gradeResult && r.gradeResult.feedback) {
+    if (r.gradeResult) {
       const fbDiv = document.createElement('div');
       fbDiv.className = 'ai-result-feedback';
       const src = r.gradeResult.source === 'gemini' ? '🤖' : '⚙️';
-      fbDiv.textContent = src + ' ' + r.gradeResult.feedback;
 
-      const gr = r.gradeResult;
-      const noteTypes = [
-        { label: 'Grammar', text: gr.grammarNotes },
-        { label: 'Particles', text: gr.particleNotes },
-        { label: 'Vocab', text: gr.vocabularyNotes },
-      ];
-      for (const nt of noteTypes) {
-        if (nt.text && nt.text.toLowerCase() !== 'none' && nt.text.trim()) {
-          const note = document.createElement('div');
-          note.className = 'ai-note';
-          const lbl = document.createElement('span');
-          lbl.className = 'ai-note-label';
-          lbl.textContent = nt.label;
-          const txt = document.createElement('span');
-          txt.className = 'ai-note-text';
-          txt.textContent = nt.text;
-          note.append(lbl, txt);
-          fbDiv.appendChild(note);
-        }
+      const generalFb = document.createElement('div');
+      generalFb.className = 'ai-feedback-main';
+      generalFb.textContent = src + ' ' + (r.gradeResult.general_feedback || r.gradeResult.feedback || '');
+      fbDiv.appendChild(generalFb);
+
+      const breakdown = r.gradeResult.breakdown || [];
+      if (breakdown.length > 0) {
+        const bdCont = document.createElement('div');
+        bdCont.className = 'ai-breakdown-container';
+
+        breakdown.forEach(item => {
+          const row = document.createElement('div');
+          row.className = 'breakdown-row';
+
+          const main = document.createElement('div');
+          main.className = 'breakdown-main';
+          main.innerHTML = `<span class="breakdown-original">${item.original}</span> <span class="breakdown-arrow">→</span> <span class="breakdown-corrected">${item.corrected}</span>`;
+
+          const details = document.createElement('div');
+          details.className = 'breakdown-details';
+          details.innerHTML = `<span class="breakdown-category">${item.category}</span> <span class="breakdown-explanation">${item.explanation}</span>`;
+
+          row.append(main, details);
+          bdCont.appendChild(row);
+        });
+        fbDiv.appendChild(bdCont);
       }
       div.appendChild(fbDiv);
     }
     list.appendChild(div);
+  });
+}
+
+function makeDraggable(element, handle) {
+  let isDragging = false;
+  let offsetX = 0, offsetY = 0;
+
+  handle.addEventListener('mousedown', (e) => {
+    isDragging = true;
+    const rect = element.getBoundingClientRect();
+    offsetX = e.clientX - rect.left;
+    offsetY = e.clientY - rect.top;
+    element.style.transition = 'none';
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (isDragging) {
+      const x = e.clientX - offsetX;
+      const y = e.clientY - offsetY;
+      element.style.left = x + 'px';
+      element.style.top = y + 'px';
+      element.style.bottom = 'auto';
+      element.style.right = 'auto';
+    }
+  });
+
+  window.addEventListener('mouseup', () => {
+    if (isDragging) {
+      element.style.transition = '';
+    }
+    isDragging = false;
+  });
+}
+
+function initAiPanelInteractivity() {
+  const panel = document.getElementById('ai-assistant-panel');
+  const header = panel?.querySelector('.ai-panel-header');
+  const resizer = panel?.querySelector('.ai-panel-resizer');
+  if (!panel || !header || !resizer) return;
+
+  makeDraggable(panel, header);
+
+  // ── Resizing Logic ──
+  let isResizing = false;
+  let startWidth = 0, startHeight = 0, startX = 0, startY = 0;
+
+  resizer.addEventListener('mousedown', (e) => {
+    isResizing = true;
+    e.preventDefault();
+    e.stopPropagation();
+    startWidth = panel.offsetWidth;
+    startHeight = panel.offsetHeight;
+    startX = e.clientX;
+    startY = e.clientY;
+    panel.style.transition = 'none';
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (isResizing) {
+      const width = startWidth + (e.clientX - startX);
+      const height = startHeight + (e.clientY - startY);
+      if (width > 280) panel.style.width = width + 'px';
+      if (height > 300) panel.style.height = height + 'px';
+    }
+  });
+
+  window.addEventListener('mouseup', () => {
+    if (isResizing) {
+      panel.style.transition = '';
+    }
+    isResizing = false;
   });
 }
 
@@ -719,6 +906,7 @@ async function showFinalOverlay(pct, choice) {
 function restartApp() {
   abortRecognition();
   releaseMic();
+  assistantHistory = [];
   document.getElementById('screen-results').style.display = 'none';
   document.getElementById('screen-start').classList.remove('hidden');
   document.getElementById('screen-practice').classList.add('hidden');
@@ -794,6 +982,76 @@ document.addEventListener('DOMContentLoaded', () => {
   if (vvSpeakerSelect) {
     vvSpeakerSelect.value = savedVvSpeaker;
   }
+
+  // ── AI Study Assistant Event Listeners ──
+  const btnAiAssistant = document.getElementById('btn-ai-assistant');
+  const aiPanel = document.getElementById('ai-assistant-panel');
+  const btnCloseAi = document.getElementById('btn-close-ai');
+  const btnAiSend = document.getElementById('btn-ai-send');
+  const btnAiMic = document.getElementById('btn-ai-mic');
+  const aiChatInput = document.getElementById('ai-chat-input');
+
+  if (btnAiAssistant && aiPanel) {
+    btnAiAssistant.addEventListener('click', () => {
+      if (aiPanel.classList.contains('hidden')) {
+        const btnRect = btnAiAssistant.getBoundingClientRect();
+
+        // Disable transitions to prevent "sliding" from the default CSS position
+        aiPanel.style.transition = 'none';
+
+        // Align right edge of panel with right edge of button
+        aiPanel.style.left = (btnRect.right - (aiPanel.offsetWidth || 360)) + 'px';
+        // Position panel above the button
+        aiPanel.style.top = (btnRect.top - (aiPanel.offsetHeight || 500)) + 'px';
+
+        // Explicitly clear bottom/right to avoid conflicts with fixed positioning
+        aiPanel.style.bottom = 'auto';
+        aiPanel.style.right = 'auto';
+
+        // Ensure it doesn't go off-screen (simple boundary check)
+        const panelRect = aiPanel.getBoundingClientRect();
+        if (panelRect.left < 0) aiPanel.style.left = '10px';
+        if (panelRect.top < 0) aiPanel.style.top = '10px';
+
+        aiPanel.classList.remove('hidden');
+
+        // Restore transitions after a short delay to allow positioning to snap
+        setTimeout(() => {
+          aiPanel.style.transition = '';
+        }, 10);
+      } else {
+        aiPanel.classList.add('hidden');
+      }
+    });
+  }
+
+  if (btnCloseAi && aiPanel) {
+    btnCloseAi.addEventListener('click', () => {
+      aiPanel.classList.add('hidden');
+    });
+  }
+
+  initAiPanelInteractivity();
+
+  if (btnAiAssistant) {
+    makeDraggable(btnAiAssistant, btnAiAssistant);
+  }
+
+  if (btnAiSend && aiChatInput) {
+    btnAiSend.addEventListener('click', () => {
+      handleAssistantQuery(aiChatInput.value);
+    });
+  }
+
+  if (aiChatInput) {
+    aiChatInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        handleAssistantQuery(aiChatInput.value);
+      }
+    });
+  }
+
+  // Removed btnAiMic listener as the button was removed from HTML
 });
 
 // Export functions to window for HTML buttons

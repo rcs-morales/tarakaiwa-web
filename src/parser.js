@@ -282,19 +282,40 @@ export function transcriptToFuriganaForGrading(raw, answer) {
 
 export function toFuriganaHtml(text) {
   let s = String(text || '');
-
   const phrasePairs = [...KANJI_MAP, ...LESSON_KANJI_MAP]
     .sort((a, b) => b[0].length - a[0].length);
 
-  for (const [kanji, reading] of phrasePairs) {
-    s = s.split(kanji).join(`<ruby>${kanji}<rt>${reading}</rt></ruby>`);
-  }
+  const placeholders = [];
 
-  s = s.replace(/[一-鿿㐀-䶿]/g, (ch) => {
+  // 1. Replace phrases from longest to shortest using a placeholder system
+  // This ensures that words like "お父さん" are matched as a unit before
+  // individual kanji like "父" are processed.
+  phrasePairs.forEach(([kanji, reading]) => {
+    const escaped = kanji.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(escaped, 'g');
+
+    s = s.replace(regex, (match) => {
+      const placeholder = `__RUBY_${placeholders.length}__`;
+      placeholders.push({
+        placeholder,
+        original: match,
+        reading: reading
+      });
+      return placeholder;
+    });
+  });
+
+  // 2. Handle remaining single kanji that weren't part of any phrase
+  // We use a regex to find any remaining kanji and wrap them in ruby tags.
+  s = s.replace(/[一-鿿㐀-䶿]/g, ch => {
     const reading = SINGLE_KANJI_READ[ch] || katakanaToHiragana(ch);
-    return reading && reading !== ch
-      ? `<ruby>${ch}<rt>${reading}</rt></ruby>`
-      : ch;
+    return reading && reading !== ch ? `<ruby>${ch}<rt>${reading}</rt></ruby>` : ch;
+  });
+
+  // 3. Replace placeholders with the phrase ruby tags
+  // We wrap the whole matched phrase in the ruby tag to ensure the reading is exact.
+  placeholders.forEach(({ placeholder, original, reading }) => {
+    s = s.replace(placeholder, `<ruby>${original}<rt>${reading}</rt></ruby>`);
   });
 
   return s;

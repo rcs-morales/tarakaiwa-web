@@ -93,6 +93,48 @@ export async function translateWithAI(japaneseText) {
   }
 }
 
+export async function askStudyAssistant(query, history = []) {
+  const apiKey = localStorage.getItem('api_key') || localStorage.getItem('gemini_api_key');
+  if (!apiKey) return { error: 'MISSING_KEY' };
+
+  try {
+    const messages = [
+      {
+        role: 'system',
+        content: 'You are a professional and encouraging Japanese language tutor. Your goal is to help students with Translation, Vocabulary, and Grammar. \n\nCRITICAL: You MUST always use Kanji characters for all Japanese words that have them. NEVER use only hiragana or romaji if a kanji version exists. This is essential for the app\'s reading highlights to work. \n\nTo make your explanations digestible for learners, please use the following HTML structural formatting:\n- Use <p> tags to separate different sections (e.g., definition, detailed explanation, and examples).\n- Use <strong> tags to highlight the main Japanese term being explained.\n- Use <ul> and <li> tags to list examples or grammar rules.\n- Always include the Kanji character followed by its reading in parentheses (e.g., 時 (toki)).\n\nProvide a natural, straightforward explanation. Avoid technical lists of Onyoumi or Kunyoumi. Use Japanese for key terms but explain them in English. Please use JLPT N5 level kanji and vocabulary as the baseline, but always include the Kanji. Be concise and supportive.'
+      },
+      ...history,
+      { role: 'user', content: query }
+    ];
+
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + apiKey,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: getGradingModel(),
+        temperature: 0.7,
+        max_tokens: 500,
+        messages: messages
+      })
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) return { error: 'INVALID_KEY' };
+      if (response.status === 429) return { error: 'RATE_LIMIT' };
+      return { error: 'API_ERROR_' + response.status };
+    }
+    const data = await response.json();
+    const text = (data.choices?.[0]?.message?.content || '').trim();
+    return { response: text };
+  } catch (e) {
+    console.error('Study Assistant error:', e);
+    return { error: 'NETWORK_ERROR' };
+  }
+}
+
 export async function testApiConnection() {
   const input = document.getElementById('api-key-input');
   let key = input ? input.value : '';
@@ -159,7 +201,20 @@ Rules:
     - For N5, do not fail for harmless wording differences.
     - Common STT error: the particle 'は' (ha) is often transcribed as 'わ' (wa). Treat these as identical.
 - Return ONLY valid JSON with these keys:
-  {"correct": true, "score": 100, "feedback": "", "grammar_notes": "", "particle_notes": "", "vocabulary_notes": "", "suggested_answer": ""}
+  {
+    "correct": boolean,
+    "score": number,
+    "general_feedback": "Overall summary of the performance",
+    "suggested_answer": "The fully corrected version of the student's answer",
+    "breakdown": [
+      {
+        "original": "the specific incorrect part of the student's transcript",
+        "corrected": "the corrected version of that specific part",
+        "category": "Kanji / Particle / Tense / Vocabulary / Word Choice / Punctuation",
+        "explanation": "Detailed explanation of why the change was made"
+      }
+    ]
+  }
 `;
 }
 
@@ -318,8 +373,7 @@ function parseAIGradingResponse(rawText) {
   try {
     return JSON.parse(candidate);
   } catch {
-    // Groq can occasionally truncate a long JSON string. Keep any complete
-    // fields that did arrive so the UI can still show useful grading feedback.
+    // Groq can occasionally truncate a long JSON string.
   }
 
   const parseStringField = (key) => {
@@ -343,19 +397,15 @@ function parseAIGradingResponse(rawText) {
   const partial = {
     correct: parseBoolField('correct'),
     score: parseNumberField('score'),
-    feedback: parseStringField('feedback'),
-    grammar_notes: parseStringField('grammar_notes'),
-    particle_notes: parseStringField('particle_notes'),
-    vocabulary_notes: parseStringField('vocabulary_notes'),
-    suggested_answer: parseStringField('suggested_answer')
+    general_feedback: parseStringField('general_feedback'),
+    suggested_answer: parseStringField('suggested_answer'),
+    breakdown: []
   };
 
   const hasUsefulFeedback = partial.correct !== null
     || partial.score !== null
-    || partial.feedback
-    || partial.grammar_notes
-    || partial.particle_notes
-    || partial.vocabulary_notes;
+    || partial.general_feedback
+    || partial.suggested_answer;
 
   if (!hasUsefulFeedback) return null;
   if (partial.correct === null) partial.correct = false;
@@ -536,18 +586,45 @@ async function finalizeAIGradingResult(text, question, expectedAnswer, transcrip
         : 'Verb tense error: used present tense (ます) instead of required past tense (ました).')
       : sanitize(result.grammar_notes));
 
+    const breakdown = result.breakdown || [];
+
+    if (hasCompletionProblem) {
+      breakdown.push({
+        original: transcript,
+        corrected: expectedAnswer,
+        category: 'Completeness',
+        explanation: completionSignals.reason
+      });
+    }
+
+    if (hasTenseProblem) {
+      breakdown.push({
+        original: transcript,
+        corrected: expectedAnswer,
+        category: 'Tense',
+        explanation: grammarVal || 'Verb tense mismatch.'
+      });
+    }
+
+    if (particleMismatch) {
+      breakdown.push({
+        original: transcript,
+        corrected: expectedAnswer,
+        category: 'Particle',
+        explanation: 'Particle usage should follow the expected pattern in this level.'
+      });
+    }
+
     return {
       correct: isCorrect,
       score: scoreVal,
-      feedback: hasCompletionProblem
+      general_feedback: hasCompletionProblem
         ? completionSignals.reason
         : (particleMismatch
         ? 'Particle usage should follow the expected pattern in this level.'
-        : (aiLooksWrong ? 'Meaning is correct; minor wording differences are acceptable.' : sanitize(result.feedback))),
-      grammarNotes: grammarVal,
-      particleNotes: aiLooksWrong ? '' : sanitize(result.particle_notes),
-      vocabularyNotes: aiLooksWrong ? '' : sanitize(result.vocabulary_notes),
-      suggestedAnswer: sanitize(result.suggested_answer) || (tenseMismatch || hasCompletionProblem ? expectedAnswer : ''),
+        : (aiLooksWrong ? 'Meaning is correct; minor wording differences are acceptable.' : sanitize(result.general_feedback))),
+      suggested_answer: sanitize(result.suggested_answer) || (tenseMismatch || hasCompletionProblem ? expectedAnswer : ''),
+      breakdown: breakdown,
       source: 'groq'
     };
 }
@@ -565,7 +642,7 @@ export async function transcribeWithWhisper(audioBlob, expectedAnswer = '') {
 
   formData.append('file', audioBlob, fileName);
   formData.append('model', 'whisper-large-v3-turbo');
-  formData.append('language', 'ja');
+  formData.append('language', 'en');
   formData.append('temperature', '0');
   formData.append('response_format', 'json');
   
