@@ -1,4 +1,5 @@
 import { AVATAR_MODELS } from './data.js';
+import { get, set, KEYS } from './settings.js';
 
 let live2dModel = null;
 let live2dApp = null;
@@ -8,17 +9,17 @@ let avatarMotionIndex = 0;
 let originalShouldRequestIdleMotion = null;
 
 export function getAvatarModelName() {
-  return localStorage.getItem('avatar_model') || 'simple';
+  return get(KEYS.AVATAR_MODEL);
 }
 
 export function saveAvatarModel() {
   const select = document.getElementById('avatar-model-select');
   if (!select) return;
-  const oldModel = localStorage.getItem('avatar_model');
+  const oldModel = get(KEYS.AVATAR_MODEL);
   const newModel = select.value;
-  
+
   if (oldModel !== newModel) {
-    localStorage.setItem('avatar_model', newModel);
+    set(KEYS.AVATAR_MODEL, newModel);
   }
 }
 
@@ -74,7 +75,7 @@ export async function initAvatar() {
   const container = document.getElementById('avatar-container');
   if (!container) return;
 
-  const ttsMode = localStorage.getItem('tts_mode') || 'browser';
+  const ttsMode = get(KEYS.TTS_MODE);
 
   if (ttsMode === 'voicevox') {
     if (live2dApp) {
@@ -85,7 +86,7 @@ export async function initAvatar() {
 
     container.classList.add('voicevox-mode');
 
-    const speakerId = localStorage.getItem('voicevox_speaker') || '3';
+    const speakerId = get(KEYS.VOICEVOX_SPEAKER);
     const speakerMap = {
       '3': 'zundamon',
       '2': 'shikoku_metan',

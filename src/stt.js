@@ -1,5 +1,6 @@
 import { setStatus, showTranscript, showBtn } from './ui.js';
-import { hasGroqApiKey } from './ai.js';
+import { hasGroqApiKey } from './ai/index.js';
+import { getIsChecking } from './sessionFlags.js';
 
 let recog = null;
 let listening = false;
@@ -65,7 +66,7 @@ export function startListening(onError, formatLiveTranscript) {
       }
     } else {
       listening = false;
-      const isSubmitting = window.isChecking === true;
+      const isSubmitting = getIsChecking();
       if (liveTranscript && document.getElementById('btn-next')?.classList.contains('hidden') && !isSubmitting) {
         showBtn('btn-submit', true);
         showBtn('btn-rerecord', true);

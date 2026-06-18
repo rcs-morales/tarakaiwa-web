@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { gradeWithAI } from '../src/ai.js';
+import { gradeWithAI } from '../src/ai/index.js';
 
 describe('AI Grading Breakdown', () => {
   beforeEach(() => {

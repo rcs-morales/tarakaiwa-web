@@ -52,7 +52,7 @@
 
       <!-- Setup Entry Point -->
       <div id="setup-entry-point" style="text-align: center; margin-bottom: 20px;">
-        <button class="btn btn-primary" id="btn-setup-env" onclick="startSetupFlow()">⚙️ Setup Practice Environment</button>
+        <button class="btn btn-primary" id="btn-setup-env">⚙️ Setup Practice Environment</button>
       </div>
 
       <!-- Import Section -->
@@ -67,10 +67,10 @@
         </p>
         <input type="file" id="file-input" accept=".json,.csv,.txt,.xlsx,.xls" />
         <div class="import-buttons">
-          <button class="btn btn-import" onclick="document.getElementById('file-input').click()">
+          <button class="btn btn-import" id="btn-choose-file">
             Choose File
           </button>
-          <button class="btn btn-secondary" onclick="clearDatabase()">
+          <button class="btn btn-secondary" id="btn-clear-db">
             Clear
           </button>
         </div>
@@ -87,16 +87,16 @@
           Get a free API key at <a href="https://console.groq.com/keys" target="_blank" style="color: var(--teal);">Groq
             Console</a> or <a href="groq-guide.html" style="color: var(--teal); text-decoration: underline;">follow our setup guide</a>.
         </p>
-        <form class="api-key-row" onsubmit="event.preventDefault(); saveApiKeyFromInput();">
+        <form class="api-key-row" id="api-key-form">
           <input type="password" id="api-key-input" class="api-key-input" placeholder="Paste your API key here…"
             autocomplete="off" />
-          <button type="button" class="btn btn-secondary btn-sm" onclick="toggleKeyVisibility()" id="btn-toggle-key"
+          <button type="button" class="btn btn-secondary btn-sm" id="btn-toggle-key"
             title="Show/hide key">👁</button>
         </form>
         <div class="import-buttons" style="margin-top: 8px;">
-          <button class="btn btn-import" onclick="saveApiKeyFromInput()">Save Key</button>
-          <button class="btn btn-secondary" onclick="testApiConnection()">Test Connection</button>
-          <button class="btn btn-secondary" onclick="clearApiKey()">Clear Key</button>
+          <button class="btn btn-import" id="btn-save-api">Save Key</button>
+          <button class="btn btn-secondary" id="btn-test-api">Test Connection</button>
+          <button class="btn btn-secondary" id="btn-clear-api">Clear Key</button>
         </div>
         <div class="import-status" id="api-key-status"></div>
         </div>
@@ -106,8 +106,7 @@
           <label for="grading-model-select" style="font-size: 0.85rem; font-weight: bold; margin-right: 8px;">Grading
             speed:</label>
           <select id="grading-model-select"
-            style="padding: 4px; border-radius: 4px; border: 1px solid var(--border); background: var(--paper-2); color: var(--text);"
-            onchange="saveGradingModel()">
+            style="padding: 4px; border-radius: 4px; border: 1px solid var(--border); background: var(--paper-2); color: var(--text);">
             <option value="llama-3.3-70b-versatile">⚖️ Balanced — Llama 3.3 70B (default)</option>
             <option value="llama-3.1-8b-instant">⚡ Fast — Llama 3.1 8B</option>
           </select>
@@ -119,8 +118,7 @@
           <label for="stt-mode-select" style="font-size: 0.85rem; font-weight: bold; margin-right: 8px;">Speech
             Recognition:</label>
           <select id="stt-mode-select"
-            style="padding: 4px; border-radius: 4px; border: 1px solid var(--border); background: var(--paper-2); color: var(--text);"
-            onchange="saveSTTMode()">
+            style="padding: 4px; border-radius: 4px; border: 1px solid var(--border); background: var(--paper-2); color: var(--text);">
             <option value="ai">🧠 AI (Groq Whisper) — Best accuracy</option>
             <option value="browser">🌐 Browser Built-in — Live preview</option>
           </select>
@@ -132,8 +130,7 @@
           <label for="tts-mode-select" style="font-size: 0.85rem; font-weight: bold; margin-right: 8px;">Text-to-Speech
             (TTS):</label>
           <select id="tts-mode-select"
-            style="padding: 4px; border-radius: 4px; border: 1px solid var(--border); background: var(--paper-2); color: var(--text);"
-            onchange="saveTTSMode()">
+            style="padding: 4px; border-radius: 4px; border: 1px solid var(--border); background: var(--paper-2); color: var(--text);">
             <option value="browser" selected>🌐 Browser Built-in — Free, instant</option>
             <option value="voicevox">🎙️ VOICEVOX — Local, High Quality</option>
           </select>
@@ -143,8 +140,7 @@
           style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
           <label for="voicevox-speaker-select" style="font-size: 0.85rem; font-weight: bold; margin-right: 8px;">Cloud Voice:</label>
           <select id="voicevox-speaker-select"
-            style="padding: 4px; border-radius: 4px; border: 1px solid var(--border); background: var(--paper-2); color: var(--text); max-width: 100%;"
-            onchange="saveVoicevoxSpeaker(); initAvatar();">
+            style="padding: 4px; border-radius: 4px; border: 1px solid var(--border); background: var(--paper-2); color: var(--text); max-width: 100%;">
               <optgroup label="Clear Female Voices">
                 <option value="3">Zundamon (Neutral & Clear)</option>
                 <option value="2">Shikoku Metan (Bright & Friendly)</option>
@@ -158,15 +154,15 @@
               </optgroup>
             </select>
             <input type="hidden" id="voicevox-speaker-input" />
-          <p style="font-size: 0.72rem; color: var(--muted);">
+          <p style="font-size: 0.72rem; color: var(--muted); margin-top: 4px; line-height: 1.4;">
             Audio is generated instantly via the free community <strong>api.tts.quest</strong> service.
           </p>
+          <button id="btn-clear-audio-cache" class="btn btn-secondary" style="margin-top: 8px; font-size: 0.75rem;">🗑️ Clear Audio Cache</button>
         </div>
         <div id="avatar-settings-section" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
           <label for="avatar-model-select" style="font-size: 0.85rem; font-weight: bold; margin-right: 8px;">Avatar model:</label>
           <select id="avatar-model-select"
-            style="padding: 4px; border-radius: 4px; border: 1px solid var(--border); background: var(--paper-2); color: var(--text);"
-            onchange="saveAvatarModel(); initAvatar();">
+            style="padding: 4px; border-radius: 4px; border: 1px solid var(--border); background: var(--paper-2); color: var(--text);">
             <option value="simple">Simple (default)</option>
             <option value="chitose">Chitose</option>
             <option value="epsilon">Epsilon</option>
@@ -180,23 +176,22 @@
           <label for="jlpt-level-select" style="font-size: 0.85rem; font-weight: bold; margin-right: 8px;">Grading
             Strictness:</label>
           <select id="jlpt-level-select"
-            style="padding: 4px; border-radius: 4px; border: 1px solid var(--border); background: var(--paper-2); color: var(--text);"
-            onchange="saveJLPTLevel()">
+            style="padding: 4px; border-radius: 4px; border: 1px solid var(--border); background: var(--paper-2); color: var(--text);">
             <option value="N5">N5 (Very Lenient, ignores STT homophones)</option>
             <option value="N4">N4 (Moderate, minor vocabulary flexibility)</option>
             <option value="N3">N3 (Strict, expects precise vocabulary & grammar)</option>
           </select>
           <div style="margin-top: 20px; text-align: right;">
-            <button class="btn btn-primary" onclick="finishSetup()">Finish Setup ✔</button>
+            <button class="btn btn-primary" id="btn-finish-setup">Finish Setup ✔</button>
           </div>
         </div>
       </div>
 
       <div style="display: flex; justify-content: center; gap: 10px; align-items: center; margin-top: 20px;">
-        <button class="btn btn-primary btn-disabled" id="btn-start-practice" onclick="startPractice()" disabled>
+        <button class="btn btn-primary btn-disabled" id="btn-start-practice" disabled>
           ⏳ Import a Q&amp;A database to begin
         </button>
-        <button class="btn btn-secondary btn-sm" onclick="bugReporter.open()">🐞 Report Bug</button>
+        <button class="btn btn-secondary btn-sm btn-report-bug">🐞 Report Bug</button>
       </div>
     </div>
 
@@ -210,11 +205,11 @@
 
     <div class="question-label" style="display: flex; justify-content: space-between; align-items: center;">
       <span>Question</span>
-      <button class="btn btn-secondary" id="btn-toggle-question" onclick="toggleQuestionText()" style="padding: 4px 8px; font-size: 0.8rem; height: auto; min-height: 0;">👁 Show Text</button>
+      <button class="btn btn-secondary" id="btn-toggle-question" style="padding: 4px 8px; font-size: 0.8rem; height: auto; min-height: 0;">👁 Show Text</button>
     </div>
     <div class="question-text" id="question-text" style="display: none;">—</div>
     <div class="translate-row" id="translate-row" style="display: none;">
-      <span class="translate-link" id="btn-translate" onclick="translateQuestion()">🌐 Translate</span>
+      <span class="translate-link" id="btn-translate">🌐 Translate</span>
       <div class="translate-result" id="translate-result"></div>
     </div>
 
@@ -253,13 +248,13 @@
 
       <div class="btn-row">
         <div class="btn-group-record">
-          <button class="btn btn-submit hidden" id="btn-submit" onclick="finishRecording()">■ Finish Recording</button>
-          <button class="btn btn-primary hidden" id="btn-check" onclick="checkAnswer()">✔ Check Answer</button>
-          <button class="btn btn-secondary hidden" id="btn-rerecord" onclick="rerecordAnswer()">🎤 Re-record</button>
+          <button class="btn btn-submit hidden" id="btn-submit">■ Finish Recording</button>
+          <button class="btn btn-primary hidden" id="btn-check">✔ Check Answer</button>
+          <button class="btn btn-secondary hidden" id="btn-rerecord">🎤 Re-record</button>
         </div>
-        <button class="btn btn-primary hidden" id="btn-next" onclick="nextQuestion()">Next →</button>
-        <button class="btn btn-secondary" id="btn-skip" onclick="skipQuestion()">Skip ▷</button>
-        <button class="btn btn-danger" onclick="endSession()">✕ End</button>
+        <button class="btn btn-primary hidden" id="btn-next">Next →</button>
+        <button class="btn btn-secondary" id="btn-skip">Skip ▷</button>
+        <button class="btn btn-danger" id="btn-end-session">✕ End</button>
       </div>
     </div>
 
@@ -281,10 +276,10 @@
       <hr class="divider">
 
       <div class="btn-row" style="justify-content:center;">
-        <button class="btn btn-primary" onclick="restartApp()">↺ Restart</button>
+        <button class="btn btn-primary" id="btn-restart-app">↺ Restart</button>
       </div>
       <div style="text-align: center; margin-top: 20px;">
-        <button class="btn btn-secondary btn-sm" onclick="bugReporter.open()">🐞 Report Bug</button>
+        <button class="btn btn-secondary btn-sm btn-report-bug">🐞 Report Bug</button>
       </div>
 
     </div>
@@ -309,8 +304,8 @@
         <input type="file" id="bug-screenshot" accept="image/*" />
       </div>
       <div class="modal-btn-row" style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px;">
-        <button class="btn btn-secondary" id="bug-close-btn" onclick="bugReporter.close()">Close</button>
-        <button class="btn btn-primary btn-submit" id="bug-submit-btn" onclick="bugReporter.submit()">Submit Report</button>
+        <button class="btn btn-secondary" id="bug-close-btn">Close</button>
+        <button class="btn btn-primary btn-submit" id="bug-submit-btn">Submit Report</button>
       </div>
     </div>
   </div>

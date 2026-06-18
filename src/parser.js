@@ -1,4 +1,5 @@
 import { KATAKANA_HIRAGANA_MAP, MONTH_READ, DAY_READ, KANJI_DIGIT, KANJI_MAP, LESSON_KANJI_MAP, SINGLE_KANJI_READ } from './data.js';
+import { get, KEYS } from './settings.js';
 
 export function parseJSON(content) {
   try {
@@ -322,7 +323,7 @@ export function toFuriganaHtml(text) {
 }
 
 export function formatLiveTranscript(s) {
-  const level = localStorage.getItem('jlpt_level') || 'N5';
+  const level = get(KEYS.JLPT_LEVEL);
   if (level === 'N5') {
     return transcriptToFurigana(s);
   }

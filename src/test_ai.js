@@ -1,5 +1,5 @@
 
-import { gradeWithAI } from './ai.js';
+import { gradeWithAI } from './ai/index.js';
 
 // Mock localStorage
 const storage = {

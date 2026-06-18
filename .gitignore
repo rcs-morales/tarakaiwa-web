@@ -4,6 +4,12 @@ node_modules/
 Thumbs.db
 claude.md
 AGENTS.md
+Modifications.md
+Phase2.md
 
 # Local test and regression files
 test-results/
+Phase2.md
+
+# Claude Code
+.claude/

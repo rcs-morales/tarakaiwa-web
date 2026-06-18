@@ -1,6 +1,6 @@
 # 🗣️ TaraKaiwa
 
-TaraKaiwa from the filipino word "Tara = let's" and japanese word "Kaiwa = talk" is a web-based application designed to help Japanese language learners practice their speaking skills. Currently tailored for **JLPT N5** level practice, the app uses AI to evaluate pronunciation, vocabulary, and grammar in real-time.
+TaraKaiwa (from the filipino word "Tara = let's" and japanese word "Kaiwa = talk") is a web-based application designed to help Japanese language learners practice their speaking skills. Currently tailored for **JLPT N5** level practice, the app uses AI to evaluate pronunciation, vocabulary, and grammar in real-time.
 
 **🌍 Live Demo**: on Vercel (https://tarakaiwa-web.vercel.app/) *(Add a Groq API key in settings for AI speech recognition and grading. VOICEVOX is optional for local AI text-to-speech.)*
 
@@ -8,10 +8,12 @@ TaraKaiwa from the filipino word "Tara = let's" and japanese word "Kaiwa = talk"
 
 - **AI-Powered Speech Recognition**: High-accuracy STT via Groq Whisper or live preview using the browser's Web Speech API.
 - **Intelligent AI Grading**: Real-time feedback on grammar and vocabulary with adjustable strictness based on JLPT level (N5, N4, N3).
+- **AI Study Assistant**: An interactive companion to help learners clarify doubts, get grammar explanations, and receive tailored study tips.
 - **Immersive Audio & Visuals**: High-quality VOICEVOX or browser voices paired with a lip-syncing Live2D avatar that automatically maps to the voice.
+- **Offline Audio Caching**: VOICEVOX audio is preloaded in batches and saved permanently to your browser's IndexedDB, ensuring zero loading delays on repeated practice sessions.
 - **Rich Learning Aids**: Furigana readings for kanji, a final score overlay, and sound effects for a responsive, gamified feel.
 - **Guided Practice**: Tutorial mode with romaji, randomized sessions, and a built-in starter dataset.
-- **Local Privacy**: No backend required; API keys and data are stored securely in your browser's `localStorage`.
+- **Local Privacy**: No backend required; API keys and data are stored securely in your browser's `localStorage` and `IndexedDB`.
 
 ## 🚀 Getting Started
 
@@ -47,25 +49,30 @@ You can use the live deployed version on Vercel immediately, or run it locally. 
 2. **Adjust settings**: Choose grading speed (balanced or fast Groq model), speech recognition engine, text-to-speech mode (browser or VOICEVOX), JLPT grading strictness, and voice.
 3. *(Optional)* **Local Voicevox Setup**: If you installed Voicevox locally for faster audio, open `src/tts.js` and change `const VOICEVOX_API = 'https://api.tts.quest/v3/voicevox/synthesis';` to `const VOICEVOX_API = 'http://localhost:50021/synthesis';` (or similar depending on your local API routing).
 4. **Use the setup guide if needed**: If Groq or Whisper setup is unclear, open the included guide page (`groq-guide.html`) for the recommended flow.
-5. **Import Data**: Import your Japanese Q&A database (JSON format).
+5. **Import Data**: Import your Japanese Q&A database (JSON, CSV, or Excel format).
 6. **Practice**: Click **Start Practice!** The app speaks the question aloud, records your answer, and returns instant AI grading and feedback.
 
 ## 🏗️ Project Structure
 
-The codebase is built with vanilla JavaScript using ES6 Modules:
+The codebase is built with vanilla JavaScript using ES6 Modules and a modular architecture:
 
-| File | Role |
-|------|------|
-| `index.html` | Markup, settings UI, and tutorial answer display |
-| `style.css` | Layout, theme, and UI component styling |
-| `app.js` | Main entry point; coordinates state, practice flow, and module integration |
-| `ai.js` | Groq API integration (Llama 3 grading & Whisper STT) |
-| `stt.js` | Speech-to-Text logic (Web Speech API & audio recording for Whisper) |
-| `tts.js` | Text-to-Speech logic (Browser built-in & VOICEVOX) |
-| `avatar.js` | Hybrid avatar system: manages PixiJS Live2D models (Chitose) and static portrait switching for Voicevox |
-| `parser.js` | File parsing (JSON, CSV, Excel) and fuzzy furigana conversion |
-| `ui.js` | DOM manipulation and UI state updates |
-| `data.js` | Default starter Q&A dataset |
+| File/Folder | Role |
+|-------------|------|
+| `index.html` | Markup, settings UI, and main application layout |
+| `assets/style.css` | Layout, theme, and UI component styling |
+| `src/app.js` | Main entry point; acts as a lean orchestrator for app initialization and global events |
+| `src/ai/` | Modular AI logic (Groq Client, Whisper STT, AI Grading, and Study Assistant) |
+| `src/session.js` | Manages the state and flow of a practice session (start, next, end, etc.) |
+| `src/settings.js` | Centralized persistent configuration management |
+| `src/db.js` | IndexedDB wrapper for permanent offline Voicevox audio caching and data storage |
+| `src/import.js` | Handles parsing and importing of external Q&A datasets |
+| `src/stt.js` | Speech-to-Text logic (Web Speech API & audio recording for Whisper) |
+| `src/tts.js` | Text-to-Speech logic (Browser built-in & VOICEVOX) |
+| `src/avatar.js` | Hybrid avatar system: manages PixiJS Live2D models and static portraits |
+| `src/parser.js` | File parsing and fuzzy furigana conversion |
+| `src/ui.js` | DOM manipulation and UI state updates |
+| `src/assistant-ui.js`| UI logic for the AI Study Assistant |
+| `src/data.js` | Default starter Q&A dataset |
 | `groq-guide.html` | Recommended Groq setup and key configuration guide |
 
 ## 🗺️ Roadmap
@@ -74,8 +81,10 @@ The codebase is built with vanilla JavaScript using ES6 Modules:
 - [x] Advanced AI Grading (Groq)
 - [x] High-accuracy AI Speech Recognition (Whisper)
 - [x] Cloud AI text-to-speech (VOICEVOX via api.tts.quest)
+- [x] Offline Voicevox Audio Caching (IndexedDB)
 - [x] Hybrid Avatar system (Live2D + Static Portraits)
 - [x] Randomized Question Order per Session
+- [x] AI Study Assistant for learning support
 - [ ] Add N4 & N3 Q&A Databases
 - [ ] Mobile-responsive UI improvements
 
@@ -88,4 +97,3 @@ This app uses a sample model provided by **Live2D Inc.** The use of these materi
 
 **VOICEVOX Audio Generation**:
 Audio synthesis is powered by [VOICEVOX](https://voicevox.hiroshiba.jp/) and served through the free community API [api.tts.quest](https://tts.quest/). When using VOICEVOX characters (e.g., Zundamon, Shikoku Metan), please adhere to their respective character terms of service. 
-

@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import * as app from '../src/app.js';
 
 describe('Chatbot UI Interaction Tests', () => {
   beforeEach(() => {

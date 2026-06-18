@@ -1,6 +1,8 @@
 import { setStatus } from './ui.js';
 import { toggleSpeaking } from './avatar.js';
 import { AVATAR_MODELS } from './data.js';
+import { get, set, KEYS } from './settings.js';
+import { getAudio, saveAudio } from './db.js';
 
 let currentAudio = null;
 let currentAudioUrl = null;
@@ -16,7 +18,7 @@ export function toggleTTSVoicePanels(mode) {
 }
 
 export async function preloadVoicevoxAudio(text) {
-  const speakerId = parseInt(localStorage.getItem('voicevox_speaker')) || 3;
+  const speakerId = parseInt(get(KEYS.VOICEVOX_SPEAKER), 10) || 3;
   const cacheKey = `${speakerId}:${text}`;
 
   if (prefetchCache[cacheKey]) return prefetchCache[cacheKey];
@@ -24,12 +26,17 @@ export async function preloadVoicevoxAudio(text) {
 
   const promise = (async () => {
     try {
+      // ── Check offline cache first ──
+      const cachedBlob = await getAudio(cacheKey);
+      if (cachedBlob) return cachedBlob;
+
+      // ── Fallback to network ──
       const apiUrl = `https://api.tts.quest/v3/voicevox/synthesis?text=${encodeURIComponent(text)}&speaker=${speakerId}`;
       let res;
       res = await fetch(apiUrl);
       if (res.status === 429) {
-        console.warn('TTS Quest API Rate Limited (429). Skipping retry to avoid repeated bursts.');
-        return null;
+        console.warn('TTS Quest API Rate Limited (429).');
+        throw new Error('429 Too Many Requests');
       }
       if (!res.ok) throw new Error(`TTS Quest API failed: ${res.status}`);
 
@@ -50,9 +57,16 @@ export async function preloadVoicevoxAudio(text) {
 
       const audioRes = await fetch(audioUrl);
       if (!audioRes.ok) throw new Error('Failed to download audio blob');
-      return await audioRes.blob();
+      
+      const audioResBlob = await audioRes.blob();
+      
+      // ── Save to offline cache ──
+      await saveAudio(cacheKey, audioResBlob);
+      
+      return audioResBlob;
     } catch (err) {
       console.error("Voicevox Prefetch failed:", err);
+      delete prefetchCache[cacheKey];
       return null;
     }
   })();
@@ -64,6 +78,57 @@ export async function preloadVoicevoxAudio(text) {
   } finally {
     inFlightVoicevoxRequests.delete(cacheKey);
   }
+}
+
+/**
+ * Batch-preload an array of text strings for Voicevox TTS.
+ * Uses a concurrency limit to avoid 429 rate limiting from api.tts.quest.
+ * @param {string[]} texts - Array of text strings to preload
+ * @param {(completed: number, total: number) => void} onProgress - Progress callback
+ * @param {{ cancelled: boolean }} signal - Cancellation signal (set .cancelled = true to stop)
+ * @returns {Promise<void>}
+ */
+export async function preloadAllVoicevoxAudio(texts, onProgress, signal) {
+  const CONCURRENCY = 1; // Strict limit to avoid 429s on tts.quest
+  let completed = 0;
+  const total = texts.length;
+  let index = 0;
+
+  async function worker() {
+    while (index < total) {
+      if (signal && signal.cancelled) return;
+      const i = index; // Do not increment yet
+      try {
+        const result = await preloadVoicevoxAudio(texts[i]);
+        if (!result) {
+          // Fetch failed (likely 429 or network error).
+          // As requested, we wait and retry rather than aborting, keeping the modal active.
+          // The user can use the 'Skip' button if they don't want to wait.
+          console.warn(`Fetch failed for item ${i}. Retrying in 5 seconds...`);
+          if (onProgress) onProgress(completed, total, `API rate limit hit. Pausing 5s before retrying (${completed}/${total})…`);
+          await new Promise(r => setTimeout(r, 5000));
+          if (onProgress) onProgress(completed, total); // Restore normal text
+          continue; // Retry the same item
+        }
+        
+        // Success
+        index++;
+        completed++;
+        if (onProgress) onProgress(completed, total);
+
+        // Wait 1 second between successful requests to be polite to the API
+        await new Promise(r => setTimeout(r, 1000));
+      } catch (_) {
+        // Individual failures
+      }
+    }
+  }
+
+  const workers = [];
+  for (let w = 0; w < Math.min(CONCURRENCY, total); w++) {
+    workers.push(worker());
+  }
+  await Promise.all(workers);
 }
 
 function showVoicevoxLoading() {
@@ -99,7 +164,7 @@ async function speakWithVoicevox(text, onEnd) {
     currentAudioUrl = URL.createObjectURL(blob);
     currentAudio = new Audio(currentAudioUrl);
 
-    const speed = parseFloat(localStorage.getItem('tts_speed') || '0.85');
+    const speed = parseFloat(get(KEYS.TTS_SPEED));
     currentAudio.playbackRate = speed;
 
     currentAudio.onplay = () => {
@@ -132,7 +197,7 @@ export function saveVoicevoxSpeaker() {
   const select = document.getElementById('voicevox-speaker-select');
   const input = document.getElementById('voicevox-speaker-input');
   if (select && select.value) {
-    localStorage.setItem('voicevox_speaker', select.value);
+    set(KEYS.VOICEVOX_SPEAKER, select.value);
     if (input) input.value = select.value;
   }
 }
@@ -185,7 +250,7 @@ export function cancelCurrentSpeech() {
 }
 
 export function speakQuestion(text, onEnd) {
-  const mode = localStorage.getItem('tts_mode') || 'browser';
+  const mode = get(KEYS.TTS_MODE);
   setStatus('speaking', mode === 'voicevox' ? '☁️ Loading cloud voice...' : 'Speaking question…');
 
   const wrapOnEnd = () => {
@@ -209,7 +274,7 @@ export function speakFeedback(text, onEnd, silent = false) {
   };
 
   // Result feedback should use the configured Voicevox path only.
-  const mode = localStorage.getItem('tts_mode') || 'browser';
+  const mode = get(KEYS.TTS_MODE);
   if (mode === 'voicevox') {
     speakWithVoicevox(text, wrapOnEnd);
     return;
@@ -232,7 +297,7 @@ function voiceMatchesHint(voice, hint) {
 }
 
 function pickAvatarMappedVoice(voices) {
-  const avatarModel = localStorage.getItem('avatar_model') || 'simple';
+  const avatarModel = get(KEYS.AVATAR_MODEL);
   const avatarConfig = AVATAR_MODELS[avatarModel] || AVATAR_MODELS.simple;
   const hints = avatarConfig.browserVoiceHints || [];
 
@@ -259,7 +324,7 @@ function scoreJapaneseBrowserVoice(voice) {
   
   if (name.includes('english') || name.includes(' us ') || name.includes('uk ')) score -= 100;
 
-  const avatarModel = localStorage.getItem('avatar_model') || 'simple';
+  const avatarModel = get(KEYS.AVATAR_MODEL);
   const voiceProfile = (AVATAR_MODELS[avatarModel] || AVATAR_MODELS.simple).voiceProfile || 'female';
   if (voiceProfile === 'male') {
     if (name.includes('male') && !name.includes('female')) score += 50;

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { askStudyAssistant } from '../src/ai.js';
+import { askStudyAssistant } from '../src/ai/index.js';
 
 describe('askStudyAssistant Unit Tests', () => {
   beforeEach(() => {

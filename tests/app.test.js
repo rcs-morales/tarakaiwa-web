@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { handleAssistantQuery } from '../src/app.js';
-import * as ai from '../src/ai.js';
+import { handleAssistantQuery, assistantHistory } from '../src/assistant-ui.js';
+import * as ai from '../src/ai/index.js';
 
 describe('Assistant Integration Tests', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    assistantHistory.splice(0, assistantHistory.length);
 
     document.body.innerHTML = `
       <div id="ai-assistant-panel" class="hidden"></div>
@@ -15,9 +16,6 @@ describe('Assistant Integration Tests', () => {
   });
 
   it('should maintain a conversation history of maximum 20 messages', async () => {
-    const { assistantHistory } = await import('../src/app.js');
-    assistantHistory.splice(0, assistantHistory.length);
-
     vi.spyOn(ai, 'askStudyAssistant').mockResolvedValue({ response: 'AI Response' });
 
     for (let i = 0; i < 11; i++) {
