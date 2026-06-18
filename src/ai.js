@@ -1,6 +1,12 @@
 import { GROQ_GRADING_MODELS } from './data.js';
 import { showApiKeyStatus } from './ui.js';
 
+function getGroqApiKey() {
+  return localStorage.getItem('api_key') || localStorage.getItem('gemini_api_key');
+}
+
+export { getGroqApiKey };
+
 export function getGradingModel() {
   const saved = localStorage.getItem('groq_grading_model');
   if (saved === GROQ_GRADING_MODELS.fast || saved === GROQ_GRADING_MODELS.balanced) {
@@ -15,7 +21,7 @@ export function saveGradingModel() {
 }
 
 export function updateAIStatusChip() {
-  const apiKey = localStorage.getItem('api_key') || localStorage.getItem('gemini_api_key');
+  const apiKey = getGroqApiKey();
   const chip = document.getElementById('ai-status-chip');
   const text = document.getElementById('ai-status-text');
 
@@ -60,11 +66,11 @@ export function clearApiKey() {
 }
 
 export function hasGroqApiKey() {
-  return !!(localStorage.getItem('api_key') || localStorage.getItem('gemini_api_key'));
+  return !!getGroqApiKey();
 }
 
 export async function translateWithAI(japaneseText) {
-  const apiKey = localStorage.getItem('api_key') || localStorage.getItem('gemini_api_key');
+  const apiKey = getGroqApiKey();
   if (!apiKey) return null;
 
   try {
@@ -94,7 +100,7 @@ export async function translateWithAI(japaneseText) {
 }
 
 export async function askStudyAssistant(query, history = []) {
-  const apiKey = localStorage.getItem('api_key') || localStorage.getItem('gemini_api_key');
+  const apiKey = getGroqApiKey();
   if (!apiKey) return { error: 'MISSING_KEY' };
 
   try {
@@ -414,7 +420,7 @@ function parseAIGradingResponse(rawText) {
 }
 
 export async function gradeWithAI(question, expectedAnswer, transcript) {
-  const apiKey = localStorage.getItem('api_key') || localStorage.getItem('gemini_api_key');
+  const apiKey = getGroqApiKey();
   if (!apiKey) return null;
 
   try {
@@ -636,7 +642,7 @@ export async function transcribeWithWhisper(audioBlob, expectedAnswer = '') {
     return null;
   }
 
-  const apiKey = localStorage.getItem('api_key');
+  const apiKey = getGroqApiKey();
   const formData = new FormData();
   const fileName = (audioBlob.type || 'audio/webm').includes('mp4') ? 'audio.mp4' : 'audio.webm';
 

@@ -450,7 +450,6 @@ header {
 }
 
 /* ── Results screen ── */
-#screen-results { display: none; }
 .score-hero {
   text-align: center;
   padding: 20px 0 28px;

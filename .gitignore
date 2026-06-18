@@ -4,7 +4,6 @@ node_modules/
 Thumbs.db
 claude.md
 AGENTS.md
-tests/
 
 # Local test and regression files
 test-results/

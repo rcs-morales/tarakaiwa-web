@@ -1,7 +1,11 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js';
-
-// Replace these with your actual Supabase Project URL and Anon Key
 const SUPABASE_URL = 'https://bulodpcsyadcchgvpcge.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_zOAbzxY27SgoGclzVQIKdw_T6iLOW8H';
 
-export const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
+const { createClient } = globalThis.supabase || {};
+if (!createClient) {
+  console.warn('Supabase SDK not loaded — bug reports will not work.');
+}
+
+export const supabaseClient = createClient
+  ? createClient(SUPABASE_URL, SUPABASE_KEY)
+  : null;

@@ -16,6 +16,11 @@ export const bugReporter = {
     if (fileInput) fileInput.value = '';
   },
   async submit() {
+    if (!supabaseClient) {
+      alert('Bug reporting is unavailable — Supabase SDK did not load.');
+      return;
+    }
+
     const message = document.getElementById('bug-message')?.value.trim();
     const file = document.getElementById('bug-screenshot')?.files[0];
     const jlptLevel = document.getElementById('jlpt-level-select')?.value || 'Unknown';

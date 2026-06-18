@@ -201,3 +201,31 @@ export function toggleKeyVisibility() {
   if (!input) return;
   input.type = input.type === 'password' ? 'text' : 'password';
 }
+
+export function showScreen(id) {
+  const el = document.getElementById(id);
+  if (el) el.classList.remove('hidden');
+}
+
+export function hideScreen(id) {
+  const el = document.getElementById(id);
+  if (el) el.classList.add('hidden');
+}
+
+export function showStartScreen() {
+  hideScreen('screen-practice');
+  hideScreen('screen-results');
+  showScreen('screen-start');
+}
+
+export function showPracticeScreen() {
+  hideScreen('screen-start');
+  hideScreen('screen-results');
+  showScreen('screen-practice');
+}
+
+export function showResultsScreen() {
+  hideScreen('screen-start');
+  hideScreen('screen-practice');
+  showScreen('screen-results');
+}

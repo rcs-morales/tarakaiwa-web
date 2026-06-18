@@ -7,11 +7,12 @@ import {
   setStatus, showTranscript, showCheckedTranscript,
   showResult, showResultPanel, showBtn, updateQACount, updateStartButton,
   showImportStatus, showApiKeyStatus, toggleKeyVisibility,
-  showAnswerTranslation, updateCheckedTranslation
+  showAnswerTranslation, updateCheckedTranslation,
+  showStartScreen, showPracticeScreen, showResultsScreen
 } from './ui.js';
 import {
   getGradingModel, saveGradingModel, updateAIStatusChip,
-  saveApiKeyFromInput, clearApiKey, hasGroqApiKey,
+  saveApiKeyFromInput, clearApiKey, hasGroqApiKey, getGroqApiKey,
   testApiConnection, gradeWithAI, transcribeWithWhisper, isCorrectLocal,
   translateWithAI, askStudyAssistant
 } from './ai.js';
@@ -30,49 +31,6 @@ import {
   startAIRecording, stopAIRecording, getLiveTranscript,
   setLiveTranscript, getMicStream, setMicStream, releaseMic
 } from './stt.js';
-
-// ─────────────────────────────────────────────
-// GLOBAL EXPORTS (Immediate Registration)
-// ─────────────────────────────────────────────
-
-
-window.saveTTSMode = () => {
-  const select = document.getElementById('tts-mode-select');
-  if (select) {
-    const mode = select.value;
-    localStorage.setItem('tts_mode', mode);
-    
-    if (mode === 'voicevox') {
-      localStorage.setItem('voicevox_speaker', '3');
-      const vvSelect = document.getElementById('voicevox-speaker-select');
-      if (vvSelect) vvSelect.value = '3';
-    }
-    
-    toggleTTSVoicePanels(mode);
-    initAvatar();
-  }
-};
-
-window.saveSTTMode = () => {
-  const select = document.getElementById('stt-mode-select');
-  if (select) localStorage.setItem('stt_mode', select.value);
-};
-
-window.saveJLPTLevel = () => {
-  const select = document.getElementById('jlpt-level-select');
-  if (select) localStorage.setItem('jlpt_level', select.value);
-};
-
-
-window.saveGradingModel = saveGradingModel;
-window.testApiConnection = testApiConnection;
-window.saveApiKeyFromInput = saveApiKeyFromInput;
-window.clearApiKey = clearApiKey;
-window.toggleKeyVisibility = toggleKeyVisibility;
-window.saveAvatarModel = saveAvatarModel;
-window.initAvatar = initAvatar;
-window.saveVoicevoxSpeaker = saveVoicevoxSpeaker;
-
 
 // ─────────────────────────────────────────────
 // STATE
@@ -98,39 +56,61 @@ function playSound(type) {
 // SETUP FLOW
 // ─────────────────────────────────────────────
 
-window.startSetupFlow = () => {
+function startSetupFlow() {
   document.getElementById('setup-entry-point').classList.add('hidden');
   nextSetupStep('setup-step-api-key');
-};
+}
 
-window.nextSetupStep = (stepId) => {
-  // Hide all potential steps
+function nextSetupStep(stepId) {
   const steps = ['import-section', 'setup-step-api-key', 'setup-step-settings'];
   steps.forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.add('hidden');
   });
 
-  // Show the target step
   const target = document.getElementById(stepId);
   if (target) {
     target.classList.remove('hidden');
-    // If the target is inside the ai-settings-section, make sure that section is visible
     const section = document.getElementById('ai-settings-section');
     if (section && (stepId === 'setup-step-api-key' || stepId === 'setup-step-settings')) {
       section.classList.remove('hidden');
     }
   }
-};
+}
 
-window.finishSetup = () => {
+function finishSetup() {
   document.getElementById('ai-settings-section').classList.add('hidden');
   document.getElementById('setup-entry-point').classList.remove('hidden');
-  // Optionally, hide the setup button if they are fully configured
   if (hasGroqApiKey() && QA.length > 0) {
     document.getElementById('setup-entry-point').classList.add('hidden');
   }
-};
+}
+
+function saveTTSMode() {
+  const select = document.getElementById('tts-mode-select');
+  if (!select) return;
+  const mode = select.value;
+  localStorage.setItem('tts_mode', mode);
+
+  if (mode === 'voicevox') {
+    localStorage.setItem('voicevox_speaker', '3');
+    const vvSelect = document.getElementById('voicevox-speaker-select');
+    if (vvSelect) vvSelect.value = '3';
+  }
+
+  toggleTTSVoicePanels(mode);
+  initAvatar();
+}
+
+function saveSTTMode() {
+  const select = document.getElementById('stt-mode-select');
+  if (select) localStorage.setItem('stt_mode', select.value);
+}
+
+function saveJLPTLevel() {
+  const select = document.getElementById('jlpt-level-select');
+  if (select) localStorage.setItem('jlpt_level', select.value);
+}
 
 // Modified handleFileImport to include "Next" button logic if in setup flow
 async function handleFileImport(event) {
@@ -290,8 +270,7 @@ function startPractice() {
     [QA[i], QA[j]] = [QA[j], QA[i]];
   }
   current = 0; score = 0; results = [];
-  document.getElementById('screen-start').classList.add('hidden');
-  document.getElementById('screen-practice').classList.remove('hidden');
+  showPracticeScreen();
 
   initAvatar();
 
@@ -726,9 +705,7 @@ async function handleFinishPractice() {
 
 async function showResults(choice) {
   if (synth.speaking) synth.cancel();
-  document.getElementById('screen-practice').classList.add('hidden');
-  const rs = document.getElementById('screen-results');
-  if (rs) rs.style.display = 'block';
+  showResultsScreen();
 
   const total = results.length;
   const pct   = total ? Math.round((score / total) * 100) : 0;
@@ -766,7 +743,7 @@ async function showResults(choice) {
     if (r.gradeResult) {
       const fbDiv = document.createElement('div');
       fbDiv.className = 'ai-result-feedback';
-      const src = r.gradeResult.source === 'gemini' ? '🤖' : '⚙️';
+      const src = r.gradeResult.source === 'groq' ? '🤖' : '⚙️';
 
       const generalFb = document.createElement('div');
       generalFb.className = 'ai-feedback-main';
@@ -906,10 +883,8 @@ async function showFinalOverlay(pct, choice) {
 function restartApp() {
   abortRecognition();
   releaseMic();
-  assistantHistory = [];
-  document.getElementById('screen-results').style.display = 'none';
-  document.getElementById('screen-start').classList.remove('hidden');
-  document.getElementById('screen-practice').classList.add('hidden');
+  assistantHistory.splice(0, assistantHistory.length);
+  showStartScreen();
   updateQACount(QA.length);
   updateStartButton(QA.length);
 }
@@ -942,7 +917,7 @@ document.addEventListener('DOMContentLoaded', () => {
     localStorage.removeItem('api_key');
     showApiKeyStatus('Previous provider removed. Please save a Groq API key (starts with gsk_).', 'info');
   }
-  const savedKey = localStorage.getItem('api_key') || localStorage.getItem('gemini_api_key');
+  const savedKey = getGroqApiKey();
   if (savedKey) {
     const input = document.getElementById('api-key-input');
     if (input) input.value = savedKey;
@@ -1055,6 +1030,9 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // Export functions to window for HTML buttons
+window.startSetupFlow = startSetupFlow;
+window.nextSetupStep = nextSetupStep;
+window.finishSetup = finishSetup;
 window.startPractice = startPractice;
 window.toggleQuestionText = toggleQuestionText;
 window.translateQuestion = translateQuestion;
@@ -1064,14 +1042,18 @@ window.rerecordAnswer = rerecordAnswer;
 window.nextQuestion = nextQuestion;
 window.skipQuestion = skipQuestion;
 window.endSession = endSession;
-window.saveApiKeyFromInput = saveApiKeyFromInput;
-window.saveGradingModel = saveGradingModel;
-window.saveSTTMode = saveSTTMode;
-window.saveJLPTLevel = saveJLPTLevel;
-window.saveAvatarModel = saveAvatarModel;
-window.saveTTSMode = saveTTSMode;
-window.saveVoicevoxSpeaker = saveVoicevoxSpeaker;
 window.restartApp = restartApp;
 window.clearDatabase = clearDatabase;
 window.bugReporter = bugReporter;
+window.saveApiKeyFromInput = saveApiKeyFromInput;
+window.saveGradingModel = saveGradingModel;
+window.testApiConnection = testApiConnection;
+window.clearApiKey = clearApiKey;
+window.toggleKeyVisibility = toggleKeyVisibility;
+window.saveSTTMode = saveSTTMode;
+window.saveJLPTLevel = saveJLPTLevel;
+window.saveTTSMode = saveTTSMode;
+window.saveAvatarModel = saveAvatarModel;
+window.saveVoicevoxSpeaker = saveVoicevoxSpeaker;
+window.initAvatar = initAvatar;
 
