@@ -7,6 +7,30 @@ import {
   STUDY_ASSISTANT_PROMPT, TRANSLATION_SYSTEM_PROMPT, getToJapaneseTranslationPrompt
 } from './prompts.js';
 
+function normalizeJapaneseTranslation(raw) {
+  if (!raw) return '';
+
+  let text = String(raw).trim();
+  if (!text) return '';
+
+  text = text.replace(/^\s*['"`]+|['"`]+\s*$/g, '');
+  text = text.replace(/\{[^{}]*\}/g, '').trim();
+  text = text.replace(/^[^\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}0-9A-Za-z]+/u, '');
+  text = text.replace(/[^\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}0-9A-Za-z]+$/u, '');
+
+  const separatorParts = text.split(/[・/／,，。.!?;:]+/u).map(part => part.trim()).filter(Boolean);
+  if (separatorParts.length > 1) {
+    const kanjiPart = separatorParts.find(part => /[\p{Script=Han}]/u.test(part));
+    if (kanjiPart) return kanjiPart;
+    return separatorParts[0];
+  }
+
+  const englishLike = /[A-Za-z]/.test(text) && !/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u.test(text);
+  if (englishLike) return '';
+
+  return text;
+}
+
 /**
  * Ask the AI study assistant a question, maintaining conversation history.
  * @param {string} query
@@ -103,8 +127,9 @@ export async function translateToJapaneseWithAI(text, sourceLang = 'English') {
         const parsed = JSON.parse(jsonString);
 
         // Flexible key checking: look for 'japanese', 'translation', or 'text'
-        const japanese = (parsed.japanese || parsed.translation || parsed.text || '').trim();
+        const japaneseRaw = (parsed.japanese || parsed.translation || parsed.text || '').trim();
         const romaji = (parsed.romaji || '').trim();
+        const japanese = normalizeJapaneseTranslation(japaneseRaw);
 
         if (japanese) {
           return { japanese, romaji };
@@ -119,12 +144,14 @@ export async function translateToJapaneseWithAI(text, sourceLang = 'English') {
       // check if the AI returned the translation as a plain string.
       // We remove common JSON-like markers if they are wrapping a single string.
       const cleanContent = content.replace(/^\{.*"japanese":\s*"/, '').replace(/"\s*\},?$/, '').trim();
+      const normalizedClean = normalizeJapaneseTranslation(cleanContent);
 
-      if (cleanContent && cleanContent !== content) {
-         return { japanese: cleanContent, romaji: '' };
+      if (normalizedClean) {
+         return { japanese: normalizedClean, romaji: '' };
       }
 
-      if (content) return { japanese: content, romaji: '' };
+      const normalizedContent = normalizeJapaneseTranslation(content);
+      if (normalizedContent) return { japanese: normalizedContent, romaji: '' };
       return { error: 'EMPTY_RESPONSE' };
     } catch (e) {
       console.error('Translation parse error:', e, content);

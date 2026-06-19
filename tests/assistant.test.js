@@ -1,10 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { askStudyAssistant } from '../src/ai/index.js';
+import { askStudyAssistant, translateToJapaneseWithAI } from '../src/ai/index.js';
 import { handleAssistantQuery, assistantHistory } from '../src/assistant-ui.js';
 
-vi.mock('../src/ai/index.js', () => ({
-  askStudyAssistant: vi.fn(),
-}));
+vi.mock('../src/ai/index.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    askStudyAssistant: vi.fn(),
+  };
+});
 
 describe('askStudyAssistant Unit Tests', () => {
   let realAskStudyAssistant;
@@ -105,6 +109,28 @@ describe('askStudyAssistant Unit Tests', () => {
     expect(callBody.messages[1]).toEqual(history[0]);
     expect(callBody.messages[2]).toEqual(history[1]);
     expect(callBody.messages[3].content).toBe('How are you?');
+  });
+});
+
+describe('translateToJapaneseWithAI normalization', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    vi.stubGlobal('localStorage', {
+      getItem: vi.fn(() => 'gsk_test_key'),
+      setItem: vi.fn(),
+    });
+  });
+
+  it('prefers a single canonical Japanese phrase when the model returns a furigana pair', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        choices: [{ message: { content: '{"japanese":"電車{でんしゃ}","romaji":"densha"}' } }]
+      })
+    })));
+
+    const result = await translateToJapaneseWithAI('train');
+    expect(result).toEqual({ japanese: '電車', romaji: 'densha' });
   });
 });
 

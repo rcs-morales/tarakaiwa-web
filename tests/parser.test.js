@@ -7,6 +7,7 @@ import {
   numberToHiragana,
   transcriptToFurigana,
   applyKanjiMap,
+  toFuriganaHtml,
 } from '../src/parser.js';
 
 describe('parseJSON', () => {
@@ -95,5 +96,31 @@ describe('transcriptToFurigana', () => {
 
   it('converts date patterns', () => {
     expect(transcriptToFurigana('9月12日')).toBe('くがつじゅうににち');
+  });
+});
+
+describe('toFuriganaHtml', () => {
+  it('renders mixed tokens as plain text without hover-reveal markup', () => {
+    const html = toFuriganaHtml('1日{いちにち}');
+    expect(html).toContain('1日');
+    expect(html).not.toContain('class="kanji-reading"');
+    expect(html).not.toContain('<ruby');
+  });
+
+  it('renders romaji reading hints as plain text', () => {
+    const html = toFuriganaHtml('電車', 'densha');
+    expect(html).toContain('電車');
+    expect(html).not.toContain('class="kanji-reading"');
+  });
+
+  it('renders purely Japanese tokens as plain text', () => {
+    expect(toFuriganaHtml('今日{きょう}')).toContain('今日');
+    expect(toFuriganaHtml('今日{きょう}')).not.toContain('class="kanji-reading"');
+  });
+
+  it('keeps particles plain without any reveal markup', () => {
+    const html = toFuriganaHtml('日本語を{にほんごを}');
+    expect(html).toContain('日本語を');
+    expect(html).not.toContain('class="kanji-reading"');
   });
 });

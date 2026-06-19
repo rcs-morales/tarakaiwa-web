@@ -34,7 +34,7 @@ function showTranslateResult(result) {
 
   const { japanese, romaji } = result;
   text.innerHTML = `
-    <div class="jp-text">${toFuriganaHtml(japanese)}</div>
+    <div class="jp-text">${toFuriganaHtml(japanese, romaji)}</div>
     <div class="romaji-text" style="font-size: 0.9em; color: var(--muted); margin-top: 4px;">${romaji}</div>
   `;
   area.classList.remove('hidden');

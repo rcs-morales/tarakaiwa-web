@@ -30,10 +30,12 @@ body {
 
 /* ── Global Ruby/Furigana Styles ── */
 rt {
-  font-size: 0.65rem;
+  font-size: 0.6rem;
   color: var(--teal);
   font-weight: 500;
+  letter-spacing: 0.01em;
 }
+
 
 /* ── Header ── */
 header {

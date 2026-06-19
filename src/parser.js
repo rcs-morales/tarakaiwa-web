@@ -281,14 +281,122 @@ export function transcriptToFuriganaForGrading(raw, answer) {
   return s;
 }
 
-export function toFuriganaHtml(text) {
+function escapeHtml(text) {
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function shouldUseFuriganaFallback(baseText) {
+  return /[0-9A-Za-z]/.test(baseText) || /[!-/:-@\[-`{-~]/.test(baseText);
+}
+
+function romajiToHiragana(text) {
+  const normalized = String(text || '').trim().toLowerCase();
+  if (!normalized) return '';
+
+  const map = {
+    a: 'あ', i: 'い', u: 'う', e: 'え', o: 'お',
+    ka: 'か', ki: 'き', ku: 'く', ke: 'け', ko: 'こ',
+    sa: 'さ', shi: 'し', su: 'す', se: 'せ', so: 'そ',
+    ta: 'た', chi: 'ち', tsu: 'つ', te: 'て', to: 'と',
+    na: 'な', ni: 'に', nu: 'ぬ', ne: 'ね', no: 'の',
+    ha: 'は', hi: 'ひ', fu: 'ふ', he: 'へ', ho: 'ほ',
+    ma: 'ま', mi: 'み', mu: 'む', me: 'め', mo: 'も',
+    ya: 'や', yu: 'ゆ', yo: 'よ',
+    ra: 'ら', ri: 'り', ru: 'る', re: 'れ', ro: 'ろ',
+    wa: 'わ', wo: 'を', nn: 'ん',
+    ga: 'が', gi: 'ぎ', gu: 'ぐ', ge: 'げ', go: 'ご',
+    za: 'ざ', ji: 'じ', zu: 'ず', ze: 'ぜ', zo: 'ぞ',
+    da: 'だ', de: 'で', do: 'ど',
+    ba: 'ば', bi: 'び', bu: 'ぶ', be: 'べ', bo: 'ぼ',
+    pa: 'ぱ', pi: 'ぴ', pu: 'ぷ', pe: 'ぺ', po: 'ぽ',
+    kya: 'きゃ', kyu: 'きゅ', kyo: 'きょ',
+    gya: 'ぎゃ', gyu: 'ぎゅ', gyo: 'ぎょ',
+    sha: 'しゃ', shu: 'しゅ', sho: 'しょ',
+    cha: 'ちゃ', chu: 'ちゅ', cho: 'ちょ',
+    nya: 'にゃ', nyu: 'にゅ', nyo: 'にょ',
+    hya: 'ひゃ', hyu: 'ひゅ', hyo: 'ひょ',
+    mya: 'みゃ', myu: 'みゅ', myo: 'みょ',
+    rya: 'りゃ', ryu: 'りゅ', ryo: 'りょ',
+    ja: 'じゃ', ju: 'じゅ', jo: 'じょ',
+    dya: 'ぢゃ', dyu: 'ぢゅ', dyo: 'ぢょ',
+    bya: 'びゃ', byu: 'びゅ', byo: 'びょ',
+    pya: 'ぴゃ', pyu: 'ぴゅ', pyo: 'ぴょ',
+    kya: 'きゃ', kyu: 'きゅ', kyo: 'きょ',
+    n: 'ん'
+  };
+
+  let result = '';
+  let i = 0;
+  while (i < normalized.length) {
+    const chunk = normalized.slice(i, i + 3);
+    const direct = map[chunk];
+    if (direct) {
+      result += direct;
+      i += chunk.length;
+      continue;
+    }
+    const two = normalized.slice(i, i + 2);
+    const twoDirect = map[two];
+    if (twoDirect) {
+      result += twoDirect;
+      i += two.length;
+      continue;
+    }
+    const one = normalized[i];
+    const oneDirect = map[one];
+    if (oneDirect) {
+      result += oneDirect;
+      i += 1;
+      continue;
+    }
+    result += normalized[i];
+    i += 1;
+  }
+
+  return result.replace(/ー+/g, 'ー');
+}
+
+function splitReadingIntoSegments(reading, count) {
+  const normalized = String(reading || '').trim();
+  if (!normalized || count <= 1) return [normalized];
+
+  const chars = Array.from(normalized);
+  const chunkSize = Math.max(1, Math.ceil(chars.length / count));
+  const segments = [];
+
+  for (let i = 0; i < count; i++) {
+    const start = i * chunkSize;
+    const end = start + chunkSize;
+    segments.push(chars.slice(start, end).join(''));
+  }
+
+  return segments.filter(Boolean);
+}
+
+function isJapaneseKanji(char) {
+  return /[一-龯]/u.test(char);
+}
+
+function buildPlainTextMarkup(baseText) {
+  return escapeHtml(String(baseText || '').trim());
+}
+
+export function toFuriganaHtml(text, readingHint = '') {
   let s = String(text || '');
+
+  if (readingHint && /[一-龯]/u.test(s)) {
+    return buildPlainTextMarkup(s);
+  }
 
   // First, handle AI-generated furigana format: Text{reading}
   if (s.includes('{')) {
-    // Match text that is NOT a brace, followed by {reading}
-    // [^{}]+ allows any characters except braces before the opening brace
-    s = s.replace(/([^{}]+)\{([^\}]*)\}/g, '<ruby>$1<rt>$2</rt></ruby>');
+    s = s.replace(/([^{}]+)\{([^\}]*)\}/g, (_match, baseText) => {
+      return buildPlainTextMarkup(baseText);
+    });
 
     return s;
   }
