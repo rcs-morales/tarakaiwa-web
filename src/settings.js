@@ -19,6 +19,7 @@ export const KEYS = {
   QA_DATA: 'jlpt_qa_data',
   AVATAR_MODEL: 'avatar_model',
   TTS_SPEED: 'tts_speed',
+  SOURCE_LANGUAGE: 'source_language',
 };
 
 /**
@@ -31,6 +32,7 @@ const DEFAULTS = {
   [KEYS.VOICEVOX_SPEAKER]: '3',
   [KEYS.AVATAR_MODEL]: 'simple',
   [KEYS.TTS_SPEED]: '0.85',
+  [KEYS.SOURCE_LANGUAGE]: 'English',
 };
 
 /**

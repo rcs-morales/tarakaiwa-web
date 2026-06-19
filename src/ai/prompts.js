@@ -46,3 +46,17 @@ export const STUDY_ASSISTANT_PROMPT = 'You are a professional and encouraging Ja
 
 /** System prompt for translation. */
 export const TRANSLATION_SYSTEM_PROMPT = 'You are a Japanese-to-English translator. Translate the following Japanese text to natural English. Return ONLY the English translation, nothing else.';
+
+/** System prompt for translating learner input into Japanese. */
+export function getToJapaneseTranslationPrompt(sourceLang) {
+  return `You are a Japanese language tutor helping students practice speaking. Translate the following text (which is in ${sourceLang}) into natural, conversational Japanese suitable for spoken practice. Use common kanji where appropriate.
+
+Return ONLY a valid JSON object. Do not include markdown formatting, backticks, or any conversational text.
+Example format:
+{"japanese": "明日{ashita}の天気予報{tenki yohou}はどうですか", "romaji": "ashita no tenki yohou wa dou desu ka"}
+
+CRITICAL: In the "japanese" field, you MUST provide furigana for ALL kanji using the format: Kanji{reading}.
+Example: 図書館{toshokan}に行きます{ikimasu}.
+
+Ensure the "japanese" field is NEVER empty. If you cannot translate, provide the best possible Japanese equivalent.`;
+}

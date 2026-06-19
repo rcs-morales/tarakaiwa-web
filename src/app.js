@@ -22,6 +22,7 @@ import {
   handleAssistantQuery, initAiPanelInteractivity, initAssistantFloatButton,
   assistantHistory
 } from './assistant-ui.js';
+import { initTranslateTool } from './translate-ui.js';
 import { handleFileImport, clearDatabase } from './import.js';
 import { clearAudioCache } from './db.js';
 
@@ -265,6 +266,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   initAiPanelInteractivity();
   initAssistantFloatButton();
+  initTranslateTool();
 
   if (btnAiSend && aiChatInput) {
     btnAiSend.addEventListener('click', () => handleAssistantQuery(aiChatInput.value));

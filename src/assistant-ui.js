@@ -72,7 +72,7 @@ export function appendAiMessage(role, text) {
   return msgDiv;
 }
 
-function makeDraggable(element, handle) {
+export function makeDraggable(element, handle) {
   let isDragging = false;
   let offsetX = 0, offsetY = 0;
 

@@ -9,6 +9,7 @@ TaraKaiwa (from the filipino word "Tara = let's" and japanese word "Kaiwa = talk
 - **AI-Powered Speech Recognition**: High-accuracy STT via Groq Whisper or live preview using the browser's Web Speech API.
 - **Intelligent AI Grading**: Real-time feedback on grammar and vocabulary with adjustable strictness based on JLPT level (N5, N4, N3).
 - **AI Study Assistant**: An interactive companion to help learners clarify doubts, get grammar explanations, and receive tailored study tips.
+- **AI Translation Tool**: Quick English-to-Japanese translation with voice input and audio playback, designed for spontaneous phrase practice.
 - **Immersive Audio & Visuals**: High-quality VOICEVOX or browser voices paired with a lip-syncing Live2D avatar that automatically maps to the voice.
 - **Offline Audio Caching**: VOICEVOX audio is preloaded in batches and saved permanently to your browser's IndexedDB, ensuring zero loading delays on repeated practice sessions.
 - **Rich Learning Aids**: Furigana readings for kanji, a final score overlay, and sound effects for a responsive, gamified feel.
@@ -71,6 +72,7 @@ The codebase is built with vanilla JavaScript using ES6 Modules and a modular ar
 | `src/avatar.js` | Hybrid avatar system: manages PixiJS Live2D models and static portraits |
 | `src/parser.js` | File parsing and fuzzy furigana conversion |
 | `src/ui.js` | DOM manipulation and UI state updates |
+| `src/translate-ui.js` | UI and logic for the English-to-Japanese translation tool |
 | `src/assistant-ui.js`| UI logic for the AI Study Assistant |
 | `src/data.js` | Default starter Q&A dataset |
 | `tests/` | Unit and integration tests for AI grading and assistant logic |

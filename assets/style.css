@@ -807,6 +807,117 @@ header {
   background: var(--teal-lt);
 }
 
+.btn-translate-float {
+  position: fixed;
+  bottom: 100px;
+  right: 32px;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: #fff;
+  font-size: 1.8rem;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(26, 26, 46, 0.35);
+  z-index: 9000;
+  transition: transform 0.2s, background 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.btn-translate-float:hover {
+  transform: scale(1.1);
+  background: #2d2d4a;
+}
+
+.translate-panel {
+  height: 420px;
+}
+
+.translate-tool-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: #fafafa;
+}
+
+.translate-tool-hint {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.translate-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1.5px solid var(--paper-2);
+  border-radius: 8px;
+  outline: none;
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 0.95rem;
+  resize: vertical;
+  min-height: 72px;
+  background: #fff;
+  box-sizing: border-box;
+}
+.translate-input:focus {
+  border-color: var(--teal);
+}
+
+.translate-status {
+  min-height: 1.2em;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.translate-status.info { color: var(--teal); }
+.translate-status.success { color: #2e7d32; }
+.translate-status.error { color: var(--red, #c0392b); }
+
+.translate-tool-actions {
+  margin-top: 4px;
+}
+
+.translate-result-area {
+  margin-top: 4px;
+  padding: 12px;
+  background: #fff;
+  border: 1.5px solid var(--paper-2);
+  border-radius: 10px;
+}
+
+.translate-result-label {
+  font-size: 0.75rem;
+  font-weight: bold;
+  color: var(--muted);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.translate-result-text {
+  font-size: 1.2rem;
+  line-height: 1.7;
+  font-family: 'Noto Sans JP', sans-serif;
+  margin-bottom: 10px;
+  word-break: break-word;
+}
+
+.btn-ai-mic.recording {
+  background: #ffe0e0;
+  border-color: #e57373;
+  animation: pulse-mic 1.2s ease-in-out infinite;
+}
+
+@keyframes pulse-mic {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(229, 115, 115, 0.4); }
+  50% { box-shadow: 0 0 0 6px rgba(229, 115, 115, 0); }
+}
+
 .ai-panel {
   position: fixed;
   bottom: 100px;
