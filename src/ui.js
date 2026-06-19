@@ -175,6 +175,20 @@ export function updateStartButton(count) {
   }
 }
 
+export function updateSetupAccess(setupComplete) {
+  const entry = document.getElementById('setup-entry-point');
+  const reopen = document.getElementById('setup-return-point');
+  if (!entry || !reopen) return;
+
+  if (setupComplete) {
+    entry.classList.add('hidden');
+    reopen.classList.remove('hidden');
+  } else {
+    entry.classList.remove('hidden');
+    reopen.classList.add('hidden');
+  }
+}
+
 export function showImportStatus(message, type) {
   const statusDiv = document.getElementById('import-status');
   if (!statusDiv) return;

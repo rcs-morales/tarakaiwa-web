@@ -45,7 +45,7 @@ You can use the live deployed version on Vercel immediately, or run it locally. 
 
 ## 📖 How to Use
 
-1. **Configure AI**: On the home screen, paste your Groq API key into the AI Settings section and click **Save Key**.
+1. **Configure AI**: On the home screen (or via the **Edit Settings** button after setup), paste your Groq API key into the AI Settings section and click **Save Key**.
 2. **Adjust settings**: Choose grading speed (balanced or fast Groq model), speech recognition engine, text-to-speech mode (browser or VOICEVOX), JLPT grading strictness, and voice.
 3. *(Optional)* **Local Voicevox Setup**: If you installed Voicevox locally for faster audio, open `src/tts.js` and change `const VOICEVOX_API = 'https://api.tts.quest/v3/voicevox/synthesis';` to `const VOICEVOX_API = 'http://localhost:50021/synthesis';` (or similar depending on your local API routing).
 4. **Use the setup guide if needed**: If Groq or Whisper setup is unclear, open the included guide page (`groq-guide.html`) for the recommended flow.
@@ -73,6 +73,7 @@ The codebase is built with vanilla JavaScript using ES6 Modules and a modular ar
 | `src/ui.js` | DOM manipulation and UI state updates |
 | `src/assistant-ui.js`| UI logic for the AI Study Assistant |
 | `src/data.js` | Default starter Q&A dataset |
+| `tests/` | Unit and integration tests for AI grading and assistant logic |
 | `groq-guide.html` | Recommended Groq setup and key configuration guide |
 
 ## 🗺️ Roadmap

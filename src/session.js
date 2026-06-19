@@ -28,14 +28,23 @@ export let current   = 0;
 export let score     = 0;
 export let results   = [];
 
+export function setQA(newData) {
+  QA = newData;
+}
+export function setCurrent(val) {
+  current = val;
+}
+export function setScore(val) {
+  score = val;
+}
+export function setResults(val) {
+  results = val;
+}
+
 function playSound(type) {
   const sounds = { correct: 'assets/sounds/correct.wav', incorrect: 'assets/sounds/incorrect.wav' };
   const audio = new Audio(sounds[type]);
   audio.play().catch(e => console.warn('Audio playback failed:', e));
-}
-
-export function setQA(newData) {
-  QA = newData;
 }
 
 // ─────────────────────────────────────────────
@@ -89,19 +98,17 @@ export async function startPractice() {
 
   showPracticeScreen();
 
-  navigator.mediaDevices.getUserMedia({ audio: true })
-    .then(stream => {
-      import('./stt.js').then(m => m.setMicStream(stream));
-      if (!initRecognizer()) {
-        setStatus('', 'SpeechRecognition not supported. Use Chrome.');
-        return;
-      }
-      loadQuestion();
-    })
-    .catch(() => {
-      initRecognizer();
-      loadQuestion();
-    });
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const m = await import('./stt.js');
+    m.setMicStream(stream);
+    if (!initRecognizer()) {
+      setStatus('', 'SpeechRecognition not supported. Use Chrome.');
+    }
+  } catch (e) {
+    initRecognizer();
+  }
+  loadQuestion();
 }
 
 export async function loadQuestion() {
@@ -580,19 +587,31 @@ async function showFinalOverlay(pct, choice) {
     const passed = pct >= 75;
     icon.textContent = passed ? '🎉' : '💪';
 
+    const choiceEn = choice?.en || (passed ? 'Great job!' : 'Keep practicing!');
     text.innerHTML = `<div style="font-size: 1.5rem; font-weight: bold; margin-bottom: 4px;">${score} / ${QA.length}</div>
-                     <div style="font-size: 1.1rem; color: var(--muted);">${choice.en}</div>`;
+                     <div style="font-size: 1.1rem; color: var(--muted);">${choiceEn}</div>`;
 
     overlay.classList.remove('hidden');
     overlay.style.opacity = '1';
 
-    speakFeedback(choice.jp, () => {
+    const choiceJp = choice?.jp || '';
+    if (choiceJp) {
+      speakFeedback(choiceJp, () => {
+        setTimeout(() => {
+          overlay.style.opacity = '0';
+          setTimeout(() => {
+            overlay.classList.add('hidden');
+          }, 1000);
+        }, 2000);
+      }, null, true);
+    } else {
+      // Ensure overlay disappears even if no audio is played
       setTimeout(() => {
         overlay.style.opacity = '0';
         setTimeout(() => {
           overlay.classList.add('hidden');
         }, 1000);
-      }, 2000);
-    }, null, true);
+      }, 3000);
+    }
   }
 }

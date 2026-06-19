@@ -2,8 +2,9 @@ import { DEFAULT_QA } from './data.js';
 import {
   parseJSON, parseCSV, parseExcel, ensureXLSXLoaded
 } from './parser.js';
+import { hasGroqApiKey } from './ai/index.js';
 import {
-  updateQACount, updateStartButton, showImportStatus
+  updateQACount, updateStartButton, updateSetupAccess, showImportStatus
 } from './ui.js';
 import { set, remove, KEYS } from './settings.js';
 import { setQA } from './session.js';
@@ -46,6 +47,7 @@ export async function handleFileImport(event) {
       set(KEYS.QA_DATA, JSON.stringify(qa));
       updateQACount(qa.length);
       updateStartButton(qa.length);
+      updateSetupAccess(hasGroqApiKey() && qa.length > 0);
       showImportStatus('✅ Successfully imported ' + qa.length + ' question' + (qa.length !== 1 ? 's' : '') + ' from ' + file.name, 'success');
 
       // Setup flow "Next" button logic
@@ -93,6 +95,7 @@ export function clearDatabase() {
   setQA([]);
   updateQACount(0);
   updateStartButton(0);
+  updateSetupAccess(false);
   showImportStatus('🗑 Database cleared. Import a Q&A file to begin practice.', 'info');
   const fileInput = document.getElementById('file-input');
   if (fileInput) fileInput.value = '';

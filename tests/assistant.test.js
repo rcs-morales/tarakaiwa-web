@@ -1,8 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { askStudyAssistant } from '../src/ai/index.js';
+import { handleAssistantQuery, assistantHistory } from '../src/assistant-ui.js';
+
+vi.mock('../src/ai/index.js', () => ({
+  askStudyAssistant: vi.fn(),
+}));
 
 describe('askStudyAssistant Unit Tests', () => {
-  beforeEach(() => {
+  let realAskStudyAssistant;
+  beforeEach(async () => {
+    const mod = await vi.importActual('../src/ai/index.js');
+    realAskStudyAssistant = mod.askStudyAssistant;
     vi.restoreAllMocks();
     vi.stubGlobal('localStorage', {
       getItem: vi.fn(),
@@ -24,7 +32,7 @@ describe('askStudyAssistant Unit Tests', () => {
       })
     })));
 
-    const result = await askStudyAssistant('Konnichiwa');
+    const result = await realAskStudyAssistant('Konnichiwa');
     expect(result).toEqual({ response: 'Hello! I am your tutor.' });
   });
 
@@ -34,7 +42,7 @@ describe('askStudyAssistant Unit Tests', () => {
     const fetchSpy = vi.fn();
     vi.stubGlobal('fetch', fetchSpy);
 
-    const result = await askStudyAssistant('Konnichiwa');
+    const result = await realAskStudyAssistant('Konnichiwa');
 
     expect(result).toEqual({ error: 'MISSING_KEY' });
     expect(fetchSpy).not.toHaveBeenCalled();
@@ -48,7 +56,7 @@ describe('askStudyAssistant Unit Tests', () => {
       status: 401
     })));
 
-    const result = await askStudyAssistant('Konnichiwa');
+    const result = await realAskStudyAssistant('Konnichiwa');
     expect(result).toEqual({ error: 'INVALID_KEY' });
   });
 
@@ -60,7 +68,7 @@ describe('askStudyAssistant Unit Tests', () => {
       status: 429
     })));
 
-    const result = await askStudyAssistant('Konnichiwa');
+    const result = await realAskStudyAssistant('Konnichiwa');
     expect(result).toEqual({ error: 'RATE_LIMIT' });
   });
 
@@ -69,7 +77,7 @@ describe('askStudyAssistant Unit Tests', () => {
 
     vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new TypeError('Failed to fetch'))));
 
-    const result = await askStudyAssistant('Konnichiwa');
+    const result = await realAskStudyAssistant('Konnichiwa');
     expect(result).toEqual({ error: 'NETWORK_ERROR' });
   });
 
@@ -89,7 +97,7 @@ describe('askStudyAssistant Unit Tests', () => {
       { role: 'assistant', content: 'Hello!' }
     ];
 
-    await askStudyAssistant('How are you?', history);
+    await realAskStudyAssistant('How are you?', history);
 
     const callBody = JSON.parse(mockFetch.mock.calls[0][1].body);
     expect(callBody.messages).toHaveLength(4);
@@ -97,5 +105,53 @@ describe('askStudyAssistant Unit Tests', () => {
     expect(callBody.messages[1]).toEqual(history[0]);
     expect(callBody.messages[2]).toEqual(history[1]);
     expect(callBody.messages[3].content).toBe('How are you?');
+  });
+});
+
+describe('AI Assistant UI Integration', () => {
+  beforeEach(() => {
+    document.body.innerHTML = `
+      <div id="ai-chat-history"></div>
+      <input id="ai-chat-input" value="Hello tutor!" />
+      <button id="btn-ai-send"></button>
+    `;
+    assistantHistory.length = 0; // Clear history
+    vi.restoreAllMocks();
+  });
+
+  it('should append user message and handle a successful AI response', async () => {
+    vi.mocked(askStudyAssistant).mockResolvedValue({ response: 'Hello! I am here to help. (konnichiwa)' });
+
+    await handleAssistantQuery('Hello tutor!');
+
+    const history = document.getElementById('ai-chat-history');
+    expect(history.innerHTML).toContain('Hello tutor!');
+    expect(history.innerHTML).toContain('Hello! I am here to help.');
+    expect(history.innerHTML).toContain('ai-reading-highlight'); // Verify formatting
+    expect(assistantHistory).toHaveLength(2);
+  });
+
+  it('should map API errors to user-friendly messages', async () => {
+    vi.mocked(askStudyAssistant).mockResolvedValue({ error: 'RATE_LIMIT' });
+
+    await handleAssistantQuery('Help me!');
+
+    const history = document.getElementById('ai-chat-history');
+    expect(history.innerHTML).toContain('Rate limit exceeded');
+  });
+
+  it('should truncate history to 20 messages', async () => {
+    vi.mocked(askStudyAssistant).mockResolvedValue({ response: 'Ok' });
+
+    // Fill history up to 20
+    for (let i = 0; i < 11; i++) {
+      await handleAssistantQuery('Query ' + i);
+    }
+
+    expect(assistantHistory.length).toBe(20);
+
+    // Add one more
+    await handleAssistantQuery('Query 11');
+    expect(assistantHistory.length).toBe(20); // Should remain 20
   });
 });

@@ -145,7 +145,7 @@ export function startAIRecording(onError) {
 
   mediaRecorder.onstart = () => {
     listening = true;
-    setStatus('listening', '🤖 AI Recording… speak clearly then click Submit');
+    setStatus('listening', '🤖 AI Recording… speak clearly then click Finish Recording');
 
     const ct = document.getElementById('transcript-content');
     const ph = document.getElementById('transcript-placeholder');

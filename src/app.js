@@ -1,6 +1,6 @@
 import { DEFAULT_QA } from './data.js';
 import {
-  updateQACount, updateStartButton, showApiKeyStatus, toggleKeyVisibility,
+  updateQACount, updateStartButton, updateSetupAccess, showApiKeyStatus, toggleKeyVisibility,
   showStartScreen
 } from './ui.js';
 import {
@@ -29,9 +29,18 @@ import { clearAudioCache } from './db.js';
 // SETUP FLOW
 // ─────────────────────────────────────────────
 
-function startSetupFlow() {
-  document.getElementById('setup-entry-point').classList.add('hidden');
-  nextSetupStep('setup-step-api-key');
+function refreshSetupAccess() {
+  updateSetupAccess(hasGroqApiKey() && QA.length > 0);
+}
+
+function startSetupFlow(stepId = 'setup-step-api-key') {
+  document.getElementById('setup-entry-point')?.classList.add('hidden');
+  document.getElementById('setup-return-point')?.classList.add('hidden');
+  nextSetupStep(stepId);
+}
+
+function reopenSetupFlow() {
+  startSetupFlow('setup-step-settings');
 }
 
 function nextSetupStep(stepId) {
@@ -52,10 +61,7 @@ function nextSetupStep(stepId) {
 
 function finishSetup() {
   document.getElementById('ai-settings-section').classList.add('hidden');
-  document.getElementById('setup-entry-point').classList.remove('hidden');
-  if (hasGroqApiKey() && QA.length > 0) {
-    document.getElementById('setup-entry-point').classList.add('hidden');
-  }
+  refreshSetupAccess();
 }
 
 function saveTTSMode() {
@@ -91,6 +97,7 @@ function restartApp() {
   showStartScreen();
   updateQACount(QA.length);
   updateStartButton(QA.length);
+  refreshSetupAccess();
 }
 
 // ─────────────────────────────────────────────
@@ -113,6 +120,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   updateQACount(QA.length);
   updateStartButton(QA.length);
+  refreshSetupAccess();
 
   const savedProvider = get(KEYS.API_PROVIDER);
   if (savedProvider && savedProvider !== 'groq') {
@@ -162,14 +170,21 @@ document.addEventListener('DOMContentLoaded', () => {
     if (el) el.addEventListener('click', fn);
   };
 
-  bind('btn-setup-env', startSetupFlow);
+  bind('btn-setup-env', () => startSetupFlow());
+  bind('btn-reopen-setup', reopenSetupFlow);
   bind('btn-restart-app', restartApp);
   bind('btn-end-session', endSession);
   bind('btn-choose-file', () => document.getElementById('file-input')?.click());
   bind('btn-clear-db', clearDatabase);
-  bind('btn-save-api', saveApiKeyFromInput);
+  bind('btn-save-api', () => {
+    saveApiKeyFromInput();
+    refreshSetupAccess();
+  });
   bind('btn-test-api', testApiConnection);
-  bind('btn-clear-api', clearApiKey);
+  bind('btn-clear-api', () => {
+    clearApiKey();
+    refreshSetupAccess();
+  });
   bind('btn-toggle-key', toggleKeyVisibility);
   bind('btn-finish-setup', finishSetup);
   bind('btn-start-practice', startPractice);

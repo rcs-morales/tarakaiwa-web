@@ -249,7 +249,7 @@ export function cancelCurrentSpeech() {
   } catch (_) { }
 }
 
-export function speakQuestion(text, onEnd) {
+export async function speakQuestion(text, onEnd) {
   const mode = get(KEYS.TTS_MODE);
   setStatus('speaking', mode === 'voicevox' ? '☁️ Loading cloud voice...' : 'Speaking question…');
 
@@ -259,14 +259,14 @@ export function speakQuestion(text, onEnd) {
   };
 
   if (mode === 'voicevox') {
-    speakWithVoicevox(text, wrapOnEnd);
+    await speakWithVoicevox(text, wrapOnEnd);
     return;
   }
 
   speakWithBrowser(text, wrapOnEnd);
 }
 
-export function speakFeedback(text, onEnd, silent = false) {
+export async function speakFeedback(text, onEnd, silent = false) {
   if (!silent) setStatus('speaking', 'Speaking feedback…');
   const wrapOnEnd = () => {
     toggleSpeaking(false);
@@ -276,7 +276,7 @@ export function speakFeedback(text, onEnd, silent = false) {
   // Result feedback should use the configured Voicevox path only.
   const mode = get(KEYS.TTS_MODE);
   if (mode === 'voicevox') {
-    speakWithVoicevox(text, wrapOnEnd);
+    await speakWithVoicevox(text, wrapOnEnd);
     return;
   }
 

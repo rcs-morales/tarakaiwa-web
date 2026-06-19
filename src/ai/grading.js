@@ -21,10 +21,16 @@ export function parseAIGradingResponse(rawText) {
     : text.substring(startIdx);
 
   try {
-    return JSON.parse(candidate);
+    const parsed = JSON.parse(candidate);
+    return {
+      ...partial,
+      ...parsed,
+      breakdown: parsed.breakdown || []
+    };
   } catch {
     // Groq can occasionally truncate a long JSON string.
   }
+
 
   const parseStringField = (key) => {
     const match = candidate.match(new RegExp('"' + key + '"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"', 's'));
@@ -58,8 +64,8 @@ export function parseAIGradingResponse(rawText) {
     || partial.suggested_answer;
 
   if (!hasUsefulFeedback) return null;
-  if (partial.correct === null) partial.correct = false;
-  if (partial.score === null) partial.score = partial.correct ? 100 : 0;
+  if (partial.correct == null) partial.correct = false;
+  if (partial.score == null) partial.score = partial.correct ? 100 : 0;
   return partial;
 }
 
