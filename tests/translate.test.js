@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { translateToJapaneseWithAI } from '../src/ai/index.js';
+import { toFuriganaHtml } from '../src/parser.js';
 import {
   handleTranslateAndSpeak, toggleTranslateMic, replayJapaneseAudio
 } from '../src/translate-ui.js';
@@ -65,6 +66,20 @@ vi.mock('../src/tts.js', () => ({
   }),
   cancelCurrentSpeech: vi.fn(),
 }));
+
+describe('Furigana Rendering', () => {
+  it('renders AI furigana markers as ruby tags', () => {
+    const input = '元気{genki}ですか';
+    const html = toFuriganaHtml(input);
+    expect(html).toBe('<ruby>元気<rt>genki</rt></ruby>ですか');
+  });
+
+  it('handles multiple markers in one string', () => {
+    const input = '図書館{toshokan}に行きます{ikimasu}';
+    const html = toFuriganaHtml(input);
+    expect(html).toBe('<ruby>図書館<rt>toshokan</rt></ruby><ruby>に行きます<rt>ikimasu</rt></ruby>');
+  });
+});
 
 describe('Translate Tool UI', () => {
   beforeEach(() => {

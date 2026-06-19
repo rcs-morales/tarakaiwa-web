@@ -283,6 +283,16 @@ export function transcriptToFuriganaForGrading(raw, answer) {
 
 export function toFuriganaHtml(text) {
   let s = String(text || '');
+
+  // First, handle AI-generated furigana format: Text{reading}
+  if (s.includes('{')) {
+    // Match text that is NOT a brace, followed by {reading}
+    // [^{}]+ allows any characters except braces before the opening brace
+    s = s.replace(/([^{}]+)\{([^\}]*)\}/g, '<ruby>$1<rt>$2</rt></ruby>');
+
+    return s;
+  }
+
   const phrasePairs = [...KANJI_MAP, ...LESSON_KANJI_MAP]
     .sort((a, b) => b[0].length - a[0].length);
 
