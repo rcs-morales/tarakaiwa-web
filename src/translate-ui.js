@@ -209,6 +209,11 @@ export async function toggleTranslateMic() {
   }
 }
 
+/** strips AI furigana markers {reading} for TTS playback */
+function stripFurigana(text) {
+  return text.replace(/\{[^\}]*\}/g, '');
+}
+
 export async function handleTranslateAndSpeak() {
   const input = document.getElementById('translate-input');
   const speakBtn = document.getElementById('btn-translate-speak');
@@ -235,7 +240,8 @@ export async function handleTranslateAndSpeak() {
   showTranslateResult(result);
   setTranslateStatus('Playing Japanese audio…', 'success');
 
-  await speakQuestion(lastJapanese, () => {
+  const ttsText = stripFurigana(lastJapanese);
+  await speakQuestion(ttsText, () => {
     setTranslateStatus('Done! Edit the phrase or tap Replay.', 'success');
     if (speakBtn) speakBtn.disabled = false;
   });
@@ -245,7 +251,8 @@ export async function replayJapaneseAudio() {
   if (!lastJapanese) return;
   cancelCurrentSpeech();
   setTranslateStatus('Replaying audio…', 'info');
-  await speakQuestion(lastJapanese, () => {
+  const ttsText = stripFurigana(lastJapanese);
+  await speakQuestion(ttsText, () => {
     setTranslateStatus('Replay finished.', 'success');
   });
 }

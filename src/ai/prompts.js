@@ -56,7 +56,8 @@ Example format:
 {"japanese": "明日{ashita}の天気予報{tenki yohou}はどうですか", "romaji": "ashita no tenki yohou wa dou desu ka"}
 
 CRITICAL: In the "japanese" field, you MUST provide furigana for ALL kanji using the format: Kanji{reading}.
-Example: 図書館{toshokan}に行きます{ikimasu}.
+The {reading} MUST be in hiragana or katakana ONLY. Do NOT use romaji inside the curly braces.
+Example: 図書館{としょかん}に行きます{いきます}.
 
 Ensure the "japanese" field is NEVER empty. If you cannot translate, provide the best possible Japanese equivalent.`;
 }
