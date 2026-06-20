@@ -9,6 +9,33 @@ let currentAudioUrl = null;
 const prefetchCache = {};
 const inFlightVoicevoxRequests = new Map();
 
+/**
+ * Must be called synchronously from within a user-gesture handler (tap/click)
+ * BEFORE any await. This "unlocks" audio playback on mobile browsers (iOS Safari,
+ * Chrome Android) so that later, async-initiated .play() / .speak() calls work.
+ */
+export function unlockAudioForMobile() {
+  // 1. Unlock HTML5 Audio by playing a tiny silent WAV
+  try {
+    // Minimal valid WAV: 44-byte header + 1 sample of silence
+    const silentWav = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
+    const a = new Audio(silentWav);
+    a.volume = 0;
+    a.play().catch(() => {});
+  } catch (_) { /* ignore */ }
+
+  // 2. Unlock Web Speech API by speaking an empty utterance
+  try {
+    const synth = window.speechSynthesis;
+    if (synth) {
+      const utter = new SpeechSynthesisUtterance('');
+      utter.volume = 0;
+      utter.rate = 10; // finish instantly
+      synth.speak(utter);
+    }
+  } catch (_) { /* ignore */ }
+}
+
 export function toggleTTSVoicePanels(mode) {
   const vvSettings = document.getElementById('voicevox-settings-section');
   const avatarSettings = document.getElementById('avatar-settings-section');

@@ -12,7 +12,7 @@ import {
 } from './ai/index.js';
 import { get, set, KEYS } from './settings.js';
 import { getIsChecking, setIsChecking } from './sessionFlags.js';
-import { speakQuestion, speakFeedback, cancelCurrentSpeech, preloadVoicevoxAudio, preloadAllVoicevoxAudio } from './tts.js';
+import { speakQuestion, speakFeedback, cancelCurrentSpeech, preloadVoicevoxAudio, preloadAllVoicevoxAudio, unlockAudioForMobile } from './tts.js';
 import {
   initRecognizer, startListening, abortRecognition,
   startAIRecording, stopAIRecording, getLiveTranscript,
@@ -52,6 +52,10 @@ function playSound(type) {
 // ─────────────────────────────────────────────
 
 export async function startPractice() {
+  // Unlock audio playback on mobile browsers immediately during user gesture,
+  // BEFORE any await, so TTS works on the first question.
+  unlockAudioForMobile();
+
   if (QA.length === 0) {
     alert('Please import a Q&A database before starting practice.');
     return;
@@ -399,10 +403,20 @@ export async function checkAnswer() {
     }).catch(() => {
       updateCheckedTranslation('user-ans-trans', '');
     });
+    
+    updateCheckedTranslation('expected-ans-trans', 'Translating expected answer...');
+    translateWithAI(item.a).then(trans => {
+      updateCheckedTranslation('expected-ans-trans', trans ? trans : '');
+    }).catch(() => {
+      updateCheckedTranslation('expected-ans-trans', '');
+    });
   } else {
     const query = encodeURIComponent(raw);
     const url = `https://translate.google.com/?sl=ja&tl=en&text=${query}&op=translate`;
     updateCheckedTranslation('user-ans-trans', `🌐 <a href="${url}" target="_blank" style="color: var(--teal); text-decoration: underline;">Translate what you said on Google Translate ↗</a>`);
+    
+    const expectedUrl = `https://translate.google.com/?sl=ja&tl=en&text=${encodeURIComponent(item.a)}&op=translate`;
+    updateCheckedTranslation('expected-ans-trans', `🌐 <a href="${expectedUrl}" target="_blank" style="color: var(--teal); text-decoration: underline;">Translate expected answer on Google Translate ↗</a>`);
   }
 
   cancelCurrentSpeech();
@@ -556,19 +570,36 @@ async function showResults(choice) {
         bdCont.className = 'ai-breakdown-container';
 
         breakdown.forEach(item => {
-          const row = document.createElement('div');
-          row.className = 'breakdown-row';
-
-          const main = document.createElement('div');
-          main.className = 'breakdown-main';
-          main.innerHTML = `<span class="breakdown-original">${item.original}</span> <span class="breakdown-arrow">→</span> <span class="breakdown-corrected">${item.corrected}</span>`;
-
-          const details = document.createElement('div');
-          details.className = 'breakdown-details';
-          details.innerHTML = `<span class="breakdown-category">${item.category}</span> <span class="breakdown-explanation">${item.explanation}</span>`;
-
-          row.append(main, details);
-          bdCont.appendChild(row);
+          const card = document.createElement('div');
+          card.className = 'rich-breakdown-card';
+          
+          const top = document.createElement('div');
+          top.className = 'rich-breakdown-top';
+          
+          const changes = document.createElement('div');
+          changes.className = 'rich-breakdown-changes';
+          changes.innerHTML = `<span class="rich-breakdown-old">${item.original}</span> <span class="rich-breakdown-arrow">→</span> <span class="rich-breakdown-new">${item.corrected}</span>`;
+          
+          const tag = document.createElement('div');
+          const catLower = (item.category || '').toLowerCase().replace(/\\s+/g, '-');
+          let tagClass = 'rich-tag-default';
+          if (catLower.includes('sentence')) tagClass = 'rich-tag-sentence-structure';
+          else if (catLower.includes('word') || catLower.includes('vocab')) tagClass = 'rich-tag-word-choice';
+          else if (catLower.includes('particle')) tagClass = 'rich-tag-particle';
+          else if (catLower.includes('conjugation') || catLower.includes('tense')) tagClass = 'rich-tag-conjugation';
+          else if (catLower.includes('completeness')) tagClass = 'rich-tag-sentence-structure';
+          
+          tag.className = `rich-breakdown-tag ${tagClass}`;
+          tag.textContent = item.category || 'Feedback';
+          
+          top.append(changes, tag);
+          
+          const desc = document.createElement('div');
+          desc.className = 'rich-breakdown-desc';
+          desc.textContent = item.explanation;
+          
+          card.append(top, desc);
+          bdCont.appendChild(card);
         });
         fbDiv.appendChild(bdCont);
       }

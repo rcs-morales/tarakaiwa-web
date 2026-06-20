@@ -180,33 +180,6 @@ async function finalizeAIGradingResult(text, question, expectedAnswer, transcrip
 
     const breakdown = result.breakdown || [];
 
-    if (hasCompletionProblem) {
-      breakdown.push({
-        original: transcript,
-        corrected: expectedAnswer,
-        category: 'Completeness',
-        explanation: completionSignals.reason
-      });
-    }
-
-    if (hasTenseProblem) {
-      breakdown.push({
-        original: transcript,
-        corrected: expectedAnswer,
-        category: 'Tense',
-        explanation: grammarVal || 'Verb tense mismatch.'
-      });
-    }
-
-    if (particleMismatch) {
-      breakdown.push({
-        original: transcript,
-        corrected: expectedAnswer,
-        category: 'Particle',
-        explanation: 'Particle usage should follow the expected pattern in this level.'
-      });
-    }
-
     return {
       correct: isCorrect,
       score: scoreVal,

@@ -62,6 +62,7 @@ function nextSetupStep(stepId) {
 
 function finishSetup() {
   document.getElementById('ai-settings-section').classList.add('hidden');
+  document.getElementById('import-section')?.classList.remove('hidden');
   refreshSetupAccess();
 }
 
@@ -99,6 +100,7 @@ function restartApp() {
   updateQACount(QA.length);
   updateStartButton(QA.length);
   refreshSetupAccess();
+  document.getElementById('import-section')?.classList.remove('hidden');
 }
 
 // ─────────────────────────────────────────────

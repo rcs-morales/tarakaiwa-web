@@ -41,7 +41,7 @@
       <div class="big-icon">🎙️</div>
       <h2>Ready to Practice?</h2>
       <p>The app will read each question aloud in Japanese.<br>Speak your answer clearly into your microphone.<br>Your
-        answer will be checked automatically.</p>
+        answer will be checked automatically. <br>(Try the 10 sample N5 questions by clicking "Start Practice")<br></p>
       <div class="info-chips">
         <span class="chip"><span id="qa-count-chip">🗂 No Questions Loaded</span></span>
         <span class="chip">🇯🇵 Japanese</span>
@@ -50,25 +50,16 @@
             configured</span></span>
       </div>
 
-      <!-- Setup Entry Point -->
-      <div id="setup-entry-point" style="text-align: center; margin-bottom: 20px;">
-        <button class="btn btn-primary" id="btn-setup-env">⚙️ Setup Practice Environment</button>
-      </div>
-
-      <!-- Return to Setup (shown after setup is complete) -->
-      <div id="setup-return-point" class="hidden" style="text-align: center; margin-bottom: 20px;">
-        <button class="btn btn-secondary" id="btn-reopen-setup">⚙️ Edit Settings</button>
-      </div>
-
+      
       <!-- Import Section -->
       <div class="import-section" id="import-section">
         <h3>📁 Import Your Own Q&A Database</h3>
-        <p>Load your custom questions and answers from a JSON or CSV file:</p>
+        <p>Load your custom questions and answers from Excel, JSON or CSV file:</p>
         <p style="font-size: 0.75rem; color: var(--muted); margin-bottom: 6px;">
+          <strong>Excel format:</strong> .xlsx or .xls file with two columns (Question, Answer)<br>
           <strong>JSON format:</strong> <code
             style="background: var(--paper-2); padding: 2px 6px; border-radius: 3px;">[{"q": "Question?", "a": "Answer"}, ...]</code><br>
           <strong>CSV format:</strong> Two columns (Question, Answer) — first row as header<br>
-          <strong>Excel format:</strong> .xlsx or .xls file with two columns (Question, Answer)
         </p>
         <input type="file" id="file-input" accept=".json,.csv,.txt,.xlsx,.xls" />
         <div class="import-buttons">
@@ -80,6 +71,16 @@
           </button>
         </div>
         <div class="import-status" id="import-status"></div>
+      </div>
+
+      <!-- Setup Entry Point -->
+      <div id="setup-entry-point" style="text-align: center; margin-bottom: 20px;">
+        <button class="btn btn-primary" id="btn-setup-env">⚙️ Setup Practice Environment</button>
+      </div>
+
+      <!-- Return to Setup (shown after setup is complete) -->
+      <div id="setup-return-point" class="hidden" style="text-align: center; margin-bottom: 20px;">
+        <button class="btn btn-secondary" id="btn-reopen-setup">⚙️ Edit Settings</button>
       </div>
 
       <!-- AI Settings Section -->
@@ -136,8 +137,8 @@
             (TTS):</label>
           <select id="tts-mode-select"
             style="padding: 4px; border-radius: 4px; border: 1px solid var(--border); background: var(--paper-2); color: var(--text);">
-            <option value="browser" selected>🌐 Browser Built-in — Free, instant</option>
-            <option value="voicevox">🎙️ VOICEVOX — Local, High Quality</option>
+            <option value="browser" selected>🌐 Browser Built-in — Local, instant</option>
+            <option value="voicevox">🎙️ VOICEVOX — Cloud, High Quality</option>
           </select>
         </div>
 

@@ -80,66 +80,72 @@ export function showResult(gradeResult, answer) {
   icon.textContent = correct ? '✅' : '❌';
   msg.textContent  = correct ? '正解！ Correct!' : '不正解。 Incorrect.';
 
-  if (!correct && gradeResult.suggestedAnswer) {
-    rev.replaceChildren();
-    const strong = document.createElement('strong');
-    strong.textContent = 'Expected answer: ';
-    const text = document.createTextNode(gradeResult.suggestedAnswer || answer);
-    const link = document.createElement('a');
-    link.href = `https://translate.google.com/?sl=ja&tl=en&text=${encodeURIComponent(gradeResult.suggestedAnswer || answer)}&op=translate`;
-    link.target = '_blank';
-    link.textContent = ' 🌐 Translate';
-    link.title = 'Translate answer';
-    link.className = 'translate-link';
-    rev.append(strong, text, link);
-  } else {
-    rev.replaceChildren();
-    const strong = document.createElement('strong');
-    strong.textContent = correct ? 'Expected answer: ' : 'Expected: ';
-    const text = document.createTextNode(answer);
-    const link = document.createElement('a');
-    link.href = `https://translate.google.com/?sl=ja&tl=en&text=${encodeURIComponent(answer)}&op=translate`;
-    link.target = '_blank';
-    link.textContent = ' 🌐 Translate';
-    link.title = 'Translate answer';
-    link.className = 'translate-link';
-    rev.append(strong, text, link);
-  }
+  rev.replaceChildren();
+  const strong = document.createElement('strong');
+  strong.textContent = correct ? 'Expected answer: ' : 'Expected: ';
+  const text = document.createTextNode(answer);
+  
+  const transContainer = document.createElement('div');
+  transContainer.id = 'expected-ans-trans';
+  transContainer.className = 'trans-small';
+  
+  rev.append(strong, text, transContainer);
 
   aiFb.replaceChildren();
-  if (gradeResult.source !== 'local' && gradeResult.feedback) {
-    const fbText = document.createElement('div');
-    fbText.className = 'ai-feedback-text';
-    fbText.textContent = '🤖 ' + gradeResult.feedback;
-    aiFb.appendChild(fbText);
+  if (gradeResult.source === 'groq') {
+    const mainFbText = gradeResult.general_feedback || gradeResult.feedback || '';
+    if (mainFbText) {
+      const fbText = document.createElement('div');
+      fbText.className = 'ai-feedback-text';
+      fbText.textContent = '🤖 ' + mainFbText;
+      aiFb.appendChild(fbText);
+    }
 
-    const notes = document.createElement('div');
-    notes.className = 'ai-feedback-notes';
+    const breakdown = gradeResult.breakdown || [];
 
-    const noteTypes = [
-      { label: 'Grammar', text: gradeResult.grammarNotes },
-      { label: 'Particles', text: gradeResult.particleNotes },
-      { label: 'Vocab', text: gradeResult.vocabularyNotes },
-    ];
+    if (breakdown.length > 0) {
+      const richSection = document.createElement('div');
+      richSection.className = 'rich-feedback-section';
+      
+      const sub2 = document.createElement('div');
+      sub2.className = 'rich-feedback-header';
+      sub2.textContent = 'Explanation';
+      richSection.appendChild(sub2);
 
-    for (const nt of noteTypes) {
-      if (nt.text && nt.text.toLowerCase() !== 'none' && nt.text.trim()) {
-        const note = document.createElement('div');
-        note.className = 'ai-note';
-        const lbl = document.createElement('span');
-        lbl.className = 'ai-note-label';
-        lbl.textContent = nt.label;
-        const txt = document.createElement('span');
-        txt.className = 'ai-note-text';
-        txt.textContent = nt.text;
-        note.append(lbl, txt);
-        notes.appendChild(note);
+        breakdown.forEach(item => {
+          const card = document.createElement('div');
+          card.className = 'rich-breakdown-card';
+          
+          const top = document.createElement('div');
+          top.className = 'rich-breakdown-top';
+          
+          const changes = document.createElement('div');
+          changes.className = 'rich-breakdown-changes';
+          changes.innerHTML = `<span class="rich-breakdown-old">${item.original}</span> <span class="rich-breakdown-arrow">→</span> <span class="rich-breakdown-new">${item.corrected}</span>`;
+          
+          const tag = document.createElement('div');
+          const catLower = (item.category || '').toLowerCase().replace(/\\s+/g, '-');
+          let tagClass = 'rich-tag-default';
+          if (catLower.includes('sentence')) tagClass = 'rich-tag-sentence-structure';
+          else if (catLower.includes('word') || catLower.includes('vocab')) tagClass = 'rich-tag-word-choice';
+          else if (catLower.includes('particle')) tagClass = 'rich-tag-particle';
+          else if (catLower.includes('conjugation') || catLower.includes('tense')) tagClass = 'rich-tag-conjugation';
+          else if (catLower.includes('completeness')) tagClass = 'rich-tag-sentence-structure';
+          
+          tag.className = `rich-breakdown-tag ${tagClass}`;
+          tag.textContent = item.category || 'Feedback';
+          
+          top.append(changes, tag);
+          
+          const desc = document.createElement('div');
+          desc.className = 'rich-breakdown-desc';
+          desc.textContent = item.explanation;
+          
+          card.append(top, desc);
+          richSection.appendChild(card);
+        });
+        aiFb.appendChild(richSection);
       }
-    }
-
-    if (notes.children.length > 0) {
-      aiFb.appendChild(notes);
-    }
   } else if (gradeResult.source === 'local') {
     const fbText = document.createElement('div');
     fbText.className = 'ai-feedback-text';
