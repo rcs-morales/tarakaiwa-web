@@ -4,8 +4,10 @@ import { AVATAR_MODELS } from './data.js';
 import { get, set, KEYS } from './settings.js';
 import { getAudio, saveAudio } from './db.js';
 
-let currentAudio = null;
-let currentAudioUrl = null;
+let channels = {
+  practice: { audio: null, url: null, onEnd: null },
+  tool: { audio: null, url: null, onEnd: null }
+};
 const prefetchCache = {};
 const inFlightVoicevoxRequests = new Map();
 
@@ -178,7 +180,8 @@ function hideVoicevoxLoading() {
   if (overlay) overlay.remove();
 }
 
-async function speakWithVoicevox(text, onEnd) {
+async function speakWithVoicevox(text, onEnd, context) {
+  const chan = channels[context];
   // Only show the loading overlay if the fetch takes longer than 2.5s
   const loadingTimer = setTimeout(() => showVoicevoxLoading(), 2500);
   try {
@@ -187,35 +190,37 @@ async function speakWithVoicevox(text, onEnd) {
     hideVoicevoxLoading();
     if (!blob) throw new Error("Could not fetch Voicevox audio");
 
-    if (currentAudioUrl) URL.revokeObjectURL(currentAudioUrl);
-    currentAudioUrl = URL.createObjectURL(blob);
-    currentAudio = new Audio(currentAudioUrl);
+    if (chan.url) URL.revokeObjectURL(chan.url);
+    chan.url = URL.createObjectURL(blob);
+    chan.audio = new Audio(chan.url);
 
     const speed = parseFloat(get(KEYS.TTS_SPEED));
-    currentAudio.playbackRate = speed;
+    chan.audio.playbackRate = speed;
 
-    currentAudio.onplay = () => {
+    chan.audio.onplay = () => {
       toggleSpeaking(true);
-      setStatus('speaking', 'Speaking question…');
+      if (context === 'practice') {
+        setStatus('speaking', 'Speaking question…');
+      }
     };
 
-    currentAudio.onended = () => {
-      if (currentAudioUrl) URL.revokeObjectURL(currentAudioUrl);
-      currentAudioUrl = null;
-      currentAudio = null;
+    chan.audio.onended = () => {
+      if (chan.url) URL.revokeObjectURL(chan.url);
+      chan.url = null;
+      chan.audio = null;
       if (onEnd) onEnd();
     };
-    currentAudio.onerror = () => {
-      if (currentAudioUrl) URL.revokeObjectURL(currentAudioUrl);
-      currentAudioUrl = null;
-      currentAudio = null;
+    chan.audio.onerror = () => {
+      if (chan.url) URL.revokeObjectURL(chan.url);
+      chan.url = null;
+      chan.audio = null;
       if (onEnd) onEnd();
     };
-    currentAudio.play();
+    chan.audio.play();
   } catch (err) {
     clearTimeout(loadingTimer);
     hideVoicevoxLoading();
-    console.error('Voicevox TTS failed:', err);
+    console.error(`Voicevox TTS failed [${context}]:`, err);
     if (onEnd) onEnd();
   }
 }
@@ -229,13 +234,15 @@ export function saveVoicevoxSpeaker() {
   }
 }
 
-function speakWithBrowser(text, onEnd) {
+function speakWithBrowser(text, onEnd, context) {
   const synth = window.speechSynthesis;
   if (!synth) {
     if (onEnd) onEnd();
     return;
   }
 
+  // Browser TTS is a singleton. If we speak, it will interrupt everything.
+  // However, we only call cancel() if we explicitly want to clear the queue.
   if (synth.speaking) synth.cancel();
 
   const utter = new SpeechSynthesisUtterance(text);
@@ -254,61 +261,84 @@ function speakWithBrowser(text, onEnd) {
   synth.speak(utter);
 }
 
-export function cancelCurrentSpeech() {
+export function cancelSpeech(context = 'practice') {
+  const chan = channels[context];
+
+  // Browser TTS: Always cancels everything (API limitation)
   const synth = window.speechSynthesis;
   if (synth && synth.speaking) synth.cancel();
 
-  if (currentAudio) {
-    currentAudio.pause();
-    currentAudio.currentTime = 0;
-    currentAudio.onended = null;
-    currentAudio.onerror = null;
-    currentAudio = null;
+  if (chan.audio) {
+    chan.audio.pause();
+    chan.audio.currentTime = 0;
+    chan.audio.onended = null;
+    chan.audio.onerror = null;
+    chan.audio = null;
   }
 
-  if (currentAudioUrl) {
-    URL.revokeObjectURL(currentAudioUrl);
-    currentAudioUrl = null;
+  if (chan.url) {
+    URL.revokeObjectURL(chan.url);
+    chan.url = null;
   }
 
   try {
-    toggleSpeaking(false);
+    const otherContext = context === 'practice' ? 'tool' : 'practice';
+    const otherAudio = channels[otherContext].audio;
+    if (otherAudio && !otherAudio.paused && !otherAudio.ended) {
+      toggleSpeaking(true);
+    } else {
+      toggleSpeaking(false);
+    }
   } catch (_) { }
 }
 
-export async function speakQuestion(text, onEnd) {
+export async function speakQuestion(text, onEnd, context = 'practice') {
   const mode = get(KEYS.TTS_MODE);
-  setStatus('speaking', mode === 'voicevox' ? '☁️ Loading cloud voice...' : 'Speaking question…');
+  if (context === 'practice') {
+    setStatus('speaking', mode === 'voicevox' ? '☁️ Loading cloud voice...' : 'Speaking question…');
+  }
 
   const wrapOnEnd = () => {
-    toggleSpeaking(false);
+    const otherContext = context === 'practice' ? 'tool' : 'practice';
+    const otherAudio = channels[otherContext].audio;
+    if (otherAudio && !otherAudio.paused && !otherAudio.ended) {
+      toggleSpeaking(true);
+    } else {
+      toggleSpeaking(false);
+    }
     if (onEnd) onEnd();
   };
 
   if (mode === 'voicevox') {
-    await speakWithVoicevox(text, wrapOnEnd);
+    await speakWithVoicevox(text, wrapOnEnd, context);
     return;
   }
 
-  speakWithBrowser(text, wrapOnEnd);
+  speakWithBrowser(text, wrapOnEnd, context);
 }
 
-export async function speakFeedback(text, onEnd, silent = false) {
-  if (!silent) setStatus('speaking', 'Speaking feedback…');
+export async function speakFeedback(text, onEnd, silent = false, context = 'practice') {
+  if (!silent && context === 'practice') setStatus('speaking', 'Speaking feedback…');
   const wrapOnEnd = () => {
-    toggleSpeaking(false);
+    const otherContext = context === 'practice' ? 'tool' : 'practice';
+    const otherAudio = channels[otherContext].audio;
+    if (otherAudio && !otherAudio.paused && !otherAudio.ended) {
+      toggleSpeaking(true);
+    } else {
+      toggleSpeaking(false);
+    }
     if (onEnd) onEnd();
   };
 
   // Result feedback should use the configured Voicevox path only.
   const mode = get(KEYS.TTS_MODE);
   if (mode === 'voicevox') {
-    await speakWithVoicevox(text, wrapOnEnd);
+    await speakWithVoicevox(text, wrapOnEnd, context);
     return;
   }
 
   // Browser TTS is kept only as a last-resort fallback for non-Voicevox sessions.
-  speakWithBrowser(text, wrapOnEnd);
+  speakWithBrowser(text, wrapOnEnd, context);
 }
 
 function getJapaneseVoices() {

@@ -12,7 +12,7 @@ import {
 } from './ai/index.js';
 import { get, set, KEYS } from './settings.js';
 import { getIsChecking, setIsChecking } from './sessionFlags.js';
-import { speakQuestion, speakFeedback, cancelCurrentSpeech, preloadVoicevoxAudio, preloadAllVoicevoxAudio, unlockAudioForMobile } from './tts.js';
+import { speakQuestion, speakFeedback, cancelSpeech, preloadVoicevoxAudio, preloadAllVoicevoxAudio, unlockAudioForMobile } from './tts.js';
 import {
   initRecognizer, startListening, abortRecognition,
   startAIRecording, stopAIRecording, getLiveTranscript,
@@ -156,7 +156,7 @@ export async function loadQuestion() {
   document.getElementById('progress-label').textContent =
     'Question ' + (current + 1) + ' / ' + QA.length;
 
-  cancelCurrentSpeech();
+  cancelSpeech('practice');
   setStatus('speaking', 'Preparing…');
   try {
     const { resetAvatarPose } = await import('./avatar.js?' + Date.now());
@@ -419,7 +419,7 @@ export async function checkAnswer() {
     updateCheckedTranslation('expected-ans-trans', `🌐 <a href="${expectedUrl}" target="_blank" style="color: var(--teal); text-decoration: underline;">Translate expected answer on Google Translate ↗</a>`);
   }
 
-  cancelCurrentSpeech();
+  cancelSpeech('practice');
   setStatus('checking', '🔊 Speaking result feedback…');
   speakFeedback(feedbackText, () => {
     setStatus('', gradeResult.correct ? 'Correct! 🎉' : 'Incorrect. Review the feedback.');
@@ -452,7 +452,7 @@ export function rerecordAnswer() {
 }
 
 export function nextQuestion() {
-  cancelCurrentSpeech();
+  cancelSpeech('practice');
   if (current === QA.length - 1) {
     handleFinishPractice();
     return;
@@ -462,7 +462,7 @@ export function nextQuestion() {
 }
 
 export function skipQuestion() {
-  cancelCurrentSpeech();
+  cancelSpeech('practice');
   abortRecognition();
   results.push({ q: QA[current].q, a: QA[current].a, transcript: '(skipped)', correct: false });
   if (current === QA.length - 1) {
@@ -474,7 +474,7 @@ export function skipQuestion() {
 }
 
 export function endSession() {
-  cancelCurrentSpeech();
+  cancelSpeech('practice');
   abortRecognition();
   releaseMic();
   while (results.length < QA.length) {
@@ -634,7 +634,7 @@ async function showFinalOverlay(pct, choice) {
             overlay.classList.add('hidden');
           }, 1000);
         }, 2000);
-      }, null, true);
+      }, true);
     } else {
       // Ensure overlay disappears even if no audio is played
       setTimeout(() => {

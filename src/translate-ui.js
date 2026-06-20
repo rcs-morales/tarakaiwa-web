@@ -1,5 +1,5 @@
 import { translateToJapaneseWithAI, hasGroqApiKey, transcribeForTool } from './ai/index.js';
-import { speakQuestion, cancelCurrentSpeech } from './tts.js';
+import { speakQuestion, cancelSpeech } from './tts.js';
 import { makeDraggable } from './assistant-ui.js';
 import { toFuriganaHtml } from './parser.js';
 import { get, set, KEYS } from './settings.js';
@@ -224,7 +224,7 @@ export async function handleTranslateAndSpeak() {
   }
 
   if (speakBtn) speakBtn.disabled = true;
-  cancelCurrentSpeech();
+  cancelSpeech('tool');
   setTranslateStatus('Translating to Japanese…', 'info');
 
   const sourceLang = get(KEYS.SOURCE_LANGUAGE) || 'English';
@@ -244,17 +244,17 @@ export async function handleTranslateAndSpeak() {
   await speakQuestion(ttsText, () => {
     setTranslateStatus('Done! Edit the phrase or tap Replay.', 'success');
     if (speakBtn) speakBtn.disabled = false;
-  });
+  }, 'tool');
 }
 
 export async function replayJapaneseAudio() {
   if (!lastJapanese) return;
-  cancelCurrentSpeech();
+  cancelSpeech('tool');
   setTranslateStatus('Replaying audio…', 'info');
   const ttsText = stripFurigana(lastJapanese);
   await speakQuestion(ttsText, () => {
     setTranslateStatus('Replay finished.', 'success');
-  });
+  }, 'tool');
 }
 
 function initTranslatePanelInteractivity() {
@@ -313,7 +313,7 @@ function toggleTranslatePanel() {
   } else {
     panel.classList.add('hidden');
     if (translateRecording) toggleTranslateMic();
-    cancelCurrentSpeech();
+    cancelSpeech('tool');
   }
 }
 
@@ -336,7 +336,7 @@ export function initTranslateTool() {
     closeBtn.addEventListener('click', () => {
       document.getElementById('translate-tool-panel')?.classList.add('hidden');
       if (translateRecording) toggleTranslateMic();
-      cancelCurrentSpeech();
+      cancelSpeech('tool');
     });
   }
 
