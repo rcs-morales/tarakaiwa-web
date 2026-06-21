@@ -128,7 +128,10 @@ export async function preloadAllVoicevoxAudio(texts, onProgress, signal) {
       if (signal && signal.cancelled) return;
       const i = index; // Do not increment yet
       try {
+        const startTime = Date.now();
         const result = await preloadVoicevoxAudio(texts[i]);
+        const elapsed = Date.now() - startTime;
+
         if (!result) {
           // Fetch failed (likely 429 or network error).
           // As requested, we wait and retry rather than aborting, keeping the modal active.
@@ -146,7 +149,10 @@ export async function preloadAllVoicevoxAudio(texts, onProgress, signal) {
         if (onProgress) onProgress(completed, total);
 
         // Wait 1 second between successful requests to be polite to the API
-        await new Promise(r => setTimeout(r, 1000));
+        // Only if it actually hit the network (takes time)
+        if (elapsed > 100) {
+          await new Promise(r => setTimeout(r, 1000));
+        }
       } catch (_) {
         // Individual failures
       }
@@ -198,8 +204,8 @@ async function speakWithVoicevox(text, onEnd, context) {
     chan.audio.playbackRate = speed;
 
     chan.audio.onplay = () => {
-      toggleSpeaking(true);
       if (context === 'practice') {
+        toggleSpeaking(true);
         setStatus('speaking', 'Speaking question…');
       }
     };
@@ -254,7 +260,9 @@ function speakWithBrowser(text, onEnd, context) {
   if (jpVoice) utter.voice = jpVoice;
 
   utter.onstart = () => {
-    toggleSpeaking(true);
+    if (context === 'practice') {
+      toggleSpeaking(true);
+    }
   };
   utter.onend = onEnd;
   utter.onerror = onEnd;
@@ -295,7 +303,7 @@ export function cancelSpeech(context = 'practice') {
 export async function speakQuestion(text, onEnd, context = 'practice') {
   const mode = get(KEYS.TTS_MODE);
   if (context === 'practice') {
-    setStatus('speaking', mode === 'voicevox' ? '☁️ Loading cloud voice...' : 'Speaking question…');
+    setStatus('speaking', 'Preparing audio…');
   }
 
   const wrapOnEnd = () => {

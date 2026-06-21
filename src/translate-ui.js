@@ -4,6 +4,31 @@ import { makeDraggable } from './assistant-ui.js';
 import { toFuriganaHtml } from './parser.js';
 import { get, set, KEYS } from './settings.js';
 
+async function requestTranslateMicAccess() {
+  if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function') {
+    setTranslateStatus('Microphone access is not available in this browser.', 'error');
+    return false;
+  }
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true
+      }
+    });
+    if (translateMicStream) {
+      translateMicStream.getTracks().forEach(track => track.stop());
+    }
+    translateMicStream = stream;
+    return true;
+  } catch (_) {
+    setTranslateStatus('Microphone permission denied. Please allow access and try again.', 'error');
+    return false;
+  }
+}
+
 let lastJapanese = '';
 let translateRecog = null;
 let translateRecording = false;
@@ -72,6 +97,8 @@ async function startBrowserTranslateListening() {
   if (!SpeechRecognition) return false;
 
   const input = document.getElementById('translate-input');
+  const micReady = await requestTranslateMicAccess();
+  if (!micReady) return false;
   stopBrowserTranslateRecog();
   translateRecog = new SpeechRecognition();
   translateRecog.lang = 'en-US';
@@ -123,10 +150,8 @@ async function startWhisperTranslateRecording() {
     return;
   }
 
-  try {
-    translateMicStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  } catch (_) {
-    setTranslateStatus('Microphone permission denied.', 'error');
+  const micReady = await requestTranslateMicAccess();
+  if (!micReady) {
     return;
   }
 

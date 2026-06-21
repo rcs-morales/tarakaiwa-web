@@ -253,32 +253,36 @@ export function showResultsScreen() {
 // ── Voicevox Batch Preload Modal ──
 
 let _preloadSkipResolve = null;
+let _preloadTimer = null;
 
 export function showVoicevoxPreloadModal(total) {
   if (document.getElementById('vv-preload-overlay')) return Promise.resolve();
 
-  const overlay = document.createElement('div');
-  overlay.id = 'vv-preload-overlay';
-  overlay.className = 'vv-loading-overlay';
-  overlay.innerHTML = `
-    <div class="vv-loading-card">
-      <div class="vv-spinner"></div>
-      <h3>☁️ Preparing Cloud Voices…</h3>
-      <p>Preloading all audio so practice runs smoothly.</p>
-      <div class="vv-preload-progress-track">
-        <div class="vv-preload-progress-fill" id="vv-preload-fill"></div>
-      </div>
-      <div class="vv-preload-count" id="vv-preload-count">Loading voice 0 / ${total}…</div>
-      <button class="vv-preload-skip" id="vv-preload-skip">Skip — load per question instead</button>
-    </div>
-  `;
-  document.body.appendChild(overlay);
-
   return new Promise(resolve => {
     _preloadSkipResolve = resolve;
-    document.getElementById('vv-preload-skip').addEventListener('click', () => {
-      resolve('skipped');
-    });
+
+    _preloadTimer = setTimeout(() => {
+      const overlay = document.createElement('div');
+      overlay.id = 'vv-preload-overlay';
+      overlay.className = 'vv-loading-overlay';
+      overlay.innerHTML = `
+        <div class="vv-loading-card">
+          <div class="vv-spinner"></div>
+          <h3>☁️ Preparing Cloud Voices…</h3>
+          <p>Preloading all audio so practice runs smoothly.</p>
+          <div class="vv-preload-progress-track">
+            <div class="vv-preload-progress-fill" id="vv-preload-fill"></div>
+          </div>
+          <div class="vv-preload-count" id="vv-preload-count">Loading voice 0 / ${total}…</div>
+          <button class="vv-preload-skip" id="vv-preload-skip">Skip — load per question instead</button>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+
+      document.getElementById('vv-preload-skip').addEventListener('click', () => {
+        resolve('skipped');
+      });
+    }, 200);
   });
 }
 
@@ -290,6 +294,7 @@ export function updateVoicevoxPreloadProgress(completed, total, message) {
 }
 
 export function hideVoicevoxPreloadModal() {
+  clearTimeout(_preloadTimer);
   const overlay = document.getElementById('vv-preload-overlay');
   if (overlay) overlay.remove();
   _preloadSkipResolve = null;

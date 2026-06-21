@@ -53,9 +53,10 @@ vi.mock('../src/sessionFlags.js', () => ({
 vi.mock('../src/tts.js', () => ({
   speakQuestion: vi.fn((text, onEnd) => onEnd && onEnd()),
   speakFeedback: vi.fn((text, onEnd) => onEnd && onEnd()),
-  cancelCurrentSpeech: vi.fn(),
+  cancelSpeech: vi.fn(),
   preloadVoicevoxAudio: vi.fn(),
   preloadAllVoicevoxAudio: vi.fn().mockResolvedValue(undefined),
+  unlockAudioForMobile: vi.fn(),
 }));
 
 vi.mock('../src/stt.js', () => ({
@@ -67,7 +68,7 @@ vi.mock('../src/stt.js', () => ({
   getLiveTranscript: vi.fn().mockReturnValue('こんにちは'),
   setLiveTranscript: vi.fn(),
   releaseMic: vi.fn(),
-  setMicStream: vi.fn(),
+  ensureMicAccess: vi.fn().mockResolvedValue(true),
 }));
 
 describe('Session Flow Integration Tests', () => {
@@ -133,6 +134,36 @@ describe('Session Flow Integration Tests', () => {
     expect(document.getElementById('progress-label').textContent).toBe('Question 1 / 2');
   });
 
+  it('requests microphone access before Voicevox preloading in practice startup', async () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0.999999);
+    settings.get.mockImplementation((key) => key === 'tts_mode' ? 'voicevox' : 'browser');
+
+    const order = [];
+    stt.ensureMicAccess.mockImplementation(async () => {
+      order.push('mic');
+      return true;
+    });
+    tts.preloadAllVoicevoxAudio.mockImplementation(async () => {
+      order.push('preload');
+    });
+
+    await session.startPractice();
+
+    expect(order).toContain('mic');
+    expect(order).toContain('preload');
+  });
+
+  it('still requests microphone access when speech recognition is unavailable', async () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0.999999);
+    window.SpeechRecognition = undefined;
+    window.webkitSpeechRecognition = undefined;
+    vi.stubGlobal('alert', vi.fn());
+
+    await session.startPractice();
+
+    expect(stt.ensureMicAccess).toHaveBeenCalled();
+  });
+
   it('should correctly track score and results during checkAnswer', async () => {
     session.setQA([{ q: 'Q1', a: 'A1', r: 'R1' }]);
     session.setCurrent(0);
@@ -160,18 +191,19 @@ describe('Session Flow Integration Tests', () => {
     session.setQA([{ q: 'Q1', a: 'A1', r: 'R1' }]);
     session.setCurrent(0);
 
-    session.nextQuestion();
+    await session.nextQuestion();
+    await Promise.resolve();
 
     // Since current was 0 and length was 1, it should have called handleFinishPractice
     expect(ui.showResultsScreen).toHaveBeenCalled();
   });
 
-  it('should handle skipping questions correctly', () => {
+  it('should handle skipping questions correctly', async () => {
     session.setQA([{ q: 'Q1', a: 'A1', r: 'R1' }, { q: 'Q2', a: 'A2', r: 'R2' }]);
     session.setCurrent(0);
     session.setResults([]);
 
-    session.skipQuestion();
+    await session.skipQuestion();
 
     expect(session.current).toBe(1);
     expect(session.results[0].transcript).toBe('(skipped)');

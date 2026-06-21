@@ -23,14 +23,15 @@ export function parseAIGradingResponse(rawText) {
   try {
     const parsed = JSON.parse(candidate);
     return {
-      ...partial,
-      ...parsed,
+      correct: parsed.correct ?? false,
+      score: parsed.score ?? (parsed.correct ? 100 : 0),
+      general_feedback: parsed.general_feedback || '',
+      suggested_answer: parsed.suggested_answer || '',
       breakdown: parsed.breakdown || []
     };
   } catch {
     // Groq can occasionally truncate a long JSON string.
   }
-
 
   const parseStringField = (key) => {
     const match = candidate.match(new RegExp('"' + key + '"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"', 's'));
@@ -55,7 +56,7 @@ export function parseAIGradingResponse(rawText) {
     score: parseNumberField('score'),
     general_feedback: parseStringField('general_feedback'),
     suggested_answer: parseStringField('suggested_answer'),
-    breakdown: []
+    breakdown: [] // Fallback regex doesn't parse complex arrays
   };
 
   const hasUsefulFeedback = partial.correct !== null
@@ -153,42 +154,51 @@ async function finalizeAIGradingResult(text, question, expectedAnswer, transcrip
       normT !== normA &&
       particlesInTranscript !== particlesInAnswer
     );
-    const localResult = await isCorrectLocal(transcript, expectedAnswer);
-    const aiLooksWrong = !result.correct && localResult.correct && localResult.score >= 70 && !particleMismatch;
     const hasTenseProblem = tenseMismatch || questionAnswerTenseMismatch || grammarSignals.tenseMismatch || grammarSignals.polarityMismatch;
     const hasCompletionProblem = completionSignals.incomplete || completionSignals.hasExtraTrailingChars;
-    const isCorrect = hasCompletionProblem ? false : (hasTenseProblem ? false : (particleMismatch ? false : (aiLooksWrong ? true : !!result.correct)));
+    const isCorrect = hasCompletionProblem ? false : (hasTenseProblem ? false : !!result.correct);
     let scoreVal;
     if (hasCompletionProblem) {
       scoreVal = Math.min(typeof result.score === 'number' ? result.score : 70, completionSignals.incomplete ? 40 : 35);
     } else if (hasTenseProblem) {
       scoreVal = Math.min(typeof result.score === 'number' ? result.score : 70, 35);
-    } else if (aiLooksWrong) {
-      scoreVal = Math.max(typeof result.score === 'number' ? result.score : 0, localResult.score);
     } else if (typeof result.score === 'number') {
-      scoreVal = Math.min(result.score, particleMismatch ? 25 : 100);
+      scoreVal = result.score;
     } else {
-      scoreVal = particleMismatch ? 25 : (result.correct ? 100 : 0);
+      scoreVal = result.correct ? 100 : 0;
     }
-    const grammarVal = hasCompletionProblem
-      ? completionSignals.reason
-      : (hasTenseProblem
-      ? (questionAnswerTenseMismatch
-        ? 'Question and answer tense do not match.'
-        : 'Verb tense error: used present tense (ます) instead of required past tense (ました).')
-      : sanitize(result.grammar_notes));
 
-    const breakdown = result.breakdown || [];
+    const STRIP_RE = /[\s　、。！？・「」『』【】〜〈〉（）,，.]/g;
+    const breakdown = (result.breakdown || []).filter(item => {
+      if (!item.original || !item.corrected) return true;
+      const normOrig = katakanaToHiragana(transcriptToFurigana(item.original)).replace(STRIP_RE, '').toLowerCase();
+      const normCorr = katakanaToHiragana(transcriptToFurigana(item.corrected)).replace(STRIP_RE, '').toLowerCase();
+      // Drop breakdown cards where the only difference is Kanji vs Hiragana/Katakana
+      if (normOrig === normCorr) return false;
+
+      // Aggressive filter: AI loves to hallucinate lectures about "numerical vs written form" and "kanji vs hiragana"
+      const exp = (item.explanation || '').toLowerCase();
+      if (
+        exp.includes('numerical') || 
+        exp.includes('written form') || 
+        exp.includes('arabic numeral') ||
+        exp.includes('spoken japanese') ||
+        exp.includes('more common') ||
+        exp.includes('usually written')
+      ) {
+        return false;
+      }
+
+      return true;
+    });
 
     return {
       correct: isCorrect,
       score: scoreVal,
       general_feedback: hasCompletionProblem
         ? completionSignals.reason
-        : (particleMismatch
-        ? 'Particle usage should follow the expected pattern in this level.'
-        : (aiLooksWrong ? 'Meaning is correct; minor wording differences are acceptable.' : sanitize(result.general_feedback))),
-      suggested_answer: sanitize(result.suggested_answer) || (tenseMismatch || hasCompletionProblem ? expectedAnswer : ''),
+        : sanitize(result.general_feedback),
+      suggested_answer: sanitize(result.suggested_answer) || (hasCompletionProblem || tenseMismatch ? expectedAnswer : ''),
       breakdown: breakdown,
       source: 'groq'
     };

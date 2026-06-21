@@ -163,11 +163,15 @@ export async function translateToJapaneseWithAI(text, sourceLang = 'English') {
   }
 }
 
-export async function translateWithAI(japaneseText) {
+export async function translateWithAI(japaneseText, context = '') {
   const apiKey = getGroqApiKey();
   if (!apiKey) return null;
 
   try {
+    const userContent = context 
+      ? `Context (The Question): ${context}\n\nText to translate: ${japaneseText}`
+      : japaneseText;
+
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -180,7 +184,7 @@ export async function translateWithAI(japaneseText) {
         max_tokens: 200,
         messages: [
           { role: 'system', content: TRANSLATION_SYSTEM_PROMPT },
-          { role: 'user', content: japaneseText }
+          { role: 'user', content: userContent }
         ]
       })
     });

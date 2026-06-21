@@ -204,6 +204,9 @@ document.addEventListener('DOMContentLoaded', () => {
     await clearAudioCache();
     alert('Voicevox audio cache cleared successfully.');
   });
+  bind('btn-close-final-overlay', () => {
+    document.getElementById('final-score-overlay').style.display = 'none';
+  });
 
   document.querySelectorAll('.btn-report-bug').forEach(btn => {
     btn.addEventListener('click', () => bugReporter.open());

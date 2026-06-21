@@ -44,6 +44,56 @@ describe('Speech-to-Text (STT) Unit Tests', () => {
     expect(stt.isSpeechRecognitionSupported()).toBe(false);
   });
 
+  it('should acquire a microphone stream when AI recording starts', async () => {
+    const onError = vi.fn();
+    const stream = { active: true, getTracks: () => [] };
+
+    vi.stubGlobal('navigator', {
+      mediaDevices: {
+        getUserMedia: vi.fn().mockResolvedValue(stream)
+      }
+    });
+    vi.stubGlobal('MediaRecorder', class {
+      constructor() {}
+      start() {}
+      stop() {}
+      static isTypeSupported() { return true; }
+    });
+    vi.spyOn(aiIndex, 'hasGroqApiKey').mockReturnValue(true);
+
+    await stt.startAIRecording(onError);
+
+    expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledWith({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true
+      }
+    });
+    expect(stt.getMicStream()).toBe(stream);
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it('should request a fresh microphone stream when the previous one is inactive', async () => {
+    const onError = vi.fn();
+    const oldStream = { active: false, getTracks: () => [{ stop: vi.fn() }] };
+    const newStream = { active: true, getTracks: () => [] };
+
+    vi.stubGlobal('navigator', {
+      mediaDevices: {
+        getUserMedia: vi.fn().mockResolvedValue(newStream)
+      }
+    });
+    stt.setMicStream(oldStream);
+
+    const result = await stt.ensureMicAccess(onError);
+
+    expect(result).toBe(true);
+    expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledTimes(1);
+    expect(stt.getMicStream()).toBe(newStream);
+    expect(onError).not.toHaveBeenCalled();
+  });
+
   it('should initialize recognizer with correct Japanese settings', () => {
     const success = stt.initRecognizer();
     expect(success).toBe(true);

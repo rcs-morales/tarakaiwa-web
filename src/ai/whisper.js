@@ -61,7 +61,7 @@ export async function transcribeWithWhisper(audioBlob, expectedAnswer = '') {
 
   formData.append('file', audioBlob, fileName);
   formData.append('model', 'whisper-large-v3-turbo');
-  formData.append('language', 'en');
+  formData.append('language', 'ja');
   formData.append('temperature', '0');
   formData.append('response_format', 'json');
   

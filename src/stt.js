@@ -10,6 +10,41 @@ let intentionalStop = false;
 let micStream = null;
 let mediaRecorder = null;
 let audioChunks = [];
+let permissionPromptInFlight = false;
+
+export async function ensureMicAccess(onError) {
+  if (micStream && micStream.active) return true;
+
+  if (micStream && !micStream.active) {
+    try {
+      micStream.getTracks().forEach(track => track.stop());
+    } catch (_) {}
+    micStream = null;
+  }
+
+  if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function') {
+    if (onError) onError('Microphone access is not available in this browser.');
+    return false;
+  }
+
+  try {
+    permissionPromptInFlight = true;
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true
+      }
+    });
+    setMicStream(stream);
+    permissionPromptInFlight = false;
+    return true;
+  } catch (e) {
+    permissionPromptInFlight = false;
+    if (onError) onError('Microphone not available. Please allow microphone access in your browser settings and try again.');
+    return false;
+  }
+}
 
 export function isSpeechRecognitionSupported() {
   return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
@@ -37,11 +72,30 @@ export function initRecognizer() {
   return true;
 }
 
-export function startListening(onError, formatLiveTranscript) {
+export async function startListening(onError, formatLiveTranscript) {
   if (!recog) {
     onError('SpeechRecognition not supported in this browser. Use Chrome.');
     return;
   }
+
+  if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function') {
+    onError('Microphone access is not available in this browser.');
+    return;
+  }
+
+  if (permissionPromptInFlight) {
+    return false;
+  }
+
+  const micReady = await ensureMicAccess(onError);
+  if (!micReady) {
+    return false;
+  }
+
+  // Release the manual mic stream before starting native SpeechRecognition 
+  // to avoid hardware access conflicts on mobile iOS Safari.
+  releaseMic();
+
   liveTranscript = '';
   finalTranscript = '';
   intentionalStop = false;
@@ -103,17 +157,28 @@ export function startListening(onError, formatLiveTranscript) {
 
   try {
     recog.start();
-  } catch(e) {}
+    return true;
+  } catch(e) {
+    permissionPromptInFlight = false;
+    onError('Speech recognition could not start. Try again after granting microphone access.');
+    return false;
+  }
 }
 
-export function startAIRecording(onError) {
+export async function startAIRecording(onError) {
+  const micReady = await ensureMicAccess(onError);
+  if (!micReady) {
+    return false;
+  }
+
   if (!micStream) {
     onError('Microphone not available.');
-    return;
+    return false;
   }
+
   if (!hasGroqApiKey()) {
     onError('AI Whisper requires a Groq API key. Save your key in settings, or use Browser speech recognition.');
-    return;
+    return false;
   }
 
   if (mediaRecorder && mediaRecorder.state !== 'inactive') {
@@ -168,6 +233,7 @@ export function startAIRecording(onError) {
   };
 
   mediaRecorder.start(250);
+  return true;
 }
 
 export function stopAIRecording() {

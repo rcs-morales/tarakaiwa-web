@@ -16,7 +16,7 @@ import { speakQuestion, speakFeedback, cancelSpeech, preloadVoicevoxAudio, prelo
 import {
   initRecognizer, startListening, abortRecognition,
   startAIRecording, stopAIRecording, getLiveTranscript,
-  setLiveTranscript, releaseMic
+  setLiveTranscript, releaseMic, ensureMicAccess
 } from './stt.js';
 import { formatLiveTranscript } from './parser.js';
 
@@ -60,9 +60,9 @@ export async function startPractice() {
     alert('Please import a Q&A database before starting practice.');
     return;
   }
-  if (!window.SpeechRecognition && !window.webkitSpeechRecognition) {
-    alert('Voice recognition requires Chrome or Microsoft Edge. Safari and Firefox are not supported.');
-    return;
+  const recognitionSupported = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+  if (!recognitionSupported) {
+    setStatus('', 'Speech recognition is not available in this browser, but microphone access will still be requested for AI transcription.');
   }
   // Shuffle questions
   for (let i = QA.length - 1; i > 0; i--) {
@@ -70,6 +70,19 @@ export async function startPractice() {
     [QA[i], QA[j]] = [QA[j], QA[i]];
   }
   current = 0; score = 0; results = [];
+
+  try {
+    const micReady = await ensureMicAccess();
+    if (!micReady) {
+      console.warn('Microphone access unavailable during practice startup.');
+    }
+    if (recognitionSupported && !initRecognizer()) {
+      setStatus('', 'SpeechRecognition could not be initialized.');
+    }
+  } catch (e) {
+    console.warn('Microphone access unavailable during practice startup:', e);
+    initRecognizer();
+  }
 
   // ── Batch preload Voicevox audio ──
   if (get(KEYS.TTS_MODE) === 'voicevox') {
@@ -101,17 +114,6 @@ export async function startPractice() {
   }
 
   showPracticeScreen();
-
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    const m = await import('./stt.js');
-    m.setMicStream(stream);
-    if (!initRecognizer()) {
-      setStatus('', 'SpeechRecognition not supported. Use Chrome.');
-    }
-  } catch (e) {
-    initRecognizer();
-  }
   loadQuestion();
 }
 
@@ -255,7 +257,7 @@ function speakThenListen(item) {
   });
 }
 
-function beginListen() {
+async function beginListen() {
   const item = QA[current];
   const targetBox = document.getElementById('target-answer-box');
   if (targetBox) {
@@ -285,7 +287,7 @@ function beginListen() {
   const useWhisper = sttMode === 'ai' && hasGroqApiKey();
 
   if (useWhisper) {
-    startAIRecording((err) => {
+    const started = await startAIRecording((err) => {
       setStatus('', 'Error: ' + err);
       if (err.includes('permission')) {
         document.getElementById('warning-box').style.display = 'block';
@@ -293,6 +295,27 @@ function beginListen() {
       showBtn('btn-rerecord', true);
       showBtn('btn-skip',     true);
     });
+
+    if (!started) {
+      setStatus('listening', '🌐 Browser recognition fallback (AI mic unavailable)');
+      try {
+        startListening((err) => {
+          setStatus('', 'Error: ' + err);
+          if (err.includes('permission')) {
+            document.getElementById('warning-box').style.display = 'block';
+          }
+          showBtn('btn-rerecord', true);
+          showBtn('btn-skip',     true);
+        }, formatLiveTranscript);
+      } catch (e) {
+        setStatus('', 'Microphone access is blocked by this browser. Please allow microphone access and retry.');
+      }
+      setTimeout(() => {
+        if (!getLiveTranscript()) {
+          setStatus('', 'If the mic still does not respond, reopen the page and allow microphone access again.');
+        }
+      }, 1800);
+    }
   } else {
     if (sttMode === 'ai' && !hasGroqApiKey()) {
       setStatus('listening', '🌐 Browser recognition (save a Groq key for AI Whisper)');
@@ -398,14 +421,14 @@ export async function checkAnswer() {
 
   if (hasGroqApiKey()) {
     updateCheckedTranslation('user-ans-trans', 'Translating your answer...');
-    translateWithAI(raw).then(trans => {
+    translateWithAI(raw, item.q).then(trans => {
       updateCheckedTranslation('user-ans-trans', trans ? 'You said: ' + trans : '');
     }).catch(() => {
       updateCheckedTranslation('user-ans-trans', '');
     });
     
     updateCheckedTranslation('expected-ans-trans', 'Translating expected answer...');
-    translateWithAI(item.a).then(trans => {
+    translateWithAI(item.a, item.q).then(trans => {
       updateCheckedTranslation('expected-ans-trans', trans ? trans : '');
     }).catch(() => {
       updateCheckedTranslation('expected-ans-trans', '');
@@ -438,8 +461,9 @@ export async function checkAnswer() {
   setIsChecking(false);
 }
 
-export function rerecordAnswer() {
+export async function rerecordAnswer() {
   const item = QA[current];
+  await ensureMicAccess();
   abortRecognition();
   setLiveTranscript('');
   document.getElementById('result-badge').className = 'result-badge';
@@ -451,8 +475,10 @@ export function rerecordAnswer() {
   speakThenListen(item);
 }
 
-export function nextQuestion() {
+export async function nextQuestion() {
   cancelSpeech('practice');
+  await ensureMicAccess();
+  abortRecognition();
   if (current === QA.length - 1) {
     handleFinishPractice();
     return;
@@ -461,8 +487,9 @@ export function nextQuestion() {
   loadQuestion();
 }
 
-export function skipQuestion() {
+export async function skipQuestion() {
   cancelSpeech('practice');
+  await ensureMicAccess();
   abortRecognition();
   results.push({ q: QA[current].q, a: QA[current].a, transcript: '(skipped)', correct: false });
   if (current === QA.length - 1) {
@@ -622,6 +649,7 @@ async function showFinalOverlay(pct, choice) {
     text.innerHTML = `<div style="font-size: 1.5rem; font-weight: bold; margin-bottom: 4px;">${score} / ${QA.length}</div>
                      <div style="font-size: 1.1rem; color: var(--muted);">${choiceEn}</div>`;
 
+    overlay.style.display = '';
     overlay.classList.remove('hidden');
     overlay.style.opacity = '1';
 
