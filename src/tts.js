@@ -57,7 +57,13 @@ export async function preloadVoicevoxAudio(text) {
     try {
       // ── Check offline cache first ──
       const cachedBlob = await getAudio(cacheKey);
-      if (cachedBlob) return cachedBlob;
+      if (cachedBlob) {
+        if (cachedBlob.size > 0 && !cachedBlob.type.includes('json') && !cachedBlob.type.includes('html') && !cachedBlob.type.includes('text')) {
+          return cachedBlob;
+        } else {
+          console.warn('Cached audio blob is invalid. Ignoring cache and re-downloading.');
+        }
+      }
 
       // ── Fallback to network ──
       const apiUrl = `https://api.tts.quest/v3/voicevox/synthesis?text=${encodeURIComponent(text)}&speaker=${speakerId}`;
@@ -88,6 +94,12 @@ export async function preloadVoicevoxAudio(text) {
       if (!audioRes.ok) throw new Error('Failed to download audio blob');
       
       const audioResBlob = await audioRes.blob();
+      
+      if (audioResBlob.size === 0) throw new Error('Downloaded audio blob is empty');
+      if (audioResBlob.type.includes('json') || audioResBlob.type.includes('html') || audioResBlob.type.includes('text')) {
+        const text = await audioResBlob.text();
+        throw new Error('Downloaded audio blob is not audio: ' + text.slice(0, 100));
+      }
       
       // ── Save to offline cache ──
       await saveAudio(cacheKey, audioResBlob);
@@ -222,7 +234,14 @@ async function speakWithVoicevox(text, onEnd, context) {
       chan.audio = null;
       if (onEnd) onEnd();
     };
-    chan.audio.play();
+    chan.audio.play().catch(err => {
+      console.warn(`[${context}] Audio play caught error:`, err);
+      // onerror usually fires too, but just in case:
+      if (chan.url) URL.revokeObjectURL(chan.url);
+      chan.url = null;
+      chan.audio = null;
+      if (onEnd) onEnd();
+    });
   } catch (err) {
     clearTimeout(loadingTimer);
     hideVoicevoxLoading();

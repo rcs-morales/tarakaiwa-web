@@ -61,7 +61,20 @@
       </div>
 
       <!-- Settings Wizard Section -->
-      <div class="settings-section hidden" id="ai-settings-section">
+      <div class="settings-section hidden" id="ai-settings-section" data-mode="wizard">
+        
+        <!-- Settings Menu (Edit Mode Only) -->
+        <div id="settings-menu-section" class="edit-only hidden">
+          <h3 style="text-align: center; margin-bottom: 20px;">⚙️ Edit Settings</h3>
+          <div style="display: flex; flex-direction: column; gap: 12px; max-width: 400px; margin: 0 auto;">
+            <button class="btn btn-secondary" id="btn-menu-step1" style="justify-content: flex-start; padding: 14px;">📁 Edit Q&A Database</button>
+            <button class="btn btn-secondary" id="btn-menu-step2" style="justify-content: flex-start; padding: 14px;">🧠 Edit AI Grading (Groq)</button>
+            <button class="btn btn-secondary" id="btn-menu-step3" style="justify-content: flex-start; padding: 14px;">🔊 Edit Voice & Avatar</button>
+          </div>
+          <div style="margin-top: 28px; text-align: center;">
+            <button class="btn btn-primary" id="btn-close-settings-menu">Done ✔</button>
+          </div>
+        </div>
 
         <!-- Step 1: Import Q&A Database -->
         <div id="import-section">
@@ -83,8 +96,11 @@
             </button>
           </div>
           <div class="import-status" id="import-status"></div>
-          <div style="margin-top: 20px; text-align: right;">
+          <div style="margin-top: 20px; text-align: right;" class="wizard-only">
             <button class="btn btn-primary" id="btn-setup-next-import">Next: AI Grading Settings →</button>
+          </div>
+          <div style="margin-top: 20px; text-align: left;" class="edit-only">
+            <button class="btn btn-secondary btn-back-to-menu">⬅ Back to Menu</button>
           </div>
         </div>
 
@@ -117,8 +133,11 @@
               <option value="N3">N3 (Strict, expects precise vocabulary & grammar)</option>
             </select>
           </div>
-          <div style="margin-top: 20px; text-align: right;">
+          <div style="margin-top: 20px; text-align: right;" class="wizard-only">
             <button class="btn btn-primary" id="btn-next-to-preferences">Next: Voice & Avatar Settings →</button>
+          </div>
+          <div style="margin-top: 20px; text-align: left;" class="edit-only">
+            <button class="btn btn-secondary btn-back-to-menu">⬅ Back to Menu</button>
           </div>
         </div>
 
@@ -180,8 +199,11 @@
               Choose the Live2D avatar you want to use when practice starts.
             </p>
           </div>
-          <div style="margin-top: 20px; text-align: right;">
-            <button class="btn btn-primary" id="btn-finish-setup">Finish Setup ✔</button>
+          <div style="margin-top: 24px; text-align: right;" class="wizard-only">
+            <button class="btn btn-submit" id="btn-finish-setup" style="padding: 10px 24px; font-size: 0.9rem;">Finish Setup ✔</button>
+          </div>
+          <div style="margin-top: 24px; text-align: left;" class="edit-only">
+            <button class="btn btn-secondary btn-back-to-menu">⬅ Back to Menu</button>
           </div>
         </div>
 

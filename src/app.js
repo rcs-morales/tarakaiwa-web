@@ -37,16 +37,22 @@ function refreshSetupAccess() {
 function startSetupFlow(stepId = 'import-section') {
   document.getElementById('setup-entry-point')?.classList.add('hidden');
   document.getElementById('setup-return-point')?.classList.add('hidden');
+  const section = document.getElementById('ai-settings-section');
+  if (section) section.dataset.mode = 'wizard';
   nextSetupStep(stepId);
 }
 
 function reopenSetupFlow() {
-  startSetupFlow('import-section');
+  document.getElementById('setup-entry-point')?.classList.add('hidden');
+  document.getElementById('setup-return-point')?.classList.add('hidden');
+  const section = document.getElementById('ai-settings-section');
+  if (section) section.dataset.mode = 'edit';
+  nextSetupStep('settings-menu-section');
 }
 
 function nextSetupStep(stepId) {
   // 1. Hide ALL wizard step panels
-  const stepsToHide = ['import-section', 'setup-step-api-key', 'setup-step-settings'];
+  const stepsToHide = ['import-section', 'setup-step-api-key', 'setup-step-settings', 'settings-menu-section'];
   stepsToHide.forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.add('hidden');
@@ -66,7 +72,7 @@ function finishSetup() {
   // Hide the entire wizard wrapper
   document.getElementById('ai-settings-section')?.classList.add('hidden');
   // Hide all step panels
-  ['import-section', 'setup-step-api-key', 'setup-step-settings'].forEach(id => {
+  ['import-section', 'setup-step-api-key', 'setup-step-settings', 'settings-menu-section'].forEach(id => {
     document.getElementById(id)?.classList.add('hidden');
   });
   // Return to landing view
@@ -111,7 +117,7 @@ function restartApp() {
 
   // Reset wizard state — hide settings panels, show landing view
   document.getElementById('ai-settings-section')?.classList.add('hidden');
-  ['import-section', 'setup-step-api-key', 'setup-step-settings'].forEach(id => {
+  ['import-section', 'setup-step-api-key', 'setup-step-settings', 'settings-menu-section'].forEach(id => {
     document.getElementById(id)?.classList.add('hidden');
   });
   refreshSetupAccess();
@@ -231,6 +237,16 @@ document.addEventListener('DOMContentLoaded', () => {
       nextSetupStep('setup-step-api-key');
     } else if (e.target.id === 'btn-next-to-preferences') {
       nextSetupStep('setup-step-settings');
+    } else if (e.target.id === 'btn-menu-step1') {
+      nextSetupStep('import-section');
+    } else if (e.target.id === 'btn-menu-step2') {
+      nextSetupStep('setup-step-api-key');
+    } else if (e.target.id === 'btn-menu-step3') {
+      nextSetupStep('setup-step-settings');
+    } else if (e.target.closest('.btn-back-to-menu')) {
+      nextSetupStep('settings-menu-section');
+    } else if (e.target.id === 'btn-close-settings-menu') {
+      finishSetup();
     }
   });
 

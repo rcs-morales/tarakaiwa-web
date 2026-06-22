@@ -585,6 +585,9 @@ header {
   border-color: var(--teal-lt);
 }
 
+#ai-settings-section[data-mode="wizard"] .edit-only { display: none !important; }
+#ai-settings-section[data-mode="edit"] .wizard-only { display: none !important; }
+
 /* ── AI Feedback in result badge ── */
 .result-badge-content {
   flex: 1;
