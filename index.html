@@ -50,29 +50,6 @@
             configured</span></span>
       </div>
 
-      
-      <!-- Import Section -->
-      <div class="import-section" id="import-section">
-        <h3>📁 Import Your Own Q&A Database</h3>
-        <p>Load your custom questions and answers from Excel, JSON or CSV file:</p>
-        <p style="font-size: 0.75rem; color: var(--muted); margin-bottom: 6px;">
-          <strong>Excel format:</strong> .xlsx or .xls file with two columns (Question, Answer)<br>
-          <strong>JSON format:</strong> <code
-            style="background: var(--paper-2); padding: 2px 6px; border-radius: 3px;">[{"q": "Question?", "a": "Answer"}, ...]</code><br>
-          <strong>CSV format:</strong> Two columns (Question, Answer) — first row as header<br>
-        </p>
-        <input type="file" id="file-input" accept=".json,.csv,.txt,.xlsx,.xls" />
-        <div class="import-buttons">
-          <button class="btn btn-import" id="btn-choose-file">
-            Choose File
-          </button>
-          <button class="btn btn-secondary" id="btn-clear-db">
-            Clear
-          </button>
-        </div>
-        <div class="import-status" id="import-status"></div>
-      </div>
-
       <!-- Setup Entry Point -->
       <div id="setup-entry-point" style="text-align: center; margin-bottom: 20px;">
         <button class="btn btn-primary" id="btn-setup-env">⚙️ Setup Practice Environment</button>
@@ -83,70 +60,95 @@
         <button class="btn btn-secondary" id="btn-reopen-setup">⚙️ Edit Settings</button>
       </div>
 
-      <!-- AI Settings Section -->
+      <!-- Settings Wizard Section -->
       <div class="settings-section hidden" id="ai-settings-section">
-        <!-- Step 2: API Key -->
-        <div id="setup-step-api-key">
-        <h3>AI Answer Grading (Groq)</h3>
-        <p>Enter your Groq API key for fast grading and optional Whisper speech recognition.</p>
-        <p style="font-size: 0.75rem; color: var(--muted); margin-bottom: 8px;">
-          Get a free API key at <a href="https://console.groq.com/keys" target="_blank" style="color: var(--teal);">Groq
-            Console</a> or <a href="groq-guide.html" style="color: var(--teal); text-decoration: underline;">follow our setup guide</a>.
-        </p>
-        <form class="api-key-row" id="api-key-form">
-          <input type="password" id="api-key-input" class="api-key-input" placeholder="Paste your API key here…"
-            autocomplete="off" />
-          <button type="button" class="btn btn-secondary btn-sm" id="btn-toggle-key"
-            title="Show/hide key">👁</button>
-        </form>
-        <div class="import-buttons" style="margin-top: 8px;">
-          <button class="btn btn-import" id="btn-save-api">Save Key</button>
-          <button class="btn btn-secondary" id="btn-test-api">Test Connection</button>
-          <button class="btn btn-secondary" id="btn-clear-api">Clear Key</button>
+
+        <!-- Step 1: Import Q&A Database -->
+        <div id="import-section">
+          <h3>📁 Step 1: Import Your Q&A Database</h3>
+          <p>Load your custom questions and answers from Excel, JSON or CSV file:</p>
+          <p style="font-size: 0.75rem; color: var(--muted); margin-bottom: 6px;">
+            <strong>Excel format:</strong> .xlsx or .xls file with two columns (Question, Answer)<br>
+            <strong>JSON format:</strong> <code
+              style="background: var(--paper-2); padding: 2px 6px; border-radius: 3px;">[{"q": "Question?", "a": "Answer"}, ...]</code><br>
+            <strong>CSV format:</strong> Two columns (Question, Answer) — first row as header<br>
+          </p>
+          <input type="file" id="file-input" accept=".json,.csv,.txt,.xlsx,.xls" />
+          <div class="import-buttons">
+            <button class="btn btn-import" id="btn-choose-file">
+              Choose File
+            </button>
+            <button class="btn btn-secondary" id="btn-clear-db">
+              Clear
+            </button>
+          </div>
+          <div class="import-status" id="import-status"></div>
+          <div style="margin-top: 20px; text-align: right;">
+            <button class="btn btn-primary" id="btn-setup-next-import">Next: AI Grading Settings →</button>
+          </div>
         </div>
-        <div class="import-status" id="api-key-status"></div>
+
+        <!-- Step 2: API Key + Grading -->
+        <div id="setup-step-api-key" class="hidden">
+          <h3>🧠 Step 2: AI Answer Grading (Groq)</h3>
+          <p>Enter your Groq API key for fast grading and optional Whisper speech recognition.</p>
+          <p style="font-size: 0.75rem; color: var(--muted); margin-bottom: 8px;">
+            Get a free API key at <a href="https://console.groq.com/keys" target="_blank" style="color: var(--teal);">Groq
+              Console</a> or <a href="groq-guide.html" style="color: var(--teal); text-decoration: underline;">follow our setup guide</a>.
+          </p>
+          <form class="api-key-row" id="api-key-form">
+            <input type="password" id="api-key-input" class="api-key-input" placeholder="Paste your API key here…"
+              autocomplete="off" />
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-toggle-key"
+              title="Show/hide key">👁</button>
+          </form>
+          <div class="import-buttons" style="margin-top: 8px;">
+            <button class="btn btn-import" id="btn-save-api">Save Key</button>
+            <button class="btn btn-secondary" id="btn-test-api">Test Connection</button>
+            <button class="btn btn-secondary" id="btn-clear-api">Clear Key</button>
+          </div>
+          <div class="import-status" id="api-key-status"></div>
+          <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
+            <label for="jlpt-level-select" style="font-size: 0.85rem; font-weight: bold; margin-right: 8px;">Grading Strictness:</label>
+            <select id="jlpt-level-select"
+              style="padding: 4px; border-radius: 4px; border: 1px solid var(--border); background: var(--paper-2); color: var(--text);">
+              <option value="N5">N5 (Very Lenient, ignores STT homophones)</option>
+              <option value="N4">N4 (Moderate, minor vocabulary flexibility)</option>
+              <option value="N3">N3 (Strict, expects precise vocabulary & grammar)</option>
+            </select>
+          </div>
+          <div style="margin-top: 20px; text-align: right;">
+            <button class="btn btn-primary" id="btn-next-to-preferences">Next: Voice & Avatar Settings →</button>
+          </div>
         </div>
 
         <!-- Step 3: Voice/Avatar/Level -->
         <div id="setup-step-settings" class="hidden">
-          <label for="grading-model-select" style="font-size: 0.85rem; font-weight: bold; margin-right: 8px;">Grading
-            speed:</label>
-          <select id="grading-model-select"
-            style="padding: 4px; border-radius: 4px; border: 1px solid var(--border); background: var(--paper-2); color: var(--text);">
-            <option value="llama-3.3-70b-versatile">⚖️ Balanced — Llama 3.3 70B (default)</option>
-            <option value="llama-3.1-8b-instant">⚡ Fast — Llama 3.1 8B</option>
-          </select>
-          <p style="font-size: 0.72rem; color: var(--muted); margin-top: 4px;">
-            Fast mode returns grading sooner; balanced mode gives richer Japanese feedback.
-          </p>
-        </div>
-        <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
-          <label for="stt-mode-select" style="font-size: 0.85rem; font-weight: bold; margin-right: 8px;">Speech
-            Recognition:</label>
-          <select id="stt-mode-select"
-            style="padding: 4px; border-radius: 4px; border: 1px solid var(--border); background: var(--paper-2); color: var(--text);">
-            <option value="ai">🧠 AI (Groq Whisper) — Best accuracy</option>
-            <option value="browser">🌐 Browser Built-in — Live preview</option>
-          </select>
-          <p style="font-size: 0.72rem; color: var(--muted); margin-top: 4px;">
-            AI mode uses Groq Whisper for Japanese recognition. Requires a Groq API key above.
-          </p>
-        </div>
-        <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
-          <label for="tts-mode-select" style="font-size: 0.85rem; font-weight: bold; margin-right: 8px;">Text-to-Speech
-            (TTS):</label>
-          <select id="tts-mode-select"
-            style="padding: 4px; border-radius: 4px; border: 1px solid var(--border); background: var(--paper-2); color: var(--text);">
-            <option value="browser" selected>🌐 Browser Built-in — Local, instant</option>
-            <option value="voicevox">🎙️ VOICEVOX — Cloud, High Quality</option>
-          </select>
-        </div>
-
-        <div id="voicevox-settings-section"
-          style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
-          <label for="voicevox-speaker-select" style="font-size: 0.85rem; font-weight: bold; margin-right: 8px;">Cloud Voice:</label>
-          <select id="voicevox-speaker-select"
-            style="padding: 4px; border-radius: 4px; border: 1px solid var(--border); background: var(--paper-2); color: var(--text); max-width: 100%;">
+          <h3>🔊 Step 3: Voice & Avatar Settings</h3>
+          <div style="margin-bottom: 12px;">
+            <label for="stt-mode-select" style="font-size: 0.85rem; font-weight: bold; margin-right: 8px;">Speech Recognition:</label>
+            <select id="stt-mode-select"
+              style="padding: 4px; border-radius: 4px; border: 1px solid var(--border); background: var(--paper-2); color: var(--text);">
+              <option value="ai">🧠 AI (Groq Whisper) — Best accuracy</option>
+              <option value="browser">🌐 Browser Built-in — Live preview</option>
+            </select>
+            <p style="font-size: 0.72rem; color: var(--muted); margin-top: 4px;">
+              AI mode uses Groq Whisper for Japanese recognition. Requires a Groq API key above.
+            </p>
+          </div>
+          <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
+            <label for="tts-mode-select" style="font-size: 0.85rem; font-weight: bold; margin-right: 8px;">Text-to-Speech (TTS):</label>
+            <select id="tts-mode-select"
+              style="padding: 4px; border-radius: 4px; border: 1px solid var(--border); background: var(--paper-2); color: var(--text);">
+              <option value="browser" selected>🌐 Browser Built-in — Local, instant</option>
+              <option value="voicevox">🎙️ VOICEVOX — Cloud, High Quality</option>
+            </select>
+          </div>
+          <div id="voicevox-settings-section"
+            style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
+            <label for="voicevox-speaker-select" style="font-size: 0.85rem; font-weight: bold; margin-right: 8px;">Cloud Voice:</label>
+            <select id="voicevox-speaker-select"
+              style="padding: 4px; border-radius: 4px; border: 1px solid var(--border); background: var(--paper-2); color: var(--text); max-width: 100%;">
               <optgroup label="Clear Female Voices">
                 <option value="3">Zundamon (Neutral & Clear)</option>
                 <option value="2">Shikoku Metan (Bright & Friendly)</option>
@@ -160,39 +162,32 @@
               </optgroup>
             </select>
             <input type="hidden" id="voicevox-speaker-input" />
-          <p style="font-size: 0.72rem; color: var(--muted); margin-top: 4px; line-height: 1.4;">
-            Audio is generated instantly via the free community <strong>api.tts.quest</strong> service.
-          </p>
-          <button id="btn-clear-audio-cache" class="btn btn-secondary" style="margin-top: 8px; font-size: 0.75rem;">🗑️ Clear Audio Cache</button>
-        </div>
-        <div id="avatar-settings-section" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
-          <label for="avatar-model-select" style="font-size: 0.85rem; font-weight: bold; margin-right: 8px;">Avatar model:</label>
-          <select id="avatar-model-select"
-            style="padding: 4px; border-radius: 4px; border: 1px solid var(--border); background: var(--paper-2); color: var(--text);">
-            <option value="simple">Simple (Female)</option>
-            <option value="chitose">Chitose (Male)</option>
-            <option value="epsilon">Epsilon (Female)</option>
-            <option value="haru">Haru Greeter (Female)</option>
-          </select>
-          <p style="font-size: 0.72rem; color: var(--muted); margin-top: 4px;">
-            Choose the Live2D avatar you want to use when practice starts.
-          </p>
-        </div>
-        <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
-          <label for="jlpt-level-select" style="font-size: 0.85rem; font-weight: bold; margin-right: 8px;">Grading
-            Strictness:</label>
-          <select id="jlpt-level-select"
-            style="padding: 4px; border-radius: 4px; border: 1px solid var(--border); background: var(--paper-2); color: var(--text);">
-            <option value="N5">N5 (Very Lenient, ignores STT homophones)</option>
-            <option value="N4">N4 (Moderate, minor vocabulary flexibility)</option>
-            <option value="N3">N3 (Strict, expects precise vocabulary & grammar)</option>
-          </select>
+            <p style="font-size: 0.72rem; color: var(--muted); margin-top: 4px; line-height: 1.4;">
+              Audio is generated instantly via the free community <strong>api.tts.quest</strong> service.
+            </p>
+            <button id="btn-clear-audio-cache" class="btn btn-secondary" style="margin-top: 8px; font-size: 0.75rem;">🗑️ Clear Audio Cache</button>
+          </div>
+          <div id="avatar-settings-section" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
+            <label for="avatar-model-select" style="font-size: 0.85rem; font-weight: bold; margin-right: 8px;">Avatar model:</label>
+            <select id="avatar-model-select"
+              style="padding: 4px; border-radius: 4px; border: 1px solid var(--border); background: var(--paper-2); color: var(--text);">
+              <option value="simple">Simple (Female)</option>
+              <option value="chitose">Chitose (Male)</option>
+              <option value="epsilon">Epsilon (Female)</option>
+              <option value="haru">Haru Greeter (Female)</option>
+            </select>
+            <p style="font-size: 0.72rem; color: var(--muted); margin-top: 4px;">
+              Choose the Live2D avatar you want to use when practice starts.
+            </p>
+          </div>
           <div style="margin-top: 20px; text-align: right;">
             <button class="btn btn-primary" id="btn-finish-setup">Finish Setup ✔</button>
           </div>
         </div>
+
       </div>
 
+      <!-- Start Practice & Report Bug — landing page only -->
       <div style="display: flex; justify-content: center; gap: 10px; align-items: center; margin-top: 20px;">
         <button class="btn btn-primary btn-disabled" id="btn-start-practice" disabled>
           ⏳ Import a Q&amp;A database to begin

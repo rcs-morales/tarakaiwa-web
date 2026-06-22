@@ -65,6 +65,7 @@ vi.mock('../src/tts.js', () => ({
     return Promise.resolve();
   }),
   cancelCurrentSpeech: vi.fn(),
+  cancelSpeech: vi.fn(),
 }));
 
 describe('Furigana Rendering', () => {

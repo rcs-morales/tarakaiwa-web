@@ -6,7 +6,7 @@ import { hasGroqApiKey } from './ai/index.js';
 import {
   updateQACount, updateStartButton, updateSetupAccess, showImportStatus
 } from './ui.js';
-import { set, remove, KEYS } from './settings.js';
+import { get, set, remove, KEYS } from './settings.js';
 import { setQA } from './session.js';
 
 /**
@@ -47,28 +47,10 @@ export async function handleFileImport(event) {
       set(KEYS.QA_DATA, JSON.stringify(qa));
       updateQACount(qa.length);
       updateStartButton(qa.length);
-      updateSetupAccess(hasGroqApiKey() && qa.length > 0);
+      updateSetupAccess(get(KEYS.SETUP_COMPLETE) === '1');
       showImportStatus('✅ Successfully imported ' + qa.length + ' question' + (qa.length !== 1 ? 's' : '') + ' from ' + file.name, 'success');
 
-      // Setup flow "Next" button logic
-      const importSection = document.getElementById('import-section');
-      if (importSection && !importSection.classList.contains('hidden')) {
-        const btnContainer = document.createElement('div');
-        btnContainer.id = 'setup-next-import-container';
-        btnContainer.style.marginTop = '20px';
-        btnContainer.style.textAlign = 'right';
-        btnContainer.innerHTML = `<button class="btn btn-primary" id="btn-setup-next-import">Next: AI Settings →</button>`;
 
-        const existing = document.getElementById('setup-next-import-container');
-        if (existing) existing.remove();
-
-        importSection.appendChild(btnContainer);
-
-        // We'll need to bind the click event to nextSetupStep
-        // Since we are removing inline handlers, we'll do it via an event listener
-        // We'll let app.js handle this if it's a bootstrap function, or we can import it here.
-        // For now, I'll leave the ID and let app.js bind it.
-      }
     } catch (error) {
       showImportStatus('❌ Import failed: ' + error.message, 'error');
     }
@@ -95,7 +77,7 @@ export function clearDatabase() {
   setQA([]);
   updateQACount(0);
   updateStartButton(0);
-  updateSetupAccess(false);
+  updateSetupAccess(get(KEYS.SETUP_COMPLETE) === '1');
   showImportStatus('🗑 Database cleared. Import a Q&A file to begin practice.', 'info');
   const fileInput = document.getElementById('file-input');
   if (fileInput) fileInput.value = '';

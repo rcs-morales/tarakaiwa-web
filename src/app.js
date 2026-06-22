@@ -31,38 +31,47 @@ import { clearAudioCache } from './db.js';
 // ─────────────────────────────────────────────
 
 function refreshSetupAccess() {
-  updateSetupAccess(hasGroqApiKey() && QA.length > 0);
+  updateSetupAccess(get(KEYS.SETUP_COMPLETE) === '1');
 }
 
-function startSetupFlow(stepId = 'setup-step-api-key') {
+function startSetupFlow(stepId = 'import-section') {
   document.getElementById('setup-entry-point')?.classList.add('hidden');
   document.getElementById('setup-return-point')?.classList.add('hidden');
   nextSetupStep(stepId);
 }
 
 function reopenSetupFlow() {
-  startSetupFlow('setup-step-settings');
+  startSetupFlow('import-section');
 }
 
 function nextSetupStep(stepId) {
-  ['import-section', 'setup-step-api-key', 'setup-step-settings'].forEach(id => {
+  // 1. Hide ALL wizard step panels
+  const stepsToHide = ['import-section', 'setup-step-api-key', 'setup-step-settings'];
+  stepsToHide.forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.add('hidden');
   });
 
-  const target = document.getElementById(stepId);
-  if (!target) return;
-
-  target.classList.remove('hidden');
+  // 2. Show the wrapper
   const section = document.getElementById('ai-settings-section');
-  if (section && (stepId === 'setup-step-api-key' || stepId === 'setup-step-settings')) {
-    section.classList.remove('hidden');
-  }
+  if (section) section.classList.remove('hidden');
+
+  // 3. Show the target step
+  const target = document.getElementById(stepId);
+  if (target) target.classList.remove('hidden');
 }
 
 function finishSetup() {
-  document.getElementById('ai-settings-section').classList.add('hidden');
-  document.getElementById('import-section')?.classList.remove('hidden');
+  set(KEYS.SETUP_COMPLETE, '1');
+  // Hide the entire wizard wrapper
+  document.getElementById('ai-settings-section')?.classList.add('hidden');
+  // Hide all step panels
+  ['import-section', 'setup-step-api-key', 'setup-step-settings'].forEach(id => {
+    document.getElementById(id)?.classList.add('hidden');
+  });
+  // Return to landing view
+  document.getElementById('setup-entry-point')?.classList.add('hidden');
+  document.getElementById('setup-return-point')?.classList.remove('hidden');
   refreshSetupAccess();
 }
 
@@ -99,8 +108,13 @@ function restartApp() {
   showStartScreen();
   updateQACount(QA.length);
   updateStartButton(QA.length);
+
+  // Reset wizard state — hide settings panels, show landing view
+  document.getElementById('ai-settings-section')?.classList.add('hidden');
+  ['import-section', 'setup-step-api-key', 'setup-step-settings'].forEach(id => {
+    document.getElementById(id)?.classList.add('hidden');
+  });
   refreshSetupAccess();
-  document.getElementById('import-section')?.classList.remove('hidden');
 }
 
 // ─────────────────────────────────────────────
@@ -215,6 +229,8 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('click', (e) => {
     if (e.target.id === 'btn-setup-next-import') {
       nextSetupStep('setup-step-api-key');
+    } else if (e.target.id === 'btn-next-to-preferences') {
+      nextSetupStep('setup-step-settings');
     }
   });
 

@@ -20,6 +20,7 @@ export const KEYS = {
   AVATAR_MODEL: 'avatar_model',
   TTS_SPEED: 'tts_speed',
   SOURCE_LANGUAGE: 'source_language',
+  SETUP_COMPLETE: 'setup_complete',
 };
 
 /**

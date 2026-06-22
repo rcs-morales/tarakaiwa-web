@@ -17,9 +17,10 @@ vi.mock('../src/ai/index.js', () => ({
 }));
 
 vi.mock('../src/settings.js', () => ({
+  get: vi.fn(),
   set: vi.fn(),
   remove: vi.fn(),
-  KEYS: { QA_DATA: 'qa_data' }
+  KEYS: { QA_DATA: 'qa_data', SETUP_COMPLETE: 'setup_complete' }
 }));
 
 vi.mock('../src/session.js', () => ({
