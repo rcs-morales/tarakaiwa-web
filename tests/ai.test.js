@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { gradeWithAI, parseAIGradingResponse } from '../src/ai/grading.js';
+import { gradeWithAI, parseAIGradingResponse, isScriptOrNumeralOnlyBreakdown } from '../src/ai/grading.js';
 
 describe('AI Grading Parser', () => {
   it('should parse a perfect JSON response', () => {
@@ -44,6 +44,33 @@ describe('AI Grading Parser', () => {
   });
 });
 
+describe('Breakdown filtering', () => {
+  it('drops script and numeral-only vocabulary notes', () => {
+    const items = [
+      {
+        original: '一週間に、一回は',
+        corrected: 'いしゅうかんに　いっかいは',
+        category: 'Vocabulary',
+        explanation: 'The student used Kanji, which is slightly different from the expected hiragana form.'
+      },
+      {
+        original: '8つくらいの',
+        corrected: 'やっつくらいの',
+        category: 'Vocabulary',
+        explanation: 'The student used the Arabic numeral 8, which is acceptable at N5 level.'
+      },
+      {
+        original: '私か学生です',
+        corrected: '私は学生です',
+        category: 'Particle',
+        explanation: 'Use は for topics.'
+      }
+    ];
+
+    expect(items.filter((item) => !isScriptOrNumeralOnlyBreakdown(item))).toHaveLength(1);
+  });
+});
+
 describe('AI Grading Integration (gradeWithAI)', () => {
   beforeEach(() => {
     const storage = { api_key: 'gsk_test', jlpt_level: 'N5' };
@@ -81,6 +108,22 @@ describe('AI Grading Integration (gradeWithAI)', () => {
         };
       }
 
+      // Scenario: Lenient AI marks correct despite grammar errors
+      if (prompt.includes('すってはいけません') && prompt.includes('すってもいきません')) {
+        return {
+          ok: true,
+          json: async () => ({
+            choices: [{ message: { content: JSON.stringify({
+              correct: true, score: 90, general_feedback: 'Mostly correct.', suggested_answer: 'きんえん',
+              breakdown: [
+                { original: 'きえんです', corrected: 'きんえんです', category: 'Vocabulary', explanation: 'Wrong kana.' },
+                { original: 'すってもいきません', corrected: 'すってはいけません', category: 'Grammar', explanation: 'Wrong prohibition form.' }
+              ]
+            })}}]
+          })
+        };
+      }
+
       // Scenario: API Failure
       if (prompt.includes('FAIL_API')) {
         return { ok: false, status: 500, text: async () => 'Internal Server Error' };
@@ -102,6 +145,14 @@ describe('AI Grading Integration (gradeWithAI)', () => {
     const res = await gradeWithAI('PARTICLE_TEST', '私は学生です', '私か学生です');
     expect(res?.breakdown?.some(b => b.category === 'Particle')).toBe(true);
     expect(res?.correct).toBe(false);
+  });
+
+  it('should override lenient AI when breakdown shows real grammar errors', async () => {
+    const answer = 'いいえ、じむしょは きんえんです。かいしゃのひとは すってはいけませんが そとで すってもいいです。';
+    const transcript = 'いえ、じむしょは きえんです。かいしゃのひとは すってもいきませんが そとで すってもいいです。';
+    const res = await gradeWithAI('たばこを すっても いいですか。', answer, transcript);
+    expect(res?.correct).toBe(false);
+    expect(res?.breakdown?.length).toBeGreaterThan(0);
   });
 
   it('should return null when the API fails completely', async () => {

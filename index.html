@@ -133,6 +133,17 @@
               <option value="N3">N3 (Strict, expects precise vocabulary & grammar)</option>
             </select>
           </div>
+          <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
+            <label for="grading-model-select" style="font-size: 0.85rem; font-weight: bold; margin-right: 8px;">Grading Speed:</label>
+            <select id="grading-model-select"
+              style="padding: 4px; border-radius: 4px; border: 1px solid var(--border); background: var(--paper-2); color: var(--text);">
+              <option value="llama-3.3-70b-versatile">Balanced — Better accuracy (Llama 3.3 70B)</option>
+              <option value="openai/gpt-oss-20b">Fast — Quicker feedback (GPT OSS 20B)</option>
+            </select>
+            <p style="font-size: 0.72rem; color: var(--muted); margin-top: 4px;">
+              Fast mode returns grading results sooner; Balanced mode is more reliable for nuanced answers.
+            </p>
+          </div>
           <div style="margin-top: 20px; text-align: right;" class="wizard-only">
             <button class="btn btn-primary" id="btn-next-to-preferences">Next: Voice & Avatar Settings →</button>
           </div>

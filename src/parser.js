@@ -237,8 +237,23 @@ export function numberToHiragana(n) {
   return s || 'ぜろ';
 }
 
+const HITOTSU_COUNTERS = {
+  1: 'ひとつ', 2: 'ふたつ', 3: 'みっつ', 4: 'よっつ', 5: 'いつつ',
+  6: 'むっつ', 7: 'ななつ', 8: 'やっつ', 9: 'ここのつ', 10: 'とお'
+};
+
+function replaceHitotsuCounter(s, n) {
+  const v = typeof n === 'number' ? n : toInt(n);
+  return (v >= 1 && v <= 10) ? HITOTSU_COUNTERS[v] : null;
+}
+
 export function transcriptToFurigana(s) {
   s = s.replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0));
+  s = s.replace(/([0-9]+|[一二三四五六七八九十])つ/g, (_, n) => replaceHitotsuCounter(_, n) || _);
+  s = s.replace(/([0-9]+|[一二三四五六七八九十百千万]+)分/g, (_, n) => {
+    const num = toInt(n);
+    return num > 0 ? numberToHiragana(num) + 'ぶん' : _;
+  });
   s = s.replace(/1人で/g, 'ひとりで');
   s = s.replace(/1人/g, 'ひとり');
   s = applyKanjiMap(s, 3);

@@ -4,8 +4,25 @@
 
 import { getGroqApiKey, getGradingModel } from './groqClient.js';
 import { getGradingPrompt, GRADING_SYSTEM_PROMPT } from './prompts.js';
-import { createGrammarRuleHelper, analyzeAnswerCompleteness, isCorrectLocal, STRIP_RE } from './localGrading.js';
+import { createGrammarRuleHelper, analyzeAnswerCompleteness, isCorrectLocal, normalizeForGradingComparison, hasMeaningfulBreakdownError, groundBreakdown, gradingTextsEquivalent } from './localGrading.js';
 import { get, KEYS } from '../settings.js';
+
+export function isScriptOrNumeralOnlyBreakdown(item) {
+  if (!item.original || !item.corrected) return false;
+  if (normalizeForGradingComparison(item.original) === normalizeForGradingComparison(item.corrected)) {
+    return true;
+  }
+
+  const exp = (item.explanation || '').toLowerCase();
+  const scriptOrNumeralCue = [
+    'numerical', 'written form', 'arabic numeral', 'spoken japanese', 'more common',
+    'usually written', 'script variation', 'hiragana form', 'katakana form', 'kanji form',
+    'same spoken', 'same word', 'same meaning', 'sound identical', 'sounds identical',
+    'n5 level leniency', 'similar quantity', 'represents the same', 'script difference',
+    'number formatting', 'kanji vs', 'hiragana vs', 'katakana vs'
+  ];
+  return scriptOrNumeralCue.some((cue) => exp.includes(cue));
+}
 
 /**
  * Parse the raw text returned by the LLM into a structured grading result.
@@ -113,8 +130,8 @@ async function finalizeAIGradingResult(text, question, expectedAnswer, transcrip
       return lastType;
     };
 
-    const normT = grammarSignals.normalizedTranscript;
-    const normA = grammarSignals.normalizedAnswer;
+    const normA = normalizeForGradingComparison(expectedAnswer);
+    const normT = normalizeForGradingComparison(transcript);
     const particlesInAnswer = grammarSignals.particleSeqA;
     const particlesInTranscript = grammarSignals.particleSeqT;
     const particleWrong = grammarSignals.particleMismatch;
@@ -155,12 +172,18 @@ async function finalizeAIGradingResult(text, question, expectedAnswer, transcrip
       particlesInTranscript !== particlesInAnswer
     );
     const hasTenseProblem = tenseMismatch || questionAnswerTenseMismatch || grammarSignals.tenseMismatch || grammarSignals.polarityMismatch;
-    const hasCompletionProblem = completionSignals.incomplete || completionSignals.hasExtraTrailingChars;
-    const isCorrect = hasCompletionProblem ? false : (hasTenseProblem ? false : !!result.correct);
+    const hasProhibitionProblem = grammarSignals.prohibitionMismatch;
+    const breakdown = groundBreakdown(result.breakdown, transcript)
+      .filter(item => !isScriptOrNumeralOnlyBreakdown(item));
+    const hasBreakdownError = hasMeaningfulBreakdownError(breakdown, isScriptOrNumeralOnlyBreakdown);
+    const exactMatch = gradingTextsEquivalent(expectedAnswer, transcript);
+    const hasCompletionProblem = !exactMatch && (completionSignals.incomplete || completionSignals.hasExtraTrailingChars);
+    const hasGrammarProblem = hasTenseProblem || particleMismatch || hasProhibitionProblem || hasBreakdownError;
+    const isCorrect = exactMatch ? true : (hasCompletionProblem ? false : (hasGrammarProblem ? false : !!result.correct));
     let scoreVal;
     if (hasCompletionProblem) {
       scoreVal = Math.min(typeof result.score === 'number' ? result.score : 70, completionSignals.incomplete ? 40 : 35);
-    } else if (hasTenseProblem) {
+    } else if (hasGrammarProblem) {
       scoreVal = Math.min(typeof result.score === 'number' ? result.score : 70, 35);
     } else if (typeof result.score === 'number') {
       scoreVal = result.score;
@@ -168,37 +191,15 @@ async function finalizeAIGradingResult(text, question, expectedAnswer, transcrip
       scoreVal = result.correct ? 100 : 0;
     }
 
-    const STRIP_RE = /[\s　、。！？・「」『』【】〜〈〉（）,，.]/g;
-    const breakdown = (result.breakdown || []).filter(item => {
-      if (!item.original || !item.corrected) return true;
-      const normOrig = katakanaToHiragana(transcriptToFurigana(item.original)).replace(STRIP_RE, '').toLowerCase();
-      const normCorr = katakanaToHiragana(transcriptToFurigana(item.corrected)).replace(STRIP_RE, '').toLowerCase();
-      // Drop breakdown cards where the only difference is Kanji vs Hiragana/Katakana
-      if (normOrig === normCorr) return false;
-
-      // Aggressive filter: AI loves to hallucinate lectures about "numerical vs written form" and "kanji vs hiragana"
-      const exp = (item.explanation || '').toLowerCase();
-      if (
-        exp.includes('numerical') || 
-        exp.includes('written form') || 
-        exp.includes('arabic numeral') ||
-        exp.includes('spoken japanese') ||
-        exp.includes('more common') ||
-        exp.includes('usually written')
-      ) {
-        return false;
-      }
-
-      return true;
-    });
-
     return {
       correct: isCorrect,
       score: scoreVal,
       general_feedback: hasCompletionProblem
         ? completionSignals.reason
-        : sanitize(result.general_feedback),
-      suggested_answer: sanitize(result.suggested_answer) || (hasCompletionProblem || tenseMismatch ? expectedAnswer : ''),
+        : (hasGrammarProblem && result.correct
+          ? 'Your answer has grammar or vocabulary errors that need correction.'
+          : sanitize(result.general_feedback)),
+      suggested_answer: sanitize(result.suggested_answer) || (hasCompletionProblem || tenseMismatch || hasProhibitionProblem || hasBreakdownError ? expectedAnswer : ''),
       breakdown: breakdown,
       source: 'groq'
     };

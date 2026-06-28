@@ -2,11 +2,113 @@
 // LOCAL FALLBACK GRADING (offline, no API)
 // ─────────────────────────────────────────────
 
+import { katakanaToHiragana, transcriptToFurigana } from '../parser.js';
+
 export const STRIP_RE = /[\s　、。！？・「」『』【】〜〈〉（）,，.]/g;
+
+const TOKEN_RE = /[\u3040-\u30ff\u4e00-\u9fffA-Za-z]+/g;
+
+/** Collapse common STT vowel insertions (e.g. しゅうみ → しゅみ). */
+function relaxSpokenSttArtifacts(s) {
+  return s
+    .replace(/([ゅょぉ])う(?=[ぁ-ん])/g, '$1')
+    .replace(/ぷん/g, 'ぶん');
+}
+
+/** Words often omitted in casual spoken answers without changing core meaning. */
+const OPTIONAL_SPOKEN_OMISSIONS = ['あるいて', 'あるき', 'およそ', 'だいたい'];
+
+function relaxOptionalSpokenOmissions(s) {
+  let text = String(s || '');
+  for (const word of OPTIONAL_SPOKEN_OMISSIONS) {
+    text = text.replaceAll(word, '');
+  }
+  return text;
+}
+
+function normalizeGradingToken(s) {
+  return katakanaToHiragana(transcriptToFurigana(String(s || '')))
+    .replace(STRIP_RE, '')
+    .toLowerCase();
+}
+
+export function normalizeForGradingComparison(s) {
+  return relaxSpokenSttArtifacts(normalizeGradingToken(s));
+}
+
+/** True when two answers match after spoken-test normalization. */
+export function gradingTextsEquivalent(answer, transcript) {
+  const normA = normalizeForGradingComparison(answer);
+  const normT = normalizeForGradingComparison(transcript);
+  if (normA === normT) return true;
+  return relaxOptionalSpokenOmissions(normA) === relaxOptionalSpokenOmissions(normT);
+}
+
+function extractTokenPrefix(token, normPrefix) {
+  if (!normPrefix) return null;
+  let normBuilt = '';
+  for (let i = 0; i < token.length; i++) {
+    normBuilt = normalizeGradingToken(token.slice(0, i + 1));
+    if (normBuilt === normPrefix) return token.slice(0, i + 1);
+    if (normBuilt.length > normPrefix.length) return null;
+  }
+  return null;
+}
+
+/** Replace AI-hallucinated breakdown originals with the student's actual words. */
+export function groundBreakdownItem(item, transcript) {
+  const original = String(item.original || '').trim();
+  const corrected = String(item.corrected || '').trim();
+  if (!original || !corrected) return item;
+
+  const source = String(transcript || '');
+  if (source.includes(original)) return item;
+
+  const normOriginal = normalizeGradingToken(original);
+  const tokens = source.match(TOKEN_RE) || [];
+  for (const token of tokens) {
+    if (normalizeGradingToken(token) === normOriginal) {
+      return { ...item, original: token };
+    }
+    const prefix = extractTokenPrefix(token, normOriginal);
+    if (prefix) return { ...item, original: prefix };
+  }
+
+  const normCorrected = normalizeGradingToken(corrected);
+  let bestToken = null;
+  let bestScore = Infinity;
+  for (const token of tokens) {
+    const normToken = normalizeGradingToken(token);
+    if (normToken === normCorrected) continue;
+    const score = Math.abs(normToken.length - normCorrected.length)
+      + (normToken.slice(0, 2) === normCorrected.slice(0, 2) ? 0 : 5);
+    if (score < bestScore) {
+      bestScore = score;
+      bestToken = token;
+    }
+  }
+  if (bestToken) {
+    const prefix = extractTokenPrefix(bestToken, normOriginal)
+      || extractTokenPrefix(bestToken, normalizeGradingToken(bestToken).slice(0, normOriginal.length));
+    if (prefix) return { ...item, original: prefix };
+    if (normalizeGradingToken(bestToken).length <= normOriginal.length + 2) {
+      return { ...item, original: bestToken };
+    }
+  }
+
+  return null;
+}
+
+export function groundBreakdown(breakdown, transcript) {
+  return (breakdown || [])
+    .map((item) => groundBreakdownItem(item, transcript))
+    .filter(Boolean);
+}
 
 const PREDICATE_MARKER_RE = /(ませんでした|ませんか|ましたか|でしたか|ますか|ですか|ました|でした|ません|ます|です|ましょう|ない|ている|ています|ていました|たい|たかった)/g;
 const PREDICATE_END_RE = /(ませんでした|ませんか|ましたか|でしたか|ますか|ですか|ました|でした|ません|ます|です|ましょう|ない|ている|ています|ていました|たい|たかった)$/;
-const DANGLING_END_RE = /(は|が|を|に|へ|で|と|の|も|から|まで|より|そして|それから)$/;
+// から is omitted — it commonly ends complete reason clauses (e.g. 〜ていますから).
+const DANGLING_END_RE = /(は|が|を|に|へ|で|と|の|も|まで|より|そして|それから)$/;
 const QUESTION_MARKER_RE = /(か[。！？?]|[？?])/g;
 
 function countMatches(text, re) {
@@ -106,12 +208,46 @@ export function createGrammarRuleHelper(transcriptToFurigana, katakanaToHiragana
       particleMismatch: particleMismatch || missingOrExtraParticles,
       tenseMismatch: detectTenseMismatch(answer, transcript),
       polarityMismatch: detectPolarityMismatch(answer, transcript),
+      prohibitionMismatch: detectProhibitionFormMismatch(answer, transcript),
       particleSeqA,
       particleSeqT,
       normalizedAnswer: a,
       normalizedTranscript: t
     };
   };
+}
+
+const PROHIBITION_FORMS = [
+  'てはいけません', 'てはいけない', 'てはだめ', 'てはなりません', 'ではいけません', 'ではいけない'
+];
+const WRONG_PROHIBITION_FORMS = [
+  'てもいきません', 'てもいけない', 'てもいけません', 'でもいけません', 'てもだめ'
+];
+
+/** Detect 〜てはいけません swapped for incorrect forms like 〜てもいきません. */
+export function detectProhibitionFormMismatch(answer, transcript) {
+  const a = normalizeForGradingComparison(answer);
+  const t = normalizeForGradingComparison(transcript);
+
+  for (const form of PROHIBITION_FORMS) {
+    if (!a.includes(form)) continue;
+    if (t.includes(form)) continue;
+    if (WRONG_PROHIBITION_FORMS.some((wrong) => t.includes(wrong))) return true;
+  }
+  return false;
+}
+
+/** True when AI breakdown items reflect real grammar or vocabulary errors. */
+export function hasMeaningfulBreakdownError(breakdown, isScriptOrNumeralOnly) {
+  return (breakdown || []).some((item) => {
+    if (isScriptOrNumeralOnly(item)) return false;
+    const category = String(item.category || '').toLowerCase();
+    if (category === 'grammar' || category === 'particle' || category === 'tense') return true;
+    if (category === 'vocabulary' || category === 'word choice') {
+      return normalizeForGradingComparison(item.original) !== normalizeForGradingComparison(item.corrected);
+    }
+    return false;
+  });
 }
 
 /**
@@ -124,6 +260,16 @@ export function analyzeAnswerCompleteness(question, answer, transcript, transcri
 
   const a = normalize(answer);
   const t = normalize(transcript);
+  if (gradingTextsEquivalent(answer, transcript)) {
+    return {
+      incomplete: false,
+      hasExtraTrailingChars: false,
+      reason: '',
+      predicateCountA: countMatches(a, PREDICATE_MARKER_RE),
+      predicateCountT: countMatches(t, PREDICATE_MARKER_RE),
+      requiredResponses: 0
+    };
+  }
   const predicateCountA = countMatches(a, PREDICATE_MARKER_RE);
   const predicateCountT = countMatches(t, PREDICATE_MARKER_RE);
   const questionParts = countMatches(question, QUESTION_MARKER_RE);
@@ -171,10 +317,20 @@ export async function isCorrectLocal(rawTranscript, answer, question = '') {
   const t = normalizeTranscript(rawTranscript, answer);
   const a = normalizeTranscript(answer, answer);
 
-  const exactNormalizedMatch = a === t || a.replace(STRIP_RE, '') === t.replace(STRIP_RE, '');
+  if (gradingTextsEquivalent(answer, rawTranscript)) {
+    return {
+      correct: true,
+      score: 100,
+      feedback: 'Answer matched (local check).',
+      grammarNotes: '',
+      particleNotes: '',
+      vocabularyNotes: '',
+      suggestedAnswer: '',
+      source: 'local'
+    };
+  }
   let sim = 0;
-  if (exactNormalizedMatch) sim = 1;
-  else if (a.length === 0) sim = 0;
+  if (a.length === 0) sim = 0;
   else {
     const m = t.length, n = a.length;
     let prev = new Array(n + 1).fill(0);
@@ -282,9 +438,10 @@ export async function isCorrectLocal(rawTranscript, answer, question = '') {
   });
 
   const hasPolarityProblem = grammarSignals.polarityMismatch;
+  const hasProhibitionProblem = grammarSignals.prohibitionMismatch;
   const hasTenseProblem = tenseMismatch || questionAnswerTenseMismatch || grammarSignals.tenseMismatch;
   const particlePenalty = (hasParticleMismatch ? 40 : 0) + missingParticles.length * 4;
-  const verbPenalty = ((hasTenseProblem || hasPolarityProblem) ? 60 : 0) + missingVerbs.length * 6;
+  const verbPenalty = ((hasTenseProblem || hasPolarityProblem || hasProhibitionProblem) ? 60 : 0) + missingVerbs.length * 6;
   if (particlePenalty + verbPenalty > 0) {
     finalScore -= particlePenalty + verbPenalty;
     if (hasParticleMismatch) {
@@ -294,6 +451,8 @@ export async function isCorrectLocal(rawTranscript, answer, question = '') {
     }
     if (hasCompletionProblem) {
       grammarNotes = completionSignals.reason;
+    } else if (hasProhibitionProblem) {
+      grammarNotes = 'Prohibition form error: use 〜てはいけません instead of 〜てもいきません.';
     } else if (hasPolarityProblem) {
       grammarNotes = 'Polarity mismatch: positive/negative form does not match the expected answer.';
     } else if (hasTenseProblem || missingVerbs.length > 0) {
@@ -306,7 +465,7 @@ export async function isCorrectLocal(rawTranscript, answer, question = '') {
   }
 
   finalScore = Math.max(0, finalScore);
-  const isCorrect = !hasCompletionProblem && !hasParticleMismatch && !hasTenseProblem && finalScore >= 45;
+  const isCorrect = !hasCompletionProblem && !hasParticleMismatch && !hasTenseProblem && !hasProhibitionProblem && finalScore >= 45;
 
   return {
     correct: isCorrect,

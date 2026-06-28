@@ -14,13 +14,14 @@ Student answer: ${transcript}
 
 Rules:
 - Judge meaning and grammar.
-- For N5 level, be extremely lenient with vocabulary substitutions. If the student substitutes a related valid noun, verb, or adjective (e.g., "sunny" instead of "cloudy", "apple" instead of "orange"), do NOT mark it as incorrect. Keep '"correct": true'. You MUST still add a 'Vocabulary' breakdown item explaining the difference.
-- Only mark '"correct": false' for complete breakdowns in grammar, core action, tense, polarity, or answering only a fragment of the prompt.
+- For N5 level, be lenient with related vocabulary substitutions only (e.g., "sunny" instead of "cloudy"). Do NOT forgive wrong kana that changes the word (e.g., "きえん" instead of "きんえん") — mark '"correct": false'.
+- Mark '"correct": false' for grammar pattern errors, wrong particles, wrong tense, wrong polarity, wrong prohibition forms, or answering only a fragment of the prompt.
+- Prohibition forms are critical. If the expected answer uses 〜てはいけません / 〜てはいけない and the student uses 〜てもいきません or another incorrect pattern, you MUST mark '"correct": false' and add a 'Grammar' breakdown item.
 - Particles and Tense are critical. If a particle is wrong (e.g., using で instead of を) or the tense is wrong (e.g., present instead of past), you MUST mark it as incorrect and add a specific 'Particle' or 'Tense' item to the breakdown.
-    - For N5, do not fail for harmless wording differences.
-    - Common STT error: the particle 'は' (ha) is often transcribed as 'わ' (wa). Treat these as identical.
-- CRITICAL SPOKEN TEST RULE: Ignore all differences between Kanji, Hiragana, Katakana, and Arabic numerals if they represent the exact same spoken word (e.g., "29" vs "にじゅうきゅう", or "会社" vs "かいしゃ"). NEVER create a breakdown item for script differences or number formatting because they sound identical.
+    - Common STT error: the particle 'は' (ha) is often transcribed as 'わ' (wa). Treat these as identical ONLY for the topic/contrast particle, not for other words.
+- CRITICAL SPOKEN TEST RULE: Ignore all differences between Kanji, Hiragana, Katakana, and Arabic numerals if they represent the exact same spoken word (e.g., "29" vs "にじゅうきゅう", "8つ" vs "やっつ", "3分" vs "さんぶん" vs "さんぷん" vs "三分", or "会社" vs "かいしゃ"). NEVER create a breakdown item for script differences or number formatting because they sound identical. Leave breakdown empty for these cases.
 - CRITICAL SPOKEN TEST RULE: Ignore all differences in Punctuation, Spaces, and Capitalization (e.g. Youtube vs YouTube). NEVER create a breakdown item for punctuation, spacing, or capitalization differences.
+- In breakdown items, \`original\` MUST be copied exactly from the student answer text. Never rewrite it in a different script (e.g., do not show katakana if the student used hiragana).
 - DO NOT prepend or include the Question text in your \`suggested_answer\` or \`corrected\` fields. The student is answering the question, they should not repeat the question itself.
 - Return ONLY valid JSON with these keys:
   {

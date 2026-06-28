@@ -97,6 +97,10 @@ describe('transcriptToFurigana', () => {
   it('converts date patterns', () => {
     expect(transcriptToFurigana('9月12日')).toBe('くがつじゅうににち');
   });
+
+  it('converts hitotsu counters from arabic numerals', () => {
+    expect(transcriptToFurigana('8つ')).toBe('やっつ');
+  });
 });
 
 describe('toFuriganaHtml', () => {

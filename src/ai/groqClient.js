@@ -2,7 +2,7 @@
 // GROQ API CLIENT & KEY MANAGEMENT
 // ─────────────────────────────────────────────
 
-import { GROQ_GRADING_MODELS } from '../data.js';
+import { GROQ_GRADING_MODELS, DEPRECATED_GROQ_GRADING_MODEL } from '../data.js';
 import { showApiKeyStatus } from '../ui.js';
 import { get, set, remove, KEYS } from '../settings.js';
 
@@ -21,6 +21,9 @@ export function hasGroqApiKey() {
 /** Return the selected grading model, defaulting to balanced. */
 export function getGradingModel() {
   const saved = get(KEYS.GRADING_MODEL);
+  if (saved === DEPRECATED_GROQ_GRADING_MODEL) {
+    return GROQ_GRADING_MODELS.fast;
+  }
   if (saved === GROQ_GRADING_MODELS.fast || saved === GROQ_GRADING_MODELS.balanced) {
     return saved;
   }
