@@ -281,11 +281,11 @@ export function analyzeAnswerCompleteness(question, answer, transcript, transcri
 
   let reason = '';
   if (missingRequiredResponse) {
-    reason = 'This answer is incomplete: it does not cover every required part of the prompt.';
+    reason = 'It looks like your answer is a bit short! Try to cover all the parts of the question to make it complete.';
   } else if (hasIncompleteSentence || hasDanglingEnding) {
-    reason = 'This answer appears to stop before the sentence is complete.';
+    reason = 'Your sentence seems to end a bit early. Try to finish the thought completely!';
   } else if (hasExtraTrailingChars) {
-    reason = 'Extra trailing characters were detected. Please remove the extra words at the end.';
+    reason = 'You added some extra words at the end. Try to keep your answer concise and focused on the question.';
   }
 
   return {

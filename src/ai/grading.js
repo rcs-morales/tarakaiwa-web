@@ -218,7 +218,7 @@ export async function gradeWithAI(question, expectedAnswer, transcript) {
     const requestBody = {
       model: getGradingModel(),
       temperature: 0.1,
-      max_tokens: 520,
+      max_tokens: 2048,
       response_format: { type: 'json_object' },
       messages: [
         { role: 'system', content: GRADING_SYSTEM_PROMPT },
@@ -234,9 +234,13 @@ export async function gradeWithAI(question, expectedAnswer, transcript) {
       },
       body: JSON.stringify(requestBody)
     });
+
     if (!response.ok) {
       const errText = await response.text();
-      if (/response_format|json_object/i.test(errText)) {
+      console.warn(`First attempt failed (${response.status}): ${errText}`);
+
+      if (/response_format|json_object|json_validate_failed/i.test(errText)) {
+        console.log('Attempting fallback without json_object mode...');
         const fallbackBody = { ...requestBody };
         delete fallbackBody.response_format;
         response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -247,24 +251,30 @@ export async function gradeWithAI(question, expectedAnswer, transcript) {
           },
           body: JSON.stringify(fallbackBody)
         });
+
         if (response.ok) {
           const data = await response.json();
           let text = data.choices?.[0]?.message?.content || '';
           if (!text) {
-            console.error('AI returned empty text');
+            console.error('AI returned empty text in fallback. Full response:', data);
             return null;
           }
           return finalizeAIGradingResult(text, question, expectedAnswer, transcript);
         }
+
+        // Log the failure of the fallback request
+        const fallbackErrText = await response.text();
+        console.error(`Fallback attempt also failed (${response.status}): ${fallbackErrText}`);
+      } else {
+        console.error('Groq API failed (non-JSON error):', response.status, errText);
       }
-      console.error('Groq API failed:', response.status, errText);
       return null;
     }
     const data = await response.json();
     let text = data.choices?.[0]?.message?.content || '';
 
     if (!text) {
-      console.error('AI returned empty text');
+      console.error('AI returned empty text. Full response:', data);
       return null;
     }
 

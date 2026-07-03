@@ -55,12 +55,9 @@ export const DEFAULT_QA = [
 ];
 
 export const GROQ_GRADING_MODELS = {
-  balanced: 'llama-3.3-70b-versatile',
+  balanced: 'openai/gpt-oss-120b',
   fast: 'openai/gpt-oss-20b',
 };
-
-/** @deprecated Groq decommissions this model Aug 16, 2026; migrated to fast. */
-export const DEPRECATED_GROQ_GRADING_MODEL = 'llama-3.1-8b-instant';
 
 export const AVATAR_MODELS = {
   simple: {

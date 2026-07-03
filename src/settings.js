@@ -8,7 +8,6 @@
  */
 export const KEYS = {
   API_KEY: 'api_key',
-  LEGACY_API_KEY: 'gemini_api_key',
   API_PROVIDER: 'api_provider',
   JLPT_LEVEL: 'jlpt_level',
   STT_MODE: 'stt_mode',

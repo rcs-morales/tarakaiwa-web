@@ -57,7 +57,7 @@ export async function askStudyAssistant(query, history = []) {
       body: JSON.stringify({
         model: getGradingModel(),
         temperature: 0.7,
-        max_tokens: 500,
+        max_tokens: 1500,
         messages: messages
       })
     });
