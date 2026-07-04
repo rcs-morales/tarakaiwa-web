@@ -8,24 +8,10 @@
   <link
     href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@300;400;700&family=Noto+Sans+JP:wght@300;400;500&family=DM+Mono:wght@300;400&display=swap"
     rel="stylesheet" />
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/6.5.10/browser/pixi.min.js"></script>
-  <script>
-    window.live2d = window.live2d || {};
-  </script>
-  <script src="https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/pixi-live2d-display/dist/cubism4.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script type="module" src="src/app.js"></script>
-  <script>
-    // Fallback: if XLSX doesn't load from CDN, load from alternative source
-    if (typeof XLSX === 'undefined') {
-      const script = document.createElement('script');
-      script.src = 'https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js';
-      document.head.appendChild(script);
-    }
-  </script>
-  <link rel="stylesheet" href="assets/style.css" />
+  <!-- Live2D Cubism Core is proprietary (not on npm) — vendored as a classic script -->
+  <script src="/vendor/live2dcubismcore.min.js"></script>
+  <script type="module" src="/src/app.js"></script>
+  <link rel="stylesheet" href="/assets/style.css" />
 </head>
 
 <body>

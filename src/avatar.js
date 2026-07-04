@@ -1,3 +1,4 @@
+import './live2d-shim.js';
 import { AVATAR_MODELS } from './data.js';
 import { get, set, KEYS } from './settings.js';
 

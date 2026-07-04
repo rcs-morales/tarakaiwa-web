@@ -1,3 +1,4 @@
+import * as XLSX from 'xlsx';
 import { KATAKANA_HIRAGANA_MAP, MONTH_READ, DAY_READ, KANJI_DIGIT, KANJI_MAP, LESSON_KANJI_MAP, SINGLE_KANJI_READ } from './data.js';
 import { get, KEYS } from './settings.js';
 
@@ -100,10 +101,6 @@ export function parseCSV(content) {
 
 export function parseExcel(arrayBuffer) {
   try {
-    if (typeof XLSX === 'undefined') {
-      throw new Error('Excel library is still loading. Please wait a moment and try again.');
-    }
-
     const workbook = XLSX.read(arrayBuffer, { type: 'array' });
     if (!workbook.SheetNames.length) {
       throw new Error('Excel file is empty');
@@ -155,23 +152,9 @@ export function parseExcel(arrayBuffer) {
   }
 }
 
+// XLSX is now a bundled npm dependency; kept for API compatibility with import.js.
 export function ensureXLSXLoaded() {
-  return new Promise((resolve) => {
-    if (typeof XLSX !== 'undefined') {
-      resolve();
-    } else {
-      const checkInterval = setInterval(() => {
-        if (typeof XLSX !== 'undefined') {
-          clearInterval(checkInterval);
-          resolve();
-        }
-      }, 100);
-      setTimeout(() => {
-        clearInterval(checkInterval);
-        resolve();
-      }, 5000);
-    }
-  });
+  return Promise.resolve();
 }
 
 export function katakanaToHiragana(s) {

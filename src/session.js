@@ -161,7 +161,7 @@ export async function loadQuestion() {
   cancelSpeech('practice');
   setStatus('speaking', 'Preparing…');
   try {
-    const { resetAvatarPose } = await import('./avatar.js?' + Date.now());
+    const { resetAvatarPose } = await import('./avatar.js');
     resetAvatarPose();
   } catch (error) {
     console.warn('Avatar pose reset unavailable:', error);
