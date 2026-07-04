@@ -272,9 +272,6 @@ async function beginListen() {
       document.getElementById('target-answer-text').textContent = item.a;
       document.getElementById('target-romaji-text').textContent = item.r;
       targetBox.style.display = 'block';
-      // Tutorial is one-time: once the third guided question has been shown,
-      // future sessions run without it.
-      if (current === 2) set(KEYS.TUTORIAL_DONE, '1');
     } else if (current >= 3 && !hasGroqApiKey()) {
       const label = document.getElementById('target-label');
       if (label) {
@@ -286,9 +283,13 @@ async function beginListen() {
     }
   }
 
-  if (current < 3) {
+  // First-time hints (tutorial box above + Show Text pulse) are one-time:
+  // once the third question's hints have been shown, the flag turns them off
+  // for all future sessions — on any deck.
+  if (current < 3 && get(KEYS.TUTORIAL_DONE) !== '1') {
     const toggleBtn = document.getElementById('btn-toggle-question');
     if (toggleBtn) toggleBtn.classList.add('highlight-pulse');
+    if (current === 2) set(KEYS.TUTORIAL_DONE, '1');
   }
 
   const sttMode = get(KEYS.STT_MODE) || 'ai';
