@@ -257,6 +257,18 @@ export function transcriptToFurigana(s) {
   s = s.replace(/1人で/g, 'ひとりで');
   s = s.replace(/1人/g, 'ひとり');
   s = applyKanjiMap(s, 3);
+  // ── Duration counter: Nケ月 / Nか月 / Nカ月 / N箇月 / Nヶ月 / Nヵ月 (kagetsu) ──
+  // Must be processed BEFORE the month-name rule (N月) so the ケ月 suffix is consumed first.
+  s = s.replace(/([0-9]+|[一二三四五六七八九十百千万]+)[ケヶヵカか箇]月/g, (_, n) => {
+    const num = toInt(n);
+    if (num <= 0) return _;
+    // Special sound changes for the かげつ counter
+    const KAGETSU_SPECIAL = {
+      1: 'いっかげつ', 6: 'ろっかげつ', 8: 'はっかげつ', 10: 'じゅっかげつ'
+    };
+    if (KAGETSU_SPECIAL[num]) return KAGETSU_SPECIAL[num];
+    return numberToHiragana(num) + 'かげつ';
+  });
   s = s.replace(/([0-9]+|[一二三四五六七八九十百千]+)月/g, (_, n) => {
     const m = toInt(n);
     return (m >= 1 && m <= 12) ? MONTH_READ[m] : _;
@@ -264,6 +276,38 @@ export function transcriptToFurigana(s) {
   s = s.replace(/([0-9]+|[一二三四五六七八九十百千]+)日/g, (_, n) => {
     const d = toInt(n);
     return (d >= 1 && d <= 31) ? DAY_READ[d] : _;
+  });
+  // ── Duration counter: N時間 (jikan - hours) ──
+  s = s.replace(/([0-9]+|[一二三四五六七八九十百千万]+)時間/g, (_, n) => {
+    const num = toInt(n);
+    if (num <= 0) return _;
+    const JIKAN_SPECIAL = { 1: 'いちじかん', 4: 'よじかん' };
+    if (JIKAN_SPECIAL[num]) return JIKAN_SPECIAL[num];
+    return numberToHiragana(num) + 'じかん';
+  });
+  // ── Duration counter: N週間 (shuukan - weeks) ──
+  s = s.replace(/([0-9]+|[一二三四五六七八九十百千万]+)週間/g, (_, n) => {
+    const num = toInt(n);
+    if (num <= 0) return _;
+    const SHUUKAN_SPECIAL = { 1: 'いっしゅうかん' };
+    if (SHUUKAN_SPECIAL[num]) return SHUUKAN_SPECIAL[num];
+    return numberToHiragana(num) + 'しゅうかん';
+  });
+  // ── Time: N時 (ji - o'clock), only when NOT followed by 間 ──
+  s = s.replace(/([0-9]+|[一二三四五六七八九十百千]+)時(?!間)/g, (_, n) => {
+    const num = toInt(n);
+    if (num < 1 || num > 24) return _;
+    const JI_SPECIAL = { 4: 'よじ', 7: 'しちじ', 9: 'くじ' };
+    if (JI_SPECIAL[num]) return JI_SPECIAL[num];
+    return numberToHiragana(num) + 'じ';
+  });
+  // ── Counter: N回 (kai - times) ──
+  s = s.replace(/([0-9]+|[一二三四五六七八九十百千万]+)回/g, (_, n) => {
+    const num = toInt(n);
+    if (num <= 0) return _;
+    const KAI_SPECIAL = { 1: 'いっかい', 6: 'ろっかい', 8: 'はっかい', 10: 'じゅっかい' };
+    if (KAI_SPECIAL[num]) return KAI_SPECIAL[num];
+    return numberToHiragana(num) + 'かい';
   });
   s = s.replace(/([0-9]+)年/g, (_, n) => {
     const digits = ['ぜろ','いち','に','さん','し','ご','ろく','なな','はち','く'];

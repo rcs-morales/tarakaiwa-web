@@ -136,6 +136,7 @@ export async function preloadAllVoicevoxAudio(texts, onProgress, signal) {
   let index = 0;
 
   async function worker() {
+    let retryCount = 0;
     while (index < total) {
       if (signal && signal.cancelled) return;
       const i = index; // Do not increment yet
@@ -145,9 +146,15 @@ export async function preloadAllVoicevoxAudio(texts, onProgress, signal) {
         const elapsed = Date.now() - startTime;
 
         if (!result) {
-          // Fetch failed (likely 429 or network error).
-          // As requested, we wait and retry rather than aborting, keeping the modal active.
-          // The user can use the 'Skip' button if they don't want to wait.
+          retryCount++;
+          if (retryCount >= 2) {
+            console.warn(`Fetch failed twice for item ${i}. Skipping item to prevent hang...`);
+            retryCount = 0;
+            index++;
+            completed++;
+            if (onProgress) onProgress(completed, total);
+            continue;
+          }
           console.warn(`Fetch failed for item ${i}. Retrying in 5 seconds...`);
           if (onProgress) onProgress(completed, total, `API rate limit hit. Pausing 5s before retrying (${completed}/${total})…`);
           await new Promise(r => setTimeout(r, 5000));
@@ -156,6 +163,7 @@ export async function preloadAllVoicevoxAudio(texts, onProgress, signal) {
         }
         
         // Success
+        retryCount = 0;
         index++;
         completed++;
         if (onProgress) onProgress(completed, total);

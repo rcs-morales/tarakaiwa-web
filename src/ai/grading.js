@@ -178,7 +178,7 @@ async function finalizeAIGradingResult(text, question, expectedAnswer, transcrip
     const hasBreakdownError = hasMeaningfulBreakdownError(breakdown, isScriptOrNumeralOnlyBreakdown);
     const exactMatch = gradingTextsEquivalent(expectedAnswer, transcript);
     const hasCompletionProblem = !exactMatch && (completionSignals.incomplete || completionSignals.hasExtraTrailingChars);
-    const hasGrammarProblem = hasTenseProblem || particleMismatch || hasProhibitionProblem || hasBreakdownError;
+    const hasGrammarProblem = !exactMatch && (hasTenseProblem || particleMismatch || hasProhibitionProblem || hasBreakdownError);
     const isCorrect = exactMatch ? true : (hasCompletionProblem ? false : (hasGrammarProblem ? false : !!result.correct));
     let scoreVal;
     if (hasCompletionProblem) {

@@ -421,18 +421,34 @@ export async function checkAnswer() {
 
   if (hasGroqApiKey()) {
     updateCheckedTranslation('user-ans-trans', 'Translating your answer...');
-    translateWithAI(raw, item.q).then(trans => {
-      updateCheckedTranslation('user-ans-trans', trans ? 'You said: ' + trans : '');
-    }).catch(() => {
-      updateCheckedTranslation('user-ans-trans', '');
-    });
-    
     updateCheckedTranslation('expected-ans-trans', 'Translating expected answer...');
-    translateWithAI(item.a, item.q).then(trans => {
-      updateCheckedTranslation('expected-ans-trans', trans ? trans : '');
-    }).catch(() => {
-      updateCheckedTranslation('expected-ans-trans', '');
-    });
+    
+    (async () => {
+      let userTrans = null;
+      try {
+        userTrans = await translateWithAI(raw, item.q);
+      } catch (e) {}
+      
+      if (userTrans) {
+        updateCheckedTranslation('user-ans-trans', 'You said: ' + userTrans);
+      } else {
+        const query = encodeURIComponent(raw);
+        const url = `https://translate.google.com/?sl=ja&tl=en&text=${query}&op=translate`;
+        updateCheckedTranslation('user-ans-trans', `⚠️ AI Translation failed. <a href="${url}" target="_blank" style="color: var(--teal); text-decoration: underline;">Translate on Google ↗</a>`);
+      }
+      
+      let expTrans = null;
+      try {
+        expTrans = await translateWithAI(item.a, item.q);
+      } catch (e) {}
+      
+      if (expTrans) {
+        updateCheckedTranslation('expected-ans-trans', expTrans);
+      } else {
+        const expectedUrl = `https://translate.google.com/?sl=ja&tl=en&text=${encodeURIComponent(item.a)}&op=translate`;
+        updateCheckedTranslation('expected-ans-trans', `⚠️ AI Translation failed. <a href="${expectedUrl}" target="_blank" style="color: var(--teal); text-decoration: underline;">Translate on Google ↗</a>`);
+      }
+    })();
   } else {
     const query = encodeURIComponent(raw);
     const url = `https://translate.google.com/?sl=ja&tl=en&text=${query}&op=translate`;
