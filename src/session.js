@@ -28,8 +28,13 @@ export let current   = 0;
 export let score     = 0;
 export let results   = [];
 
-export function setQA(newData) {
+// True only when QA is the built-in starter deck (tutorial mode + sample-deck
+// labeling key off this, not off the shape of the data).
+export let isDefaultDeck = false;
+
+export function setQA(newData, { isDefault = false } = {}) {
   QA = newData;
+  isDefaultDeck = isDefault;
 }
 export function setCurrent(val) {
   current = val;
@@ -261,7 +266,7 @@ async function beginListen() {
   const item = QA[current];
   const targetBox = document.getElementById('target-answer-box');
   if (targetBox) {
-    if (item.r && current < 3) {
+    if (isDefaultDeck && item.r && current < 3) {
       const label = document.getElementById('target-label');
       if (label) label.textContent = '🎯 Tutorial Mode (' + (current + 1) + '/3) Please say the sample answer clearly:';
       document.getElementById('target-answer-text').textContent = item.a;

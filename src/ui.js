@@ -159,12 +159,16 @@ export function showBtn(id, visible) {
   if (btn) btn.classList.toggle('hidden', !visible);
 }
 
-export function updateQACount(count) {
+export function updateQACount(count, isDefault = false) {
   const chip = document.getElementById('qa-count-chip');
   if (!chip) return;
-  chip.textContent = count > 0
-    ? '🗂 ' + count + ' Question' + (count !== 1 ? 's' : '')
-    : '🗂 No Questions Loaded';
+  if (count === 0) {
+    chip.textContent = '🗂 No Questions Loaded';
+  } else if (isDefault) {
+    chip.textContent = '🎓 Sample Deck — ' + count + ' Question' + (count !== 1 ? 's' : '') + ' (import your own!)';
+  } else {
+    chip.textContent = '🗂 ' + count + ' Question' + (count !== 1 ? 's' : '');
+  }
 }
 
 export function updateStartButton(count) {

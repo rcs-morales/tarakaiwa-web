@@ -16,7 +16,7 @@ import { get, set, remove, KEYS } from './settings.js';
 import {
   startPractice, toggleQuestionText, translateQuestion,
   finishRecording, checkAnswer, rerecordAnswer, nextQuestion,
-  skipQuestion, endSession, setQA, QA
+  skipQuestion, endSession, setQA, QA, isDefaultDeck
 } from './session.js';
 import {
   handleAssistantQuery, initAiPanelInteractivity, initAssistantFloatButton,
@@ -112,7 +112,7 @@ function restartApp() {
   releaseMic();
   assistantHistory.splice(0, assistantHistory.length);
   showStartScreen();
-  updateQACount(QA.length);
+  updateQACount(QA.length, isDefaultDeck);
   updateStartButton(QA.length);
 
   // Reset wizard state — hide settings panels, show landing view
@@ -139,9 +139,9 @@ document.addEventListener('DOMContentLoaded', () => {
       console.error('Error loading saved QA data:', e);
     }
   } else {
-    setQA(DEFAULT_QA.slice(0, 10));
+    setQA(DEFAULT_QA.slice(0, 10), { isDefault: true });
   }
-  updateQACount(QA.length);
+  updateQACount(QA.length, isDefaultDeck);
   updateStartButton(QA.length);
   refreshSetupAccess();
 
