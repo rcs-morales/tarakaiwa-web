@@ -20,6 +20,7 @@ export const KEYS = {
   TTS_SPEED: 'tts_speed',
   SOURCE_LANGUAGE: 'source_language',
   SETUP_COMPLETE: 'setup_complete',
+  TUTORIAL_DONE: 'tutorial_done',
 };
 
 /**

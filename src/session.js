@@ -266,12 +266,15 @@ async function beginListen() {
   const item = QA[current];
   const targetBox = document.getElementById('target-answer-box');
   if (targetBox) {
-    if (isDefaultDeck && item.r && current < 3) {
+    if (isDefaultDeck && item.r && current < 3 && get(KEYS.TUTORIAL_DONE) !== '1') {
       const label = document.getElementById('target-label');
       if (label) label.textContent = '🎯 Tutorial Mode (' + (current + 1) + '/3) Please say the sample answer clearly:';
       document.getElementById('target-answer-text').textContent = item.a;
       document.getElementById('target-romaji-text').textContent = item.r;
       targetBox.style.display = 'block';
+      // Tutorial is one-time: once the third guided question has been shown,
+      // future sessions run without it.
+      if (current === 2) set(KEYS.TUTORIAL_DONE, '1');
     } else if (current >= 3 && !hasGroqApiKey()) {
       const label = document.getElementById('target-label');
       if (label) {
