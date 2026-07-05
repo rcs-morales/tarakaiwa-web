@@ -21,6 +21,8 @@ export const KEYS = {
   SOURCE_LANGUAGE: 'source_language',
   SETUP_COMPLETE: 'setup_complete',
   TUTORIAL_DONE: 'tutorial_done',
+  // Device-local id of the synced deck row (never synced itself).
+  DECK_ID: 'synced_deck_id',
 };
 
 /**
@@ -45,6 +47,24 @@ export function get(key) {
   return localStorage.getItem(key) ?? DEFAULTS[key] ?? null;
 }
 
+// Optional hook invoked after every set()/remove(). sync.js registers this to
+// debounce-upload changed settings; when nothing registers it, set/remove keep
+// their original localStorage-only behaviour (logged-out path unchanged).
+let changeHook = null;
+
+/**
+ * Register a callback fired after each set()/remove(). Called as (key).
+ * Pass null to unregister.
+ */
+export function onChange(hook) {
+  changeHook = hook;
+}
+
+function notifyChange(key) {
+  if (!changeHook) return;
+  try { changeHook(key); } catch (e) { console.error('settings change hook error:', e); }
+}
+
 /**
  * Write a setting to localStorage.
  * @param {string} key
@@ -52,6 +72,7 @@ export function get(key) {
  */
 export function set(key, value) {
   localStorage.setItem(key, value);
+  notifyChange(key);
 }
 
 /**
@@ -60,4 +81,5 @@ export function set(key, value) {
  */
 export function remove(key) {
   localStorage.removeItem(key);
+  notifyChange(key);
 }

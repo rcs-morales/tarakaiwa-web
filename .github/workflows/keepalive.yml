@@ -1,0 +1,36 @@
+name: Supabase keepalive
+
+# Supabase free-tier projects pause after ~7 days with no activity. This runs a
+# trivial REST query twice a week to keep the database warm. RLS makes the
+# query return no rows for the anon key — that's fine; the point is to touch it.
+#
+# Required repo secrets (Settings → Secrets and variables → Actions):
+#   SUPABASE_URL        e.g. https://bulodpcsyadcchgvpcge.supabase.co
+#   SUPABASE_ANON_KEY   the publishable/anon key
+
+on:
+  schedule:
+    # 06:00 UTC every Monday and Thursday
+    - cron: '0 6 * * 1,4'
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase REST
+        run: |
+          set -euo pipefail
+          code=$(curl -s -o /dev/null -w '%{http_code}' \
+            "${SUPABASE_URL}/rest/v1/decks?select=id&limit=1" \
+            -H "apikey: ${SUPABASE_ANON_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_ANON_KEY}")
+          echo "Supabase responded with HTTP $code"
+          # 200 (empty result under RLS) is success; anything 2xx/4xx means the
+          # project is awake. Only a network failure / 5xx should fail the job.
+          if [ "$code" -ge 500 ]; then
+            echo "Unexpected server error"; exit 1
+          fi
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}

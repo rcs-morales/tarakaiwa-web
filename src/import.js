@@ -8,6 +8,7 @@ import {
 } from './ui.js';
 import { get, set, remove, KEYS } from './settings.js';
 import { setQA } from './session.js';
+import { pushDeck } from './sync.js';
 
 /**
  * Handle the file import process.
@@ -45,6 +46,8 @@ export async function handleFileImport(event) {
 
       setQA(qa);
       set(KEYS.QA_DATA, JSON.stringify(qa));
+      // Dual-write to the cloud when signed in (no-op otherwise).
+      pushDeck(qa, file.name);
       updateQACount(qa.length);
       updateStartButton(qa.length);
       updateSetupAccess(get(KEYS.SETUP_COMPLETE) === '1');

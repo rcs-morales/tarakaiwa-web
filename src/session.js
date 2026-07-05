@@ -11,6 +11,7 @@ import {
   translateWithAI
 } from './ai/index.js';
 import { get, set, KEYS } from './settings.js';
+import { saveSessionResult } from './sync.js';
 import { getIsChecking, setIsChecking } from './sessionFlags.js';
 import { speakQuestion, speakFeedback, cancelSpeech, preloadVoicevoxAudio, preloadAllVoicevoxAudio, unlockAudioForMobile } from './tts.js';
 import {
@@ -658,6 +659,16 @@ async function showResults(choice) {
       div.appendChild(fbDiv);
     }
     list.appendChild(div);
+  });
+
+  // Persist this run to the cloud when signed in (no-op / fire-and-forget
+  // otherwise). Covers both the "finished all questions" and "End" paths since
+  // both funnel through here.
+  saveSessionResult({
+    jlpt_level: get(KEYS.JLPT_LEVEL),
+    score,
+    total,
+    results,
   });
 }
 

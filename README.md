@@ -82,6 +82,10 @@ npm test
 | src/ai/ | AI modules for grading, Groq requests, Whisper, and study assistance |
 | src/session.js | Practice-session flow and state |
 | src/settings.js | Persistent configuration management |
+| src/auth.js | Supabase auth (magic link / Google) session handling |
+| src/sync.js | localStorage ⇄ Supabase sync for settings, decks, and results |
+| src/supabase.js | Supabase client initialization |
+| supabase/migrations/ | SQL migrations for accounts, sync, and quota tables |
 | src/db.js | IndexedDB wrapper for cached audio and local data |
 | src/import.js | Parsing and import of external Q&A datasets |
 | src/stt.js | Speech-to-text logic |
@@ -94,6 +98,35 @@ npm test
 | src/data.js | Default starter Q&A dataset |
 | tests/ | Unit and integration tests |
 | groq-guide.html | Groq setup guide |
+
+## ☁️ Accounts & Cloud Sync (optional)
+
+Signing in is **optional** — the app is fully functional offline, storing everything
+in the browser. When a user signs in (passwordless email magic link, or Google), their
+settings, imported decks, and practice scores sync to Supabase and follow them across
+devices. Logged-out behaviour is unchanged.
+
+**What syncs, what doesn't:**
+
+- ✅ Synced: JLPT level, STT/TTS mode, voice, avatar, grading model, and other preferences → `user_settings`; imported Q&A decks → `decks`; completed runs → `session_results`.
+- 🔒 Never synced: your Groq API key and provider (per-device secret), and device-only flags.
+
+### One-time Supabase setup (dashboard)
+
+1. **Apply the migration** in `supabase/migrations/0001_phase2_accounts_sync.sql`
+   (SQL Editor → paste & run, or `supabase db push` with the CLI). It's additive and
+   leaves the existing `bug_reports` table / `bug-screenshots` bucket untouched.
+2. **Enable email auth**: Authentication → Providers → Email (magic link / OTP is on by default).
+3. **Add redirect URLs**: Authentication → URL Configuration → add your site origin(s)
+   (e.g. `http://localhost:5173` for `npm run dev`, and your Cloudflare Pages / Vercel URL).
+4. *(Optional)* **Google OAuth**: enable the Google provider and paste OAuth client
+   credentials. The "Continue with Google" button is a no-op until this is configured.
+
+### Keep the free tier awake
+
+Supabase free projects pause after ~7 idle days. A GitHub Actions workflow
+(`.github/workflows/keepalive.yml`) pings the REST API twice weekly. Add two repo
+secrets so it can run: `SUPABASE_URL` and `SUPABASE_ANON_KEY`.
 
 ## 🗺️ Roadmap
 
