@@ -211,7 +211,7 @@
             <input type="range" id="tts-speed-slider" min="0.5" max="1.5" step="0.05" value="0.85"
               style="width: 180px; vertical-align: middle;" />
             <p style="font-size: 0.72rem; color: var(--muted); margin-top: 4px;">
-              How fast questions and feedback are spoken. 1.0× is natural speed — slow it down while you're learning.
+              How fast questions are spoken. 1.0× is natural speed — slow it down while you're learning. Feedback and results always play at natural speed.
             </p>
           </div>
         </div>
