@@ -27,7 +27,7 @@ vi.mock('../src/ui.js', () => ({
 
 vi.mock('../src/ai/index.js', () => ({
   getGradingModel: vi.fn(),
-  hasGroqApiKey: vi.fn().mockReturnValue(true),
+  hasAIAccess: vi.fn().mockReturnValue(true),
   getGroqApiKey: vi.fn().mockReturnValue('gsk_test'),
   gradeWithAI: vi.fn(),
   transcribeWithWhisper: vi.fn(),

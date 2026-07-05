@@ -34,6 +34,7 @@
         <span class="chip">🎤 Voice Input</span>
         <span class="chip chip-ai" id="ai-status-chip">🧠 AI Grading: <span id="ai-status-text">Not
             configured</span></span>
+        <span class="chip" id="quota-chip" class="hidden" style="font-size: 0.85rem; color: var(--muted);"><span id="quota-text"></span></span>
       </div>
 
       <!-- Account status bar (always visible) -->
@@ -134,7 +135,9 @@
         <!-- Step 2: API Key + Grading -->
         <div id="setup-step-api-key" class="hidden">
           <h3>🧠 Step 2: AI Answer Grading (Groq)</h3>
-          <p>Enter your Groq API key for fast grading and optional Whisper speech recognition.</p>
+          <p><strong>Optional — the app works signed in without a key.</strong> Add your own Groq API key to
+            bypass the shared daily quota and use your own allowance. Signed-in users without a key
+            share a daily limit (200 chat requests, 600 Whisper-seconds).</p>
           <p style="font-size: 0.75rem; color: var(--muted); margin-bottom: 8px;">
             Get a free API key at <a href="https://console.groq.com/keys" target="_blank" style="color: var(--teal);">Groq
               Console</a> or <a href="groq-guide.html" style="color: var(--teal); text-decoration: underline;">follow our setup guide</a>.

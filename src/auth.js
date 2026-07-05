@@ -9,16 +9,25 @@
 
 import { supabaseClient } from './supabase.js';
 
-let currentUser = null;
+let currentSession = null;
 const listeners = new Set();
 
 /** @returns {import('@supabase/supabase-js').User | null} */
 export function getCurrentUser() {
-  return currentUser;
+  return currentSession?.user ?? null;
 }
 
 export function isLoggedIn() {
-  return !!currentUser;
+  return !!currentSession;
+}
+
+/**
+ * The current Supabase access token (JWT), or null when logged out.
+ * Synchronous — reads the session cached from the last getSession()/auth
+ * event, which supabase-js keeps fresh via its own refresh-token timer.
+ */
+export function getAccessToken() {
+  return currentSession?.access_token ?? null;
 }
 
 /**
@@ -32,7 +41,7 @@ export function onAuthChange(cb) {
 
 function emit() {
   for (const cb of listeners) {
-    try { cb(currentUser); } catch (e) { console.error('auth listener error:', e); }
+    try { cb(getCurrentUser()); } catch (e) { console.error('auth listener error:', e); }
   }
 }
 
@@ -43,19 +52,19 @@ function emit() {
 export async function initAuth() {
   try {
     const { data } = await supabaseClient.auth.getSession();
-    currentUser = data?.session?.user ?? null;
+    currentSession = data?.session ?? null;
   } catch (e) {
     console.error('initAuth getSession failed:', e);
-    currentUser = null;
+    currentSession = null;
   }
 
   supabaseClient.auth.onAuthStateChange((_event, session) => {
-    currentUser = session?.user ?? null;
+    currentSession = session ?? null;
     emit();
   });
 
   emit();
-  return currentUser;
+  return getCurrentUser();
 }
 
 /**

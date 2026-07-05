@@ -6,10 +6,11 @@ import {
   showVoicevoxPreloadModal, updateVoicevoxPreloadProgress, hideVoicevoxPreloadModal
 } from './ui.js';
 import {
-  getGradingModel, hasGroqApiKey, getGroqApiKey,
+  getGradingModel, hasAIAccess,
   gradeWithAI, transcribeWithWhisper, isCorrectLocal,
-  translateWithAI
+  translateWithAI, getLastGradingErrorReason
 } from './ai/index.js';
+import { updateQuotaDisplay } from './quota.js';
 import { get, set, KEYS } from './settings.js';
 import { saveSessionResult } from './sync.js';
 import { getIsChecking, setIsChecking } from './sessionFlags.js';
@@ -226,7 +227,7 @@ export async function translateQuestion() {
     return;
   }
 
-  if (!hasGroqApiKey()) {
+  if (!hasAIAccess()) {
     const query = encodeURIComponent(item.q);
     const url = `https://translate.google.com/?sl=ja&tl=en&text=${query}&op=translate`;
     result.innerHTML = `⚠️ AI Translation unavailable. <a href="${url}" target="_blank" style="color: var(--teal); text-decoration: underline;">Translate on Google Translate ↗</a>`;
@@ -273,10 +274,10 @@ async function beginListen() {
       document.getElementById('target-answer-text').textContent = item.a;
       document.getElementById('target-romaji-text').textContent = item.r;
       targetBox.style.display = 'block';
-    } else if (current >= 3 && !hasGroqApiKey()) {
+    } else if (current >= 3 && !hasAIAccess()) {
       const label = document.getElementById('target-label');
       if (label) {
-        label.innerHTML = '⚠️ AI Grading Not Configured<br><span style="font-size:0.75rem; font-weight:normal; color:var(--teal);">Showing answer key. Enable AI grading in settings for flexible answers and feedback!</span>';
+        label.innerHTML = '⚠️ AI Grading Not Configured<br><span style="font-size:0.75rem; font-weight:normal; color:var(--teal);">Showing answer key. Sign in or add a Groq key in settings for flexible answers and feedback!</span>';
       }
       document.getElementById('target-answer-text').textContent = item.a;
       document.getElementById('target-romaji-text').textContent = item.r || '';
@@ -294,7 +295,7 @@ async function beginListen() {
   }
 
   const sttMode = get(KEYS.STT_MODE) || 'ai';
-  const useWhisper = sttMode === 'ai' && hasGroqApiKey();
+  const useWhisper = sttMode === 'ai' && hasAIAccess();
 
   if (useWhisper) {
     const started = await startAIRecording((err) => {
@@ -327,8 +328,8 @@ async function beginListen() {
       }, 1800);
     }
   } else {
-    if (sttMode === 'ai' && !hasGroqApiKey()) {
-      setStatus('listening', '🌐 Browser recognition (save a Groq key for AI Whisper)');
+    if (sttMode === 'ai' && !hasAIAccess()) {
+      setStatus('listening', '🌐 Browser recognition (sign in or save a Groq key for AI Whisper)');
     }
     startListening((err) => {
       setStatus('', 'Error: ' + err);
@@ -352,7 +353,7 @@ export async function finishRecording() {
   const sttMode = get(KEYS.STT_MODE) || 'ai';
   const item = QA[current];
 
-  if (sttMode === 'ai' && hasGroqApiKey()) {
+  if (sttMode === 'ai' && hasAIAccess()) {
     setStatus('checking', '🤖 Transcribing audio…');
     const ct = document.getElementById('transcript-content');
     if (ct) ct.innerHTML = '<div class="ai-transcribing-indicator">Transcribing<span class="dots"></span></div>';
@@ -413,7 +414,10 @@ export async function checkAnswer() {
 
   let gradeResult = await gradeWithAI(item.q, item.a, raw);
   if (!gradeResult) {
-    setStatus('checking', '⚙️ AI unavailable — using local grading…');
+    const rateLimited = getLastGradingErrorReason() === 'RATE_LIMIT';
+    setStatus('checking', rateLimited
+      ? '⚠️ Shared daily quota reached — using local grading. Add your own Groq key in settings to continue.'
+      : '⚙️ AI unavailable — using local grading…');
     gradeResult = await isCorrectLocal(raw, item.a, item.q);
   }
 
@@ -429,7 +433,7 @@ export async function checkAnswer() {
   showResult(gradeResult, item.a);
   showResultPanel(true);
 
-  if (hasGroqApiKey()) {
+  if (hasAIAccess()) {
     updateCheckedTranslation('user-ans-trans', 'Translating your answer...');
     updateCheckedTranslation('expected-ans-trans', 'Translating expected answer...');
     

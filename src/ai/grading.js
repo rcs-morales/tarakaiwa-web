@@ -2,10 +2,18 @@
 // AI GRADING (Groq LLM)
 // ─────────────────────────────────────────────
 
-import { getGroqApiKey, getGradingModel } from './groqClient.js';
+import { getGradingModel, resolveAIRoute } from './groqClient.js';
 import { getGradingPrompt, GRADING_SYSTEM_PROMPT } from './prompts.js';
 import { createGrammarRuleHelper, analyzeAnswerCompleteness, isCorrectLocal, normalizeForGradingComparison, hasMeaningfulBreakdownError, groundBreakdown, gradingTextsEquivalent } from './localGrading.js';
 import { get, KEYS } from '../settings.js';
+
+// Set when the most recent gradeWithAI() call failed due to a 429 (BYO key
+// rate limit, or shared-proxy daily quota) so the UI can show a clearer
+// message than the generic "AI unavailable" fallback text.
+let lastGradingErrorReason = null;
+export function getLastGradingErrorReason() {
+  return lastGradingErrorReason;
+}
 
 export function isScriptOrNumeralOnlyBreakdown(item) {
   if (!item.original || !item.corrected) return false;
@@ -209,8 +217,9 @@ async function finalizeAIGradingResult(text, question, expectedAnswer, transcrip
  * Grade a student's spoken answer using the Groq AI, with local safety-net post-processing.
  */
 export async function gradeWithAI(question, expectedAnswer, transcript) {
-  const apiKey = getGroqApiKey();
-  if (!apiKey) return null;
+  lastGradingErrorReason = null;
+  const route = resolveAIRoute();
+  if (!route) return null;
 
   try {
     const level = get(KEYS.JLPT_LEVEL);
@@ -226,16 +235,16 @@ export async function gradeWithAI(question, expectedAnswer, transcript) {
       ]
     };
 
-    let response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    const headers = { ...route.headers, 'Content-Type': 'application/json' };
+
+    let response = await fetch(route.chatUrl, {
       method: 'POST',
-      headers: {
-        'Authorization': 'Bearer ' + apiKey,
-        'Content-Type': 'application/json'
-      },
+      headers,
       body: JSON.stringify(requestBody)
     });
 
     if (!response.ok) {
+      if (response.status === 429) lastGradingErrorReason = 'RATE_LIMIT';
       const errText = await response.text();
       console.warn(`First attempt failed (${response.status}): ${errText}`);
 
@@ -243,12 +252,9 @@ export async function gradeWithAI(question, expectedAnswer, transcript) {
         console.log('Attempting fallback without json_object mode...');
         const fallbackBody = { ...requestBody };
         delete fallbackBody.response_format;
-        response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        response = await fetch(route.chatUrl, {
           method: 'POST',
-          headers: {
-            'Authorization': 'Bearer ' + apiKey,
-            'Content-Type': 'application/json'
-          },
+          headers,
           body: JSON.stringify(fallbackBody)
         });
 
@@ -262,6 +268,7 @@ export async function gradeWithAI(question, expectedAnswer, transcript) {
           return finalizeAIGradingResult(text, question, expectedAnswer, transcript);
         }
 
+        if (response.status === 429) lastGradingErrorReason = 'RATE_LIMIT';
         // Log the failure of the fallback request
         const fallbackErrText = await response.text();
         console.error(`Fallback attempt also failed (${response.status}): ${fallbackErrText}`);

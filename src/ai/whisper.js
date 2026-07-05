@@ -2,7 +2,7 @@
 // WHISPER SPEECH-TO-TEXT TRANSCRIPTION
 // ─────────────────────────────────────────────
 
-import { getGroqApiKey, hasGroqApiKey } from './groqClient.js';
+import { resolveAIRoute } from './groqClient.js';
 
 /**
  * Transcribe an audio blob using Groq's Whisper endpoint.
@@ -16,10 +16,10 @@ import { getGroqApiKey, hasGroqApiKey } from './groqClient.js';
  * @returns {Promise<string|null>}
  */
 export async function transcribeForTool(audioBlob) {
-  if (!hasGroqApiKey()) return null;
+  const route = resolveAIRoute();
+  if (!route) return null;
   if (!audioBlob || audioBlob.size === 0) return null;
 
-  const apiKey = getGroqApiKey();
   const formData = new FormData();
   const fileName = (audioBlob.type || 'audio/webm').includes('mp4') ? 'audio.mp4' : 'audio.webm';
 
@@ -29,9 +29,9 @@ export async function transcribeForTool(audioBlob) {
   formData.append('response_format', 'json');
 
   try {
-    const response = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+    const response = await fetch(route.transcribeUrl, {
       method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + apiKey },
+      headers: route.headers,
       body: formData
     });
 
@@ -49,13 +49,13 @@ export async function transcribeForTool(audioBlob) {
 }
 
 export async function transcribeWithWhisper(audioBlob, expectedAnswer = '') {
-  if (!hasGroqApiKey()) return null;
+  const route = resolveAIRoute();
+  if (!route) return null;
   if (!audioBlob || audioBlob.size === 0) {
     console.error('Whisper request skipped: empty audio blob');
     return null;
   }
 
-  const apiKey = getGroqApiKey();
   const formData = new FormData();
   const fileName = (audioBlob.type || 'audio/webm').includes('mp4') ? 'audio.mp4' : 'audio.webm';
 
@@ -71,11 +71,9 @@ export async function transcribeWithWhisper(audioBlob, expectedAnswer = '') {
   }
 
   try {
-    const response = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+    const response = await fetch(route.transcribeUrl, {
       method: 'POST',
-      headers: {
-        'Authorization': 'Bearer ' + apiKey
-      },
+      headers: route.headers,
       body: formData
     });
 

@@ -1,4 +1,4 @@
-import { translateToJapaneseWithAI, hasGroqApiKey, transcribeForTool } from './ai/index.js';
+import { translateToJapaneseWithAI, hasAIAccess, transcribeForTool } from './ai/index.js';
 import { speakQuestion, cancelSpeech } from './tts.js';
 import { makeDraggable } from './assistant-ui.js';
 import { toFuriganaHtml } from './parser.js';
@@ -145,7 +145,7 @@ async function startBrowserTranslateListening() {
 }
 
 async function startWhisperTranslateRecording() {
-  if (!hasGroqApiKey()) {
+  if (!hasAIAccess()) {
     setTranslateStatus('Speech recognition unavailable. Type your phrase instead.', 'error');
     return;
   }

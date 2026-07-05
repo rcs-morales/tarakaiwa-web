@@ -2,7 +2,7 @@
 // STUDY ASSISTANT & TRANSLATION
 // ─────────────────────────────────────────────
 
-import { getGroqApiKey, getGradingModel } from './groqClient.js';
+import { getGradingModel, resolveAIRoute } from './groqClient.js';
 import {
   STUDY_ASSISTANT_PROMPT, TRANSLATION_SYSTEM_PROMPT, getToJapaneseTranslationPrompt
 } from './prompts.js';
@@ -38,8 +38,8 @@ function normalizeJapaneseTranslation(raw) {
  * @returns {Promise<{response?: string, error?: string}>}
  */
 export async function askStudyAssistant(query, history = []) {
-  const apiKey = getGroqApiKey();
-  if (!apiKey) return { error: 'MISSING_KEY' };
+  const route = resolveAIRoute();
+  if (!route) return { error: 'MISSING_KEY' };
 
   try {
     const messages = [
@@ -48,10 +48,10 @@ export async function askStudyAssistant(query, history = []) {
       { role: 'user', content: query }
     ];
 
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    const response = await fetch(route.chatUrl, {
       method: 'POST',
       headers: {
-        'Authorization': 'Bearer ' + apiKey,
+        ...route.headers,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
@@ -87,14 +87,14 @@ export async function askStudyAssistant(query, history = []) {
  * @returns {Promise<{japanese?: string, error?: string}>}
  */
 export async function translateToJapaneseWithAI(text, sourceLang = 'English') {
-  const apiKey = getGroqApiKey();
-  if (!apiKey) return { error: 'MISSING_KEY' };
+  const route = resolveAIRoute();
+  if (!route) return { error: 'MISSING_KEY' };
 
   try {
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    const response = await fetch(route.chatUrl, {
       method: 'POST',
       headers: {
-        'Authorization': 'Bearer ' + apiKey,
+        ...route.headers,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
@@ -164,18 +164,18 @@ export async function translateToJapaneseWithAI(text, sourceLang = 'English') {
 }
 
 export async function translateWithAI(japaneseText, context = '') {
-  const apiKey = getGroqApiKey();
-  if (!apiKey) return null;
+  const route = resolveAIRoute();
+  if (!route) return null;
 
   try {
-    const userContent = context 
+    const userContent = context
       ? `Context (The Question): ${context}\n\nText to translate: ${japaneseText}`
       : japaneseText;
 
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    const response = await fetch(route.chatUrl, {
       method: 'POST',
       headers: {
-        'Authorization': 'Bearer ' + apiKey,
+        ...route.headers,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({

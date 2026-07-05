@@ -2,7 +2,6 @@ import { DEFAULT_QA } from './data.js';
 import {
   parseJSON, parseCSV, parseExcel, ensureXLSXLoaded
 } from './parser.js';
-import { hasGroqApiKey } from './ai/index.js';
 import {
   updateQACount, updateStartButton, updateSetupAccess, showImportStatus
 } from './ui.js';
