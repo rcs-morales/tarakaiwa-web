@@ -24,10 +24,29 @@ export function isLoggedIn() {
 /**
  * The current Supabase access token (JWT), or null when logged out.
  * Synchronous — reads the session cached from the last getSession()/auth
- * event, which supabase-js keeps fresh via its own refresh-token timer.
+ * event. May be EXPIRED if the tab was backgrounded long enough for the
+ * browser to throttle supabase-js's refresh timer; prefer
+ * getFreshAccessToken() when the token is about to be sent to a server.
  */
 export function getAccessToken() {
   return currentSession?.access_token ?? null;
+}
+
+/**
+ * A guaranteed-current access token (or null when logged out). getSession()
+ * transparently refreshes an expired token using the stored refresh token —
+ * this is what the AI proxy calls must use, otherwise a tab left open past
+ * the 1-hour JWT lifetime starts getting 401s from /api/*.
+ */
+export async function getFreshAccessToken() {
+  try {
+    const { data } = await supabaseClient.auth.getSession();
+    if (data?.session) currentSession = data.session;
+    return data?.session?.access_token ?? null;
+  } catch (e) {
+    console.error('getFreshAccessToken failed:', e);
+    return getAccessToken();
+  }
 }
 
 /**
