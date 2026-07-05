@@ -1,6 +1,6 @@
 import { DEFAULT_QA } from './data.js';
 import {
-  updateQACount, updateStartButton, updateSetupAccess, showApiKeyStatus, toggleKeyVisibility,
+  updateQACount, updateStartButton, showApiKeyStatus, toggleKeyVisibility,
   showStartScreen
 } from './ui.js';
 import {
@@ -36,69 +36,6 @@ import {
 import { registerSettingsSync, onLogin, onLogout } from './sync.js';
 import { updateQuotaDisplay } from './quota.js';
 import { initTheme, toggleTheme, applyTheme } from './theme.js';
-
-// ─────────────────────────────────────────────
-// SETUP FLOW
-// ─────────────────────────────────────────────
-
-function refreshSetupAccess() {
-  updateSetupAccess(get(KEYS.SETUP_COMPLETE) === '1');
-}
-
-function startSetupFlow(stepId = 'import-section') {
-  document.getElementById('setup-entry-point')?.classList.add('hidden');
-  document.getElementById('setup-return-point')?.classList.add('hidden');
-  const section = document.getElementById('ai-settings-section');
-  if (section) section.dataset.mode = 'wizard';
-  nextSetupStep(stepId);
-}
-
-function reopenSetupFlow() {
-  document.getElementById('setup-entry-point')?.classList.add('hidden');
-  document.getElementById('setup-return-point')?.classList.add('hidden');
-  const section = document.getElementById('ai-settings-section');
-  if (section) section.dataset.mode = 'edit';
-  nextSetupStep('settings-menu-section');
-}
-
-function openAccountPanel() {
-  document.getElementById('setup-entry-point')?.classList.add('hidden');
-  document.getElementById('setup-return-point')?.classList.add('hidden');
-  const section = document.getElementById('ai-settings-section');
-  if (section) section.dataset.mode = 'edit';
-  nextSetupStep('setup-step-account');
-}
-
-function nextSetupStep(stepId) {
-  // 1. Hide ALL wizard step panels
-  const stepsToHide = ['setup-step-account', 'import-section', 'setup-step-api-key', 'setup-step-settings', 'settings-menu-section'];
-  stepsToHide.forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.classList.add('hidden');
-  });
-
-  // 2. Show the wrapper
-  const section = document.getElementById('ai-settings-section');
-  if (section) section.classList.remove('hidden');
-
-  // 3. Show the target step
-  const target = document.getElementById(stepId);
-  if (target) target.classList.remove('hidden');
-}
-
-function finishSetup() {
-  set(KEYS.SETUP_COMPLETE, '1');
-  // Hide the entire wizard wrapper
-  document.getElementById('ai-settings-section')?.classList.add('hidden');
-  // Hide all step panels
-  ['setup-step-account', 'import-section', 'setup-step-api-key', 'setup-step-settings', 'settings-menu-section'].forEach(id => {
-    document.getElementById(id)?.classList.add('hidden');
-  });
-  // Return to landing view
-  document.getElementById('setup-entry-point')?.classList.add('hidden');
-  document.getElementById('setup-return-point')?.classList.remove('hidden');
-  refreshSetupAccess();
-}
 
 // ── Voicevox voice pack ──
 
@@ -175,13 +112,6 @@ function restartApp() {
   updateQuotaDisplay();
   updateQACount(QA.length, isDefaultDeck);
   updateStartButton(QA.length);
-
-  // Reset wizard state — hide settings panels, show landing view
-  document.getElementById('ai-settings-section')?.classList.add('hidden');
-  ['setup-step-account', 'import-section', 'setup-step-api-key', 'setup-step-settings', 'settings-menu-section'].forEach(id => {
-    document.getElementById(id)?.classList.add('hidden');
-  });
-  refreshSetupAccess();
 }
 
 // Reflect the current stored settings into the wizard controls. Safe to call
@@ -279,7 +209,6 @@ export function initApp() {
   }
   updateQACount(QA.length, isDefaultDeck);
   updateStartButton(QA.length);
-  refreshSetupAccess();
 
   const savedProvider = get(KEYS.API_PROVIDER);
   if (savedProvider && savedProvider !== 'groq') {
@@ -305,23 +234,14 @@ export function initApp() {
   };
 
   bind('btn-theme-toggle', toggleTheme);
-  bind('btn-setup-env', () => startSetupFlow());
-  bind('btn-reopen-setup', reopenSetupFlow);
   bind('btn-restart-app', restartApp);
   bind('btn-end-session', endSession);
   bind('btn-choose-file', () => document.getElementById('file-input')?.click());
   bind('btn-clear-db', clearDatabase);
-  bind('btn-save-api', () => {
-    saveApiKeyFromInput();
-    refreshSetupAccess();
-  });
+  bind('btn-save-api', saveApiKeyFromInput);
   bind('btn-test-api', testApiConnection);
-  bind('btn-clear-api', () => {
-    clearApiKey();
-    refreshSetupAccess();
-  });
+  bind('btn-clear-api', clearApiKey);
   bind('btn-toggle-key', toggleKeyVisibility);
-  bind('btn-finish-setup', finishSetup);
   bind('btn-start-practice', startPractice);
   bind('btn-toggle-question', toggleQuestionText);
   bind('btn-translate', translateQuestion);
@@ -343,7 +263,8 @@ export function initApp() {
   });
 
   // ── Account / auth ──
-  bind('btn-account-open', openAccountPanel);
+  // (the account menu's "Account & sync settings" button is wired inside
+  // Shell.svelte — it just switches to the Settings tab)
   bind('btn-send-magic-link', async () => {
     const email = document.getElementById('account-email-input')?.value.trim();
     if (!email) { setAccountStatus('Please enter your email address.', 'error'); return; }
@@ -364,26 +285,6 @@ export function initApp() {
 
   document.querySelectorAll('.btn-report-bug').forEach(btn => {
     btn.addEventListener('click', () => bugReporter.open());
-  });
-
-  document.addEventListener('click', (e) => {
-    if (e.target.id === 'btn-setup-next-import') {
-      nextSetupStep('setup-step-api-key');
-    } else if (e.target.id === 'btn-next-to-preferences') {
-      nextSetupStep('setup-step-settings');
-    } else if (e.target.id === 'btn-menu-account') {
-      nextSetupStep('setup-step-account');
-    } else if (e.target.id === 'btn-menu-step1') {
-      nextSetupStep('import-section');
-    } else if (e.target.id === 'btn-menu-step2') {
-      nextSetupStep('setup-step-api-key');
-    } else if (e.target.id === 'btn-menu-step3') {
-      nextSetupStep('setup-step-settings');
-    } else if (e.target.closest('.btn-back-to-menu')) {
-      nextSetupStep('settings-menu-section');
-    } else if (e.target.id === 'btn-close-settings-menu') {
-      finishSetup();
-    }
   });
 
   // Magic-link form: Enter should send the link, not reload the page.
@@ -520,4 +421,8 @@ export function initApp() {
 
   onAuthChange(handleUser);
   initAuth().then(handleUser);
+
+  // Boot is done (deck loaded, settings applied) — components that mounted
+  // before this ran (e.g. the onboarding sheet) refresh their view of it.
+  window.dispatchEvent(new CustomEvent('app-ready'));
 }
