@@ -116,6 +116,15 @@
           </button>
         </div>
         <div class="import-status" id="import-status"></div>
+        <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
+          <label style="font-size: 0.85rem; display: inline-flex; align-items: center; gap: 8px; cursor: pointer;">
+            <input type="checkbox" id="shuffle-questions-checkbox" checked />
+            🔀 Shuffle question order each session
+          </label>
+          <p style="font-size: 0.72rem; color: var(--muted); margin-top: 4px;">
+            Turn off to practice questions in the same order as your file.
+          </p>
+        </div>
         <div style="margin-top: 20px; text-align: right;" class="wizard-only">
           <button class="btn btn-primary" id="btn-setup-next-import">Next: AI Grading Settings →</button>
         </div>
@@ -195,6 +204,16 @@
             <option value="browser" selected>🌐 Browser Built-in — Local, instant</option>
             <option value="voicevox">🎙️ VOICEVOX — Cloud, High Quality</option>
           </select>
+          <div style="margin-top: 10px;">
+            <label for="tts-speed-slider" style="font-size: 0.85rem; font-weight: bold; margin-right: 8px;">
+              🐢 Speech speed: <span id="tts-speed-value">0.85×</span>
+            </label>
+            <input type="range" id="tts-speed-slider" min="0.5" max="1.5" step="0.05" value="0.85"
+              style="width: 180px; vertical-align: middle;" />
+            <p style="font-size: 0.72rem; color: var(--muted); margin-top: 4px;">
+              How fast questions and feedback are spoken. 1.0× is natural speed — slow it down while you're learning.
+            </p>
+          </div>
         </div>
         <div id="voicevox-settings-section"
           style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
@@ -217,6 +236,13 @@
           <p style="font-size: 0.72rem; color: var(--muted); margin-top: 4px; line-height: 1.4;">
             Audio is generated instantly via the free community <strong>api.tts.quest</strong> service.
           </p>
+          <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border);">
+            <span style="font-size: 0.82rem;">📦 Voice pack: <span id="voicepack-status">—</span></span>
+            <button id="btn-download-voicepack" class="btn btn-secondary btn-sm" style="margin-left: 8px; font-size: 0.75rem;">⬇ Download all</button>
+            <p style="font-size: 0.72rem; color: var(--muted); margin-top: 4px; line-height: 1.4;">
+              Download once on good wifi to practice without waiting on cloud audio (audio also downloads quietly in the background during practice).
+            </p>
+          </div>
           <button id="btn-clear-audio-cache" class="btn btn-secondary" style="margin-top: 8px; font-size: 0.75rem;">🗑️ Clear Audio Cache</button>
         </div>
         <div id="avatar-settings-section" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">

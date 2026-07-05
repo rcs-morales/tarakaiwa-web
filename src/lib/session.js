@@ -2,8 +2,7 @@ import {
   setStatus, showTranscript, showCheckedTranscript,
   showResult, showResultPanel, showBtn, updateQACount, updateStartButton,
   showAnswerTranslation, updateCheckedTranslation,
-  showPracticeScreen, showResultsScreen,
-  showVoicevoxPreloadModal, updateVoicevoxPreloadProgress, hideVoicevoxPreloadModal
+  showPracticeScreen, showResultsScreen
 } from './ui.js';
 import {
   getGradingModel, hasAIAccess,
@@ -14,7 +13,10 @@ import { updateQuotaDisplay } from './quota.js';
 import { get, set, KEYS } from './settings.js';
 import { saveSessionResult } from './sync.js';
 import { getIsChecking, setIsChecking } from './sessionFlags.js';
-import { speakQuestion, speakFeedback, cancelSpeech, preloadVoicevoxAudio, preloadAllVoicevoxAudio, unlockAudioForMobile } from './tts.js';
+import {
+  speakQuestion, speakFeedback, cancelSpeech, preloadVoicevoxAudio,
+  startVoicevoxWarmup, VOICEVOX_STOCK_PHRASES, unlockAudioForMobile
+} from './tts.js';
 import {
   initRecognizer, startListening, abortRecognition,
   startAIRecording, stopAIRecording, getLiveTranscript,
@@ -71,10 +73,12 @@ export async function startPractice() {
   if (!recognitionSupported) {
     setStatus('', 'Speech recognition is not available in this browser, but microphone access will still be requested for AI transcription.');
   }
-  // Shuffle questions
-  for (let i = QA.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [QA[i], QA[j]] = [QA[j], QA[i]];
+  // Shuffle questions (unless the user turned shuffling off in settings)
+  if (get(KEYS.SHUFFLE_QUESTIONS) !== '0') {
+    for (let i = QA.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [QA[i], QA[j]] = [QA[j], QA[i]];
+    }
   }
   current = 0; score = 0; results = [];
 
@@ -91,33 +95,13 @@ export async function startPractice() {
     initRecognizer();
   }
 
-  // ── Batch preload Voicevox audio ──
+  // ── Warm the Voicevox cache in the background ──
+  // Practice starts immediately; audio downloads quietly in question order
+  // (post-shuffle) plus the stock feedback phrases. Playback fetches on
+  // demand if it gets ahead — the >2.5s "Loading Cloud Voice" overlay in
+  // tts.js covers that visibly.
   if (get(KEYS.TTS_MODE) === 'voicevox') {
-    const feedbackPhrases = ['正解です！', '不正解です。'];
-    const endSessionPhrases = [
-      'おめでとう！', 'すごい！', '完璧です！', 'やったね！', '素晴らしい！',
-      'あともう少し！', '諦めないで！', 'ゆっくり頑張ろう！', '次はきっとできる！'
-    ];
-    const allTexts = [
-      ...QA.map(q => q.q),
-      ...feedbackPhrases,
-      ...endSessionPhrases
-    ];
-
-    const signal = { cancelled: false };
-    const skipPromise = showVoicevoxPreloadModal(allTexts.length);
-
-    const preloadPromise = preloadAllVoicevoxAudio(
-      allTexts,
-      (completed, total, msg) => updateVoicevoxPreloadProgress(completed, total, msg),
-      signal
-    );
-
-    const result = await Promise.race([skipPromise, preloadPromise]);
-    if (result === 'skipped') {
-      signal.cancelled = true;
-    }
-    hideVoicevoxPreloadModal();
+    startVoicevoxWarmup([...QA.map(q => q.q), ...VOICEVOX_STOCK_PHRASES]);
   }
 
   showPracticeScreen();
