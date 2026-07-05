@@ -23,6 +23,8 @@ export const KEYS = {
   TUTORIAL_DONE: 'tutorial_done',
   // 'light' | 'dark'; absent = follow the system preference. Synced.
   THEME: 'app_theme',
+  // '1' (default) = shuffle question order each session; '0' = deck order.
+  SHUFFLE_QUESTIONS: 'shuffle_questions',
   // Device-local id of the synced deck row (never synced itself).
   DECK_ID: 'synced_deck_id',
   // Device-local timestamp of the last local deck change — used by sync.js so
@@ -41,6 +43,7 @@ const DEFAULTS = {
   [KEYS.AVATAR_MODEL]: 'simple',
   [KEYS.TTS_SPEED]: '0.85',
   [KEYS.SOURCE_LANGUAGE]: 'English',
+  [KEYS.SHUFFLE_QUESTIONS]: '1',
 };
 
 /**

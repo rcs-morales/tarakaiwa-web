@@ -46,6 +46,64 @@ export function toggleTTSVoicePanels(mode) {
   if (avatarSettings) avatarSettings.style.display = (mode === 'browser') ? 'block' : 'none';
 }
 
+// Stock phrases spoken during every session (feedback + end-of-session praise)
+// — included in warmups and the voice pack alongside the deck's questions.
+export const VOICEVOX_STOCK_PHRASES = [
+  '正解です！', '不正解です。',
+  'おめでとう！', 'すごい！', '完璧です！', 'やったね！', '素晴らしい！',
+  'あともう少し！', '諦めないで！', 'ゆっくり頑張ろう！', '次はきっとできる！',
+];
+
+// Only one background warmup runs at a time — starting a new one (new deck,
+// new speaker, session start) cancels the previous.
+let warmupSignal = null;
+
+/**
+ * Fire-and-forget cache warmup. Downloads whatever isn't cached yet, in the
+ * given order, at the API-polite pace of preloadAllVoicevoxAudio. Never
+ * blocks the caller; playback fetches on demand (deduped in-flight) if it
+ * gets ahead of the warmup.
+ */
+export function startVoicevoxWarmup(texts) {
+  cancelVoicevoxWarmup();
+  const signal = { cancelled: false };
+  warmupSignal = signal;
+  preloadAllVoicevoxAudio(texts, null, signal).catch(() => {});
+  return signal;
+}
+
+/** Stop the background warmup, e.g. before a user-driven full download. */
+export function cancelVoicevoxWarmup() {
+  if (warmupSignal) warmupSignal.cancelled = true;
+  warmupSignal = null;
+}
+
+/**
+ * How much of the given phrase list is already cached for the current
+ * speaker. Drives the "voice pack" indicator in settings.
+ * @returns {Promise<{ cached: number, total: number }>}
+ */
+export async function getVoicePackStatus(texts) {
+  const speakerId = parseInt(get(KEYS.VOICEVOX_SPEAKER), 10) || 3;
+  let cached = 0;
+  for (const text of texts) {
+    try {
+      const blob = await getAudio(`${speakerId}:${text}`);
+      if (blob && blob.size > 0 && !blob.type.includes('json') && !blob.type.includes('html') && !blob.type.includes('text')) {
+        cached++;
+      }
+    } catch (e) { /* count as uncached */ }
+  }
+  return { cached, total: texts.length };
+}
+
+/** Playback rate from settings, clamped to the slider's 0.5–1.5 range. */
+function getTTSSpeed() {
+  const speed = parseFloat(get(KEYS.TTS_SPEED));
+  if (Number.isNaN(speed)) return 0.85;
+  return Math.min(1.5, Math.max(0.5, speed));
+}
+
 export async function preloadVoicevoxAudio(text) {
   const speakerId = parseInt(get(KEYS.VOICEVOX_SPEAKER), 10) || 3;
   const cacheKey = `${speakerId}:${text}`;
@@ -220,8 +278,7 @@ async function speakWithVoicevox(text, onEnd, context) {
     chan.url = URL.createObjectURL(blob);
     chan.audio = new Audio(chan.url);
 
-    const speed = parseFloat(get(KEYS.TTS_SPEED));
-    chan.audio.playbackRate = speed;
+    chan.audio.playbackRate = getTTSSpeed();
 
     chan.audio.onplay = () => {
       if (context === 'practice') {
@@ -280,7 +337,7 @@ function speakWithBrowser(text, onEnd, context) {
 
   const utter = new SpeechSynthesisUtterance(text);
   utter.lang = 'ja-JP';
-  utter.rate = 0.85;
+  utter.rate = getTTSSpeed();
   utter.pitch = 1.0;
 
   const jpVoice = pickJapaneseBrowserVoice();

@@ -10,7 +10,11 @@ import {
 } from './ai/index.js';
 import { bugReporter } from './bugReporter.js';
 import { initAvatar, getAvatarModelName, saveAvatarModel } from './avatar.js';
-import { saveVoicevoxSpeaker, toggleTTSVoicePanels } from './tts.js';
+import {
+  saveVoicevoxSpeaker, toggleTTSVoicePanels,
+  startVoicevoxWarmup, cancelVoicevoxWarmup, getVoicePackStatus,
+  preloadAllVoicevoxAudio, VOICEVOX_STOCK_PHRASES
+} from './tts.js';
 import { abortRecognition, releaseMic } from './stt.js';
 import { get, set, remove, KEYS } from './settings.js';
 import {
@@ -96,6 +100,45 @@ function finishSetup() {
   refreshSetupAccess();
 }
 
+// ── Voicevox voice pack ──
+
+/** All phrases a full session can speak: deck questions + stock phrases. */
+function voicePackTexts() {
+  return [...QA.map(q => q.q), ...VOICEVOX_STOCK_PHRASES];
+}
+
+/** Kick off a quiet background download of any uncached audio (voicevox only). */
+function warmVoicesIfNeeded() {
+  if (get(KEYS.TTS_MODE) !== 'voicevox' || QA.length === 0) return;
+  startVoicevoxWarmup(voicePackTexts());
+}
+
+/** Refresh the "Voice pack: N/M cached" indicator in Voice settings. */
+async function refreshVoicePackStatus() {
+  const el = document.getElementById('voicepack-status');
+  if (!el) return;
+  const { cached, total } = await getVoicePackStatus(voicePackTexts());
+  el.textContent = `${cached}/${total} phrases cached`;
+}
+
+async function downloadVoicePack() {
+  const btn = document.getElementById('btn-download-voicepack');
+  const el = document.getElementById('voicepack-status');
+  if (!btn || !el) return;
+  btn.disabled = true;
+  cancelVoicevoxWarmup(); // don't race the background warmup for the same files
+  try {
+    await preloadAllVoicevoxAudio(
+      voicePackTexts(),
+      (done, total, msg) => { el.textContent = msg || `downloading ${done}/${total}…`; },
+      { cancelled: false }
+    );
+  } finally {
+    btn.disabled = false;
+    refreshVoicePackStatus();
+  }
+}
+
 function saveTTSMode() {
   const select = document.getElementById('tts-mode-select');
   if (!select) return;
@@ -110,6 +153,8 @@ function saveTTSMode() {
 
   toggleTTSVoicePanels(mode);
   initAvatar();
+  warmVoicesIfNeeded();
+  refreshVoicePackStatus();
 }
 
 function saveSTTMode() {
@@ -163,6 +208,20 @@ function applySettingsToUI() {
     ttsSelect.value = get(KEYS.TTS_MODE);
     toggleTTSVoicePanels(get(KEYS.TTS_MODE));
   }
+
+  const shuffleBox = document.getElementById('shuffle-questions-checkbox');
+  if (shuffleBox) shuffleBox.checked = get(KEYS.SHUFFLE_QUESTIONS) !== '0';
+
+  const speedSlider = document.getElementById('tts-speed-slider');
+  if (speedSlider) {
+    speedSlider.value = get(KEYS.TTS_SPEED);
+    updateTTSSpeedLabel(speedSlider.value);
+  }
+}
+
+function updateTTSSpeedLabel(value) {
+  const label = document.getElementById('tts-speed-value');
+  if (label) label.textContent = `${parseFloat(value)}×`;
 }
 
 // ─────────────────────────────────────────────
@@ -238,6 +297,7 @@ export function initApp() {
   }
 
   applySettingsToUI();
+  refreshVoicePackStatus();
 
   const bind = (id, fn) => {
     const el = document.getElementById(id);
@@ -274,8 +334,10 @@ export function initApp() {
   bind('bug-submit-btn', () => bugReporter.submit());
   bind('btn-clear-audio-cache', async () => {
     await clearAudioCache();
+    refreshVoicePackStatus();
     alert('Voicevox audio cache cleared successfully.');
   });
+  bind('btn-download-voicepack', downloadVoicePack);
   bind('btn-close-final-overlay', () => {
     document.getElementById('final-score-overlay').style.display = 'none';
   });
@@ -345,6 +407,18 @@ export function initApp() {
   bindChange('voicevox-speaker-select', () => {
     saveVoicevoxSpeaker();
     initAvatar();
+    // The audio cache is keyed by speaker, so a new voice starts cold.
+    warmVoicesIfNeeded();
+    refreshVoicePackStatus();
+  });
+  bindChange('shuffle-questions-checkbox', (e) => {
+    set(KEYS.SHUFFLE_QUESTIONS, e.target.checked ? '1' : '0');
+  });
+  // 'input' (not 'change') so the label and saved value track the drag live;
+  // the settings sync push is debounced, so this doesn't spam the network.
+  document.getElementById('tts-speed-slider')?.addEventListener('input', (e) => {
+    set(KEYS.TTS_SPEED, e.target.value);
+    updateTTSSpeedLabel(e.target.value);
   });
   bindChange('avatar-model-select', () => {
     saveAvatarModel();
@@ -408,6 +482,13 @@ export function initApp() {
     applySettingsToUI();
     initAvatar();
     applyTheme();
+    refreshVoicePackStatus(); // synced TTS mode / speaker may differ
+  });
+
+  // A fresh deck was imported from a file — its questions aren't cached yet.
+  window.addEventListener('deck-imported', () => {
+    warmVoicesIfNeeded();
+    refreshVoicePackStatus();
   });
 
   // A synced deck arrived from the cloud — load it into the session + storage.
@@ -418,6 +499,8 @@ export function initApp() {
     set(KEYS.QA_DATA, JSON.stringify(qa));
     updateQACount(qa.length, isDefaultDeck);
     updateStartButton(qa.length);
+    warmVoicesIfNeeded();
+    refreshVoicePackStatus();
   });
 
   // Restore session, react to auth changes, and run the login sync once.

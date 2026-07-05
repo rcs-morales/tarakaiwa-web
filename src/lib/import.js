@@ -52,6 +52,9 @@ export async function handleFileImport(event) {
       updateStartButton(qa.length);
       updateSetupAccess(get(KEYS.SETUP_COMPLETE) === '1');
       showImportStatus('✅ Successfully imported ' + qa.length + ' question' + (qa.length !== 1 ? 's' : '') + ' from ' + file.name, 'success');
+      // Let app.js warm the Voicevox cache / refresh the voice-pack indicator
+      // (dispatched as an event to avoid an import cycle with app.js).
+      window.dispatchEvent(new CustomEvent('deck-imported'));
 
       // Dual-write to the cloud when signed in (null = logged out, fine).
       const pushed = await pushDeck(qa, file.name);
