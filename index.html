@@ -36,6 +36,12 @@
             configured</span></span>
       </div>
 
+      <!-- Account status bar (always visible) -->
+      <div id="account-bar" style="text-align: center; margin-bottom: 12px; font-size: 0.8rem; color: var(--muted);">
+        <span id="account-bar-status">🔓 Not signed in — practice saves to this device only</span>
+        <button class="btn btn-secondary btn-sm" id="btn-account-open" style="margin-left: 8px;">👤 Account</button>
+      </div>
+
       <!-- Setup Entry Point -->
       <div id="setup-entry-point" style="text-align: center; margin-bottom: 20px;">
         <button class="btn btn-primary" id="btn-setup-env">⚙️ Setup Practice Environment</button>
@@ -53,12 +59,47 @@
         <div id="settings-menu-section" class="edit-only hidden">
           <h3 style="text-align: center; margin-bottom: 20px;">⚙️ Edit Settings</h3>
           <div style="display: flex; flex-direction: column; gap: 12px; max-width: 400px; margin: 0 auto;">
+            <button class="btn btn-secondary" id="btn-menu-account" style="justify-content: flex-start; padding: 14px;">👤 Account & Sync</button>
             <button class="btn btn-secondary" id="btn-menu-step1" style="justify-content: flex-start; padding: 14px;">📁 Edit Q&A Database</button>
             <button class="btn btn-secondary" id="btn-menu-step2" style="justify-content: flex-start; padding: 14px;">🧠 Edit AI Grading (Groq)</button>
             <button class="btn btn-secondary" id="btn-menu-step3" style="justify-content: flex-start; padding: 14px;">🔊 Edit Voice & Avatar</button>
           </div>
           <div style="margin-top: 28px; text-align: center;">
             <button class="btn btn-primary" id="btn-close-settings-menu">Done ✔</button>
+          </div>
+        </div>
+
+        <!-- Account & Sync -->
+        <div id="setup-step-account" class="hidden">
+          <h3>👤 Account &amp; Sync</h3>
+          <p style="font-size: 0.85rem; color: var(--muted);">
+            Sign in to sync your settings, decks and scores across devices. Optional —
+            the app works fully offline without an account.
+          </p>
+
+          <div id="account-signed-out">
+            <form class="api-key-row" id="magic-link-form" style="margin-top: 8px;">
+              <input type="email" id="account-email-input" class="api-key-input"
+                placeholder="you@example.com" autocomplete="email" />
+            </form>
+            <div class="import-buttons" style="margin-top: 8px;">
+              <button class="btn btn-import" id="btn-send-magic-link">📧 Send Magic Link</button>
+              <button class="btn btn-secondary" id="btn-google-signin">Continue with Google</button>
+            </div>
+            <p style="font-size: 0.72rem; color: var(--muted); margin-top: 6px;">
+              We'll email you a one-time sign-in link — no password required.
+            </p>
+          </div>
+
+          <div id="account-signed-in" class="hidden" style="margin-top: 8px;">
+            <p style="font-size: 0.9rem;">Signed in as <strong id="account-email-display">—</strong></p>
+            <button class="btn btn-secondary" id="btn-sign-out" style="margin-top: 8px;">Sign Out</button>
+          </div>
+
+          <div class="import-status" id="account-status-msg"></div>
+
+          <div style="margin-top: 20px; text-align: left;" class="edit-only">
+            <button class="btn btn-secondary btn-back-to-menu">⬅ Back to Menu</button>
           </div>
         </div>
 

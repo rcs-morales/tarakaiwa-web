@@ -25,6 +25,11 @@ import {
 import { initTranslateTool } from './translate-ui.js';
 import { handleFileImport, clearDatabase } from './import.js';
 import { clearAudioCache } from './db.js';
+import {
+  initAuth, onAuthChange,
+  signInWithEmail, signInWithGoogle, signOut
+} from './auth.js';
+import { registerSettingsSync, onLogin, onLogout } from './sync.js';
 
 // ─────────────────────────────────────────────
 // SETUP FLOW
@@ -50,9 +55,17 @@ function reopenSetupFlow() {
   nextSetupStep('settings-menu-section');
 }
 
+function openAccountPanel() {
+  document.getElementById('setup-entry-point')?.classList.add('hidden');
+  document.getElementById('setup-return-point')?.classList.add('hidden');
+  const section = document.getElementById('ai-settings-section');
+  if (section) section.dataset.mode = 'edit';
+  nextSetupStep('setup-step-account');
+}
+
 function nextSetupStep(stepId) {
   // 1. Hide ALL wizard step panels
-  const stepsToHide = ['import-section', 'setup-step-api-key', 'setup-step-settings', 'settings-menu-section'];
+  const stepsToHide = ['setup-step-account', 'import-section', 'setup-step-api-key', 'setup-step-settings', 'settings-menu-section'];
   stepsToHide.forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.add('hidden');
@@ -72,7 +85,7 @@ function finishSetup() {
   // Hide the entire wizard wrapper
   document.getElementById('ai-settings-section')?.classList.add('hidden');
   // Hide all step panels
-  ['import-section', 'setup-step-api-key', 'setup-step-settings', 'settings-menu-section'].forEach(id => {
+  ['setup-step-account', 'import-section', 'setup-step-api-key', 'setup-step-settings', 'settings-menu-section'].forEach(id => {
     document.getElementById(id)?.classList.add('hidden');
   });
   // Return to landing view
@@ -117,10 +130,65 @@ function restartApp() {
 
   // Reset wizard state — hide settings panels, show landing view
   document.getElementById('ai-settings-section')?.classList.add('hidden');
-  ['import-section', 'setup-step-api-key', 'setup-step-settings', 'settings-menu-section'].forEach(id => {
+  ['setup-step-account', 'import-section', 'setup-step-api-key', 'setup-step-settings', 'settings-menu-section'].forEach(id => {
     document.getElementById(id)?.classList.add('hidden');
   });
   refreshSetupAccess();
+}
+
+// Reflect the current stored settings into the wizard controls. Safe to call
+// repeatedly — used on boot and after a login pull ('settings-synced').
+function applySettingsToUI() {
+  const savedKey = getGroqApiKey();
+  const input = document.getElementById('api-key-input');
+  if (input) input.value = savedKey || '';
+  updateAIStatusChip();
+
+  const setVal = (id, val) => {
+    const el = document.getElementById(id);
+    if (el && val != null) el.value = val;
+  };
+
+  setVal('grading-model-select', getGradingModel());
+  setVal('stt-mode-select', get(KEYS.STT_MODE));
+  setVal('jlpt-level-select', get(KEYS.JLPT_LEVEL));
+  setVal('avatar-model-select', getAvatarModelName());
+  setVal('voicevox-speaker-select', get(KEYS.VOICEVOX_SPEAKER));
+
+  const ttsSelect = document.getElementById('tts-mode-select');
+  if (ttsSelect) {
+    ttsSelect.value = get(KEYS.TTS_MODE);
+    toggleTTSVoicePanels(get(KEYS.TTS_MODE));
+  }
+}
+
+// ─────────────────────────────────────────────
+// ACCOUNT / AUTH UI
+// ─────────────────────────────────────────────
+
+function setAccountStatus(msg, type = 'info') {
+  const el = document.getElementById('account-status-msg');
+  if (!el) return;
+  el.textContent = msg || '';
+  el.className = 'import-status' + (type ? ' ' + type : '');
+}
+
+function updateAccountUI(user) {
+  const signedOut = document.getElementById('account-signed-out');
+  const signedIn = document.getElementById('account-signed-in');
+  const emailDisplay = document.getElementById('account-email-display');
+  const barStatus = document.getElementById('account-bar-status');
+
+  if (user) {
+    signedOut?.classList.add('hidden');
+    signedIn?.classList.remove('hidden');
+    if (emailDisplay) emailDisplay.textContent = user.email || 'your account';
+    if (barStatus) barStatus.textContent = '🔒 Synced as ' + (user.email || 'your account');
+  } else {
+    signedOut?.classList.remove('hidden');
+    signedIn?.classList.add('hidden');
+    if (barStatus) barStatus.textContent = '🔓 Not signed in — practice saves to this device only';
+  }
 }
 
 // ─────────────────────────────────────────────
@@ -152,25 +220,6 @@ document.addEventListener('DOMContentLoaded', () => {
     showApiKeyStatus('Previous provider removed. Please save a Groq API key (starts with gsk_).', 'info');
   }
 
-  const savedKey = getGroqApiKey();
-  if (savedKey) {
-    const input = document.getElementById('api-key-input');
-    if (input) input.value = savedKey;
-    updateAIStatusChip();
-  }
-
-  const gradingModelSelect = document.getElementById('grading-model-select');
-  if (gradingModelSelect) gradingModelSelect.value = getGradingModel();
-
-  const sttSelect = document.getElementById('stt-mode-select');
-  if (sttSelect) sttSelect.value = get(KEYS.STT_MODE);
-
-  const jlptSelect = document.getElementById('jlpt-level-select');
-  if (jlptSelect) jlptSelect.value = get(KEYS.JLPT_LEVEL);
-
-  const avatarModelSelect = document.getElementById('avatar-model-select');
-  if (avatarModelSelect) avatarModelSelect.value = getAvatarModelName();
-
   const TTS_DEFAULT = 'browser';
   if (!get(KEYS.TTS_DEFAULT_FLAG)) {
     set(KEYS.TTS_MODE, TTS_DEFAULT);
@@ -179,14 +228,7 @@ document.addEventListener('DOMContentLoaded', () => {
     set(KEYS.TTS_MODE, TTS_DEFAULT);
   }
 
-  const ttsSelect = document.getElementById('tts-mode-select');
-  if (ttsSelect) {
-    ttsSelect.value = get(KEYS.TTS_MODE);
-    toggleTTSVoicePanels(get(KEYS.TTS_MODE));
-  }
-
-  const vvSpeakerSelect = document.getElementById('voicevox-speaker-select');
-  if (vvSpeakerSelect) vvSpeakerSelect.value = get(KEYS.VOICEVOX_SPEAKER);
+  applySettingsToUI();
 
   const bind = (id, fn) => {
     const el = document.getElementById(id);
@@ -228,6 +270,26 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('final-score-overlay').style.display = 'none';
   });
 
+  // ── Account / auth ──
+  bind('btn-account-open', openAccountPanel);
+  bind('btn-send-magic-link', async () => {
+    const email = document.getElementById('account-email-input')?.value.trim();
+    if (!email) { setAccountStatus('Please enter your email address.', 'error'); return; }
+    setAccountStatus('Sending magic link…', 'info');
+    const { error } = await signInWithEmail(email);
+    if (error) setAccountStatus('❌ ' + error.message, 'error');
+    else setAccountStatus('✅ Check your inbox for the sign-in link.', 'success');
+  });
+  bind('btn-google-signin', async () => {
+    const { error } = await signInWithGoogle();
+    if (error) setAccountStatus('❌ ' + error.message, 'error');
+  });
+  bind('btn-sign-out', async () => {
+    await signOut();
+    onLogout();
+    setAccountStatus('Signed out.', 'info');
+  });
+
   document.querySelectorAll('.btn-report-bug').forEach(btn => {
     btn.addEventListener('click', () => bugReporter.open());
   });
@@ -237,6 +299,8 @@ document.addEventListener('DOMContentLoaded', () => {
       nextSetupStep('setup-step-api-key');
     } else if (e.target.id === 'btn-next-to-preferences') {
       nextSetupStep('setup-step-settings');
+    } else if (e.target.id === 'btn-menu-account') {
+      nextSetupStep('setup-step-account');
     } else if (e.target.id === 'btn-menu-step1') {
       nextSetupStep('import-section');
     } else if (e.target.id === 'btn-menu-step2') {
@@ -248,6 +312,12 @@ document.addEventListener('DOMContentLoaded', () => {
     } else if (e.target.id === 'btn-close-settings-menu') {
       finishSetup();
     }
+  });
+
+  // Magic-link form: Enter should send the link, not reload the page.
+  document.getElementById('magic-link-form')?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    document.getElementById('btn-send-magic-link')?.click();
   });
 
   const fileInput = document.getElementById('file-input');
@@ -317,4 +387,40 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Initialize avatar on startup
   initAvatar();
+
+  // ── Cloud sync (accounts) ──
+  // Install the settings-change hook (no-ops until signed in).
+  registerSettingsSync();
+
+  // A login pull rewrote localStorage settings — refresh the controls + avatar.
+  window.addEventListener('settings-synced', () => {
+    applySettingsToUI();
+    initAvatar();
+  });
+
+  // A synced deck arrived from the cloud — load it into the session + storage.
+  window.addEventListener('deck-synced', (e) => {
+    const qa = e.detail?.qa;
+    if (!Array.isArray(qa) || qa.length === 0) return;
+    setQA(qa);
+    set(KEYS.QA_DATA, JSON.stringify(qa));
+    updateQACount(qa.length, isDefaultDeck);
+    updateStartButton(qa.length);
+  });
+
+  // Restore session, react to auth changes, and run the login sync once.
+  let lastUserId = null;
+  const handleUser = (user) => {
+    updateAccountUI(user);
+    const uid = user?.id ?? null;
+    if (uid && uid !== lastUserId) {
+      // Transitioned into a signed-in state → pull settings + decks.
+      const hasLocalCustomDeck = !isDefaultDeck && QA.length > 0;
+      onLogin(hasLocalCustomDeck);
+    }
+    lastUserId = uid;
+  };
+
+  onAuthChange(handleUser);
+  initAuth().then(handleUser);
 });
