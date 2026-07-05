@@ -30,7 +30,7 @@ import {
   signInWithEmail, signInWithGoogle, signOut
 } from './auth.js';
 import { registerSettingsSync, onLogin, onLogout } from './sync.js';
-import { fetchQuotaUsage, formatQuotaDisplay, isQuotaLow } from './quota.js';
+import { updateQuotaDisplay } from './quota.js';
 
 // ─────────────────────────────────────────────
 // SETUP FLOW
@@ -196,7 +196,9 @@ function updateAccountUI(user) {
 // BOOTSTRAP
 // ─────────────────────────────────────────────
 
-document.addEventListener('DOMContentLoaded', () => {
+// Called from +page.svelte's onMount (the SvelteKit replacement for the old
+// DOMContentLoaded listener — the markup is guaranteed mounted by then).
+export function initApp() {
   const savedQA = get(KEYS.QA_DATA);
   if (savedQA) {
     try {
@@ -426,4 +428,4 @@ document.addEventListener('DOMContentLoaded', () => {
 
   onAuthChange(handleUser);
   initAuth().then(handleUser);
-});
+}

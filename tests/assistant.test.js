@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { askStudyAssistant, translateToJapaneseWithAI } from '../src/ai/index.js';
-import { handleAssistantQuery, assistantHistory } from '../src/assistant-ui.js';
+import { askStudyAssistant, translateToJapaneseWithAI } from '../src/lib/ai/index.js';
+import { handleAssistantQuery, assistantHistory } from '../src/lib/assistant-ui.js';
 
-vi.mock('../src/ai/index.js', async (importOriginal) => {
+vi.mock('../src/lib/ai/index.js', async (importOriginal) => {
   const actual = await importOriginal();
   return {
     ...actual,
@@ -13,7 +13,7 @@ vi.mock('../src/ai/index.js', async (importOriginal) => {
 describe('askStudyAssistant Unit Tests', () => {
   let realAskStudyAssistant;
   beforeEach(async () => {
-    const mod = await vi.importActual('../src/ai/index.js');
+    const mod = await vi.importActual('../src/lib/ai/index.js');
     realAskStudyAssistant = mod.askStudyAssistant;
     vi.restoreAllMocks();
     vi.stubGlobal('localStorage', {

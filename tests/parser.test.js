@@ -8,7 +8,7 @@ import {
   transcriptToFurigana,
   applyKanjiMap,
   toFuriganaHtml,
-} from '../src/parser.js';
+} from '../src/lib/parser.js';
 
 describe('parseJSON', () => {
   it('parses q/a objects', () => {

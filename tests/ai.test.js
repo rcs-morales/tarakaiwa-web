@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { gradeWithAI, parseAIGradingResponse, isScriptOrNumeralOnlyBreakdown } from '../src/ai/grading.js';
+import { gradeWithAI, parseAIGradingResponse, isScriptOrNumeralOnlyBreakdown } from '../src/lib/ai/grading.js';
 
 describe('AI Grading Parser', () => {
   it('should parse a perfect JSON response', () => {

@@ -1,15 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { translateToJapaneseWithAI } from '../src/ai/index.js';
-import { toFuriganaHtml } from '../src/parser.js';
+import { translateToJapaneseWithAI } from '../src/lib/ai/index.js';
+import { toFuriganaHtml } from '../src/lib/parser.js';
 import {
   handleTranslateAndSpeak, toggleTranslateMic, replayJapaneseAudio
-} from '../src/translate-ui.js';
+} from '../src/lib/translate-ui.js';
 
 describe('translateToJapaneseWithAI Unit Tests', () => {
   let realTranslateToJapanese;
 
   beforeEach(async () => {
-    const mod = await vi.importActual('../src/ai/studyAssistant.js');
+    const mod = await vi.importActual('../src/lib/ai/studyAssistant.js');
     realTranslateToJapanese = mod.translateToJapaneseWithAI;
     vi.restoreAllMocks();
     vi.stubGlobal('localStorage', {
@@ -49,7 +49,7 @@ describe('translateToJapaneseWithAI Unit Tests', () => {
   });
 });
 
-vi.mock('../src/ai/index.js', async (importOriginal) => {
+vi.mock('../src/lib/ai/index.js', async (importOriginal) => {
   const actual = await importOriginal();
   return {
     ...actual,
@@ -59,7 +59,7 @@ vi.mock('../src/ai/index.js', async (importOriginal) => {
   };
 });
 
-vi.mock('../src/tts.js', () => ({
+vi.mock('../src/lib/tts.js', () => ({
   speakQuestion: vi.fn((_text, onEnd) => {
     if (onEnd) onEnd();
     return Promise.resolve();
@@ -124,7 +124,7 @@ describe('Translate Tool UI', () => {
   });
 
   it('replays the last Japanese audio', async () => {
-    const { speakQuestion } = await import('../src/tts.js');
+    const { speakQuestion } = await import('../src/lib/tts.js');
     vi.mocked(translateToJapaneseWithAI).mockResolvedValue({ japanese: 'ありがとう' });
 
     document.getElementById('translate-input').value = 'Thank you';
