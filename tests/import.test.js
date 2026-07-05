@@ -1,33 +1,33 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { handleFileImport, clearDatabase } from '../src/import.js';
-import * as ui from '../src/ui.js';
-import * as settings from '../src/settings.js';
-import * as session from '../src/session.js';
-import * as parser from '../src/parser.js';
+import { handleFileImport, clearDatabase } from '../src/lib/import.js';
+import * as ui from '../src/lib/ui.js';
+import * as settings from '../src/lib/settings.js';
+import * as session from '../src/lib/session.js';
+import * as parser from '../src/lib/parser.js';
 
-vi.mock('../src/ui.js', () => ({
+vi.mock('../src/lib/ui.js', () => ({
   updateQACount: vi.fn(),
   updateStartButton: vi.fn(),
   updateSetupAccess: vi.fn(),
   showImportStatus: vi.fn(),
 }));
 
-vi.mock('../src/ai/index.js', () => ({
+vi.mock('../src/lib/ai/index.js', () => ({
   hasGroqApiKey: vi.fn(() => false),
 }));
 
-vi.mock('../src/settings.js', () => ({
+vi.mock('../src/lib/settings.js', () => ({
   get: vi.fn(),
   set: vi.fn(),
   remove: vi.fn(),
   KEYS: { QA_DATA: 'qa_data', SETUP_COMPLETE: 'setup_complete' }
 }));
 
-vi.mock('../src/session.js', () => ({
+vi.mock('../src/lib/session.js', () => ({
   setQA: vi.fn(),
 }));
 
-vi.mock('../src/parser.js', () => ({
+vi.mock('../src/lib/parser.js', () => ({
   parseJSON: vi.fn(),
   parseCSV: vi.fn(),
   parseExcel: vi.fn(),

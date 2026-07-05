@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { getIsChecking, setIsChecking } from '../src/sessionFlags.js';
+import { getIsChecking, setIsChecking } from '../src/lib/sessionFlags.js';
 
 describe('sessionFlags.js', () => {
   beforeEach(() => {

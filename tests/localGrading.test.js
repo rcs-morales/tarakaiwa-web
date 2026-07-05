@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { analyzeAnswerCompleteness, isCorrectLocal, normalizeForGradingComparison, detectProhibitionFormMismatch, hasMeaningfulBreakdownError, groundBreakdownItem, gradingTextsEquivalent } from '../src/ai/localGrading.js';
-import { katakanaToHiragana, transcriptToFurigana } from '../src/parser.js';
+import { analyzeAnswerCompleteness, isCorrectLocal, normalizeForGradingComparison, detectProhibitionFormMismatch, hasMeaningfulBreakdownError, groundBreakdownItem, gradingTextsEquivalent } from '../src/lib/ai/localGrading.js';
+import { katakanaToHiragana, transcriptToFurigana } from '../src/lib/parser.js';
 
 const CLASS_ANSWER = 'はい。すこし はなすことが できます。まいにち クラスで かいわ れんしゅう していますから。';
 const CLASS_TRANSCRIPT_HIRA = 'はい。すこし はなすことが できます。まいにち くらすで かいわ れんしゅう していますから。';

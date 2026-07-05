@@ -1,13 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import * as tts from '../src/tts.js';
-import * as ui from '../src/ui.js';
-import * as avatar from '../src/avatar.js';
-import * as settings from '../src/settings.js';
-import * as db from '../src/db.js';
+import * as tts from '../src/lib/tts.js';
+import * as ui from '../src/lib/ui.js';
+import * as avatar from '../src/lib/avatar.js';
+import * as settings from '../src/lib/settings.js';
+import * as db from '../src/lib/db.js';
 
-vi.mock('../src/ui.js', () => ({ setStatus: vi.fn() }));
-vi.mock('../src/avatar.js', () => ({ toggleSpeaking: vi.fn() }));
-vi.mock('../src/settings.js', () => ({
+vi.mock('../src/lib/ui.js', () => ({ setStatus: vi.fn() }));
+vi.mock('../src/lib/avatar.js', () => ({ toggleSpeaking: vi.fn() }));
+vi.mock('../src/lib/settings.js', () => ({
   get: vi.fn(),
   set: vi.fn(),
   KEYS: {
@@ -17,7 +17,7 @@ vi.mock('../src/settings.js', () => ({
     AVATAR_MODEL: 'avatar_model'
   }
 }));
-vi.mock('../src/db.js', () => ({
+vi.mock('../src/lib/db.js', () => ({
   getAudio: vi.fn(),
   saveAudio: vi.fn(),
 }));

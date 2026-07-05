@@ -21,3 +21,8 @@ npm-debug.log*
 .idea/
 .claude/
 *.tsbuildinfo
+
+# SvelteKit
+.svelte-kit/
+
+.wrangler/

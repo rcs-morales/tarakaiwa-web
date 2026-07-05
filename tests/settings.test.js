@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { get, set, remove, KEYS } from '../src/settings.js';
+import { get, set, remove, KEYS } from '../src/lib/settings.js';
 
 describe('settings.js', () => {
   beforeEach(() => {

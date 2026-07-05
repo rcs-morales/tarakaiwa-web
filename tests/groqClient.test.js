@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('../src/ui.js', () => ({ showApiKeyStatus: vi.fn() }));
-vi.mock('../src/settings.js', () => ({
+vi.mock('../src/lib/ui.js', () => ({ showApiKeyStatus: vi.fn() }));
+vi.mock('../src/lib/settings.js', () => ({
   get: vi.fn(),
   set: vi.fn(),
   remove: vi.fn(),
@@ -11,14 +11,14 @@ vi.mock('../src/settings.js', () => ({
     GRADING_MODEL: 'groq_grading_model',
   },
 }));
-vi.mock('../src/auth.js', () => ({
+vi.mock('../src/lib/auth.js', () => ({
   isLoggedIn: vi.fn(),
   getAccessToken: vi.fn(),
 }));
 
-import { resolveAIRoute, hasAIAccess } from '../src/ai/groqClient.js';
-import * as settings from '../src/settings.js';
-import * as auth from '../src/auth.js';
+import { resolveAIRoute, hasAIAccess } from '../src/lib/ai/groqClient.js';
+import * as settings from '../src/lib/settings.js';
+import * as auth from '../src/lib/auth.js';
 
 describe('resolveAIRoute', () => {
   beforeEach(() => vi.clearAllMocks());

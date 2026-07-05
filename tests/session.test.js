@@ -1,13 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import * as session from '../src/session.js';
-import * as ui from '../src/ui.js';
-import * as ai from '../src/ai/index.js';
-import * as settings from '../src/settings.js';
-import * as flags from '../src/sessionFlags.js';
-import * as tts from '../src/tts.js';
-import * as stt from '../src/stt.js';
+import * as session from '../src/lib/session.js';
+import * as ui from '../src/lib/ui.js';
+import * as ai from '../src/lib/ai/index.js';
+import * as settings from '../src/lib/settings.js';
+import * as flags from '../src/lib/sessionFlags.js';
+import * as tts from '../src/lib/tts.js';
+import * as stt from '../src/lib/stt.js';
 
-vi.mock('../src/ui.js', () => ({
+vi.mock('../src/lib/ui.js', () => ({
   setStatus: vi.fn(),
   showTranscript: vi.fn(),
   showCheckedTranscript: vi.fn(),
@@ -25,7 +25,7 @@ vi.mock('../src/ui.js', () => ({
   hideVoicevoxPreloadModal: vi.fn(),
 }));
 
-vi.mock('../src/ai/index.js', () => ({
+vi.mock('../src/lib/ai/index.js', () => ({
   getGradingModel: vi.fn(),
   hasAIAccess: vi.fn().mockReturnValue(true),
   getGroqApiKey: vi.fn().mockReturnValue('gsk_test'),
@@ -35,7 +35,7 @@ vi.mock('../src/ai/index.js', () => ({
   translateWithAI: vi.fn().mockResolvedValue('Translated text'),
 }));
 
-vi.mock('../src/settings.js', () => ({
+vi.mock('../src/lib/settings.js', () => ({
   get: vi.fn(),
   set: vi.fn(),
   KEYS: {
@@ -45,12 +45,12 @@ vi.mock('../src/settings.js', () => ({
   }
 }));
 
-vi.mock('../src/sessionFlags.js', () => ({
+vi.mock('../src/lib/sessionFlags.js', () => ({
   getIsChecking: vi.fn().mockReturnValue(false),
   setIsChecking: vi.fn(),
 }));
 
-vi.mock('../src/tts.js', () => ({
+vi.mock('../src/lib/tts.js', () => ({
   speakQuestion: vi.fn((text, onEnd) => onEnd && onEnd()),
   speakFeedback: vi.fn((text, onEnd) => onEnd && onEnd()),
   cancelSpeech: vi.fn(),
@@ -59,7 +59,7 @@ vi.mock('../src/tts.js', () => ({
   unlockAudioForMobile: vi.fn(),
 }));
 
-vi.mock('../src/stt.js', () => ({
+vi.mock('../src/lib/stt.js', () => ({
   initRecognizer: vi.fn().mockReturnValue(true),
   startListening: vi.fn(),
   abortRecognition: vi.fn(),

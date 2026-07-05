@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { handleAssistantQuery, assistantHistory } from '../src/assistant-ui.js';
-import * as ai from '../src/ai/index.js';
+import { handleAssistantQuery, assistantHistory } from '../src/lib/assistant-ui.js';
+import * as ai from '../src/lib/ai/index.js';
 
 describe('Assistant Integration Tests', () => {
   beforeEach(() => {

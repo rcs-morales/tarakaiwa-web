@@ -26,7 +26,7 @@ Add a Groq API key in Settings for speech recognition and AI grading. Voicevox r
 
 ## 🚀 Getting Started
 
-This project is a client-side vanilla JavaScript app with ES modules and no build step.
+This project is a SvelteKit single-page app (SPA mode, no server rendering) built with Vite. The UI logic is still plain ES modules under `src/lib/`; SvelteKit provides the shell, routing, and the `/api/*` proxy endpoints.
 
 ### Prerequisites
 
@@ -45,16 +45,18 @@ This project is a client-side vanilla JavaScript app with ES modules and no buil
    ```bash
    cd tarakaiwa-web
    ```
-3. Install local dependencies for testing:
+3. Install dependencies:
    ```bash
    npm install
    ```
-4. Serve the directory with any static server, for example:
+4. Start the dev server:
    ```bash
-   python -m http.server 8000
+   npm run dev
    ```
-5. Open http://localhost:8000 in your browser.
-6. If you are setting up Groq for the first time, use the in-app setup guide or open groq-guide.html for setup help.
+5. Open the printed URL (usually http://localhost:5173) in your browser.
+6. If you are setting up Groq for the first time, use the in-app setup guide or open /groq-guide.html for setup help.
+
+For a production build: `npm run build` (output in `.svelte-kit/cloudflare/`), then `npm run preview` to serve it locally.
 
 ### Testing
 
@@ -76,30 +78,31 @@ npm test
 
 | File/Folder | Role |
 |-------------|------|
-| index.html | Main markup and application layout |
-| assets/style.css | Layout, theme, and UI styling |
-| src/app.js | Main entry point and app orchestration |
-| src/ai/ | AI modules for grading, Groq requests, Whisper, and study assistance |
-| src/session.js | Practice-session flow and state |
-| src/settings.js | Persistent configuration management |
-| src/auth.js | Supabase auth (magic link / Google) session handling |
-| src/sync.js | localStorage ⇄ Supabase sync for settings, decks, and results |
-| src/supabase.js | Supabase client initialization |
+| src/app.html | SvelteKit page template (fonts, Cubism Core script, stylesheet) |
+| src/routes/+page.svelte | Main markup and application layout (single SPA route) |
+| src/routes/api/ | SvelteKit server endpoints proxying Groq (`chat`, `transcribe`) that hide the key |
+| src/lib/server/ | Shared proxy helpers: JWT auth check, quota enforcement |
+| public/assets/style.css | Layout, theme, and UI styling |
+| src/lib/app.js | Main entry point and app orchestration (`initApp()`) |
+| src/lib/ai/ | AI modules for grading, Groq requests, Whisper, and study assistance |
+| src/lib/session.js | Practice-session flow and state |
+| src/lib/settings.js | Persistent configuration management |
+| src/lib/auth.js | Supabase auth (magic link / Google) session handling |
+| src/lib/sync.js | localStorage ⇄ Supabase sync for settings, decks, and results |
+| src/lib/supabase.js | Supabase client initialization |
 | supabase/migrations/ | SQL migrations for accounts, sync, and quota tables |
-| functions/api/ | Cloudflare Pages Functions proxy (`chat`, `transcribe`) that hide the Groq key |
-| functions/_lib/ | Shared proxy helpers: JWT auth check, quota enforcement |
-| src/db.js | IndexedDB wrapper for cached audio and local data |
-| src/import.js | Parsing and import of external Q&A datasets |
-| src/stt.js | Speech-to-text logic |
-| src/tts.js | Text-to-speech logic |
-| src/avatar.js | Avatar rendering and voice mapping |
-| src/parser.js | Text parsing and translation rendering helpers |
-| src/ui.js | DOM updates and UI state management |
-| src/translate-ui.js | Translation tool UI and behavior |
-| src/assistant-ui.js | Study assistant UI |
-| src/data.js | Default starter Q&A dataset |
+| src/lib/db.js | IndexedDB wrapper for cached audio and local data |
+| src/lib/import.js | Parsing and import of external Q&A datasets |
+| src/lib/stt.js | Speech-to-text logic |
+| src/lib/tts.js | Text-to-speech logic |
+| src/lib/avatar.js | Avatar rendering and voice mapping |
+| src/lib/parser.js | Text parsing and translation rendering helpers |
+| src/lib/ui.js | DOM updates and UI state management |
+| src/lib/translate-ui.js | Translation tool UI and behavior |
+| src/lib/assistant-ui.js | Study assistant UI |
+| src/lib/data.js | Default starter Q&A dataset |
 | tests/ | Unit and integration tests |
-| groq-guide.html | Groq setup guide |
+| public/groq-guide.html | Groq setup guide |
 
 ## ☁️ Accounts & Cloud Sync (optional)
 
@@ -145,8 +148,13 @@ priority:
 
 ### Cloudflare setup (one-time)
 
-The proxy lives in `functions/` and deploys automatically with the Pages site —
-no build config needed. Add these as **encrypted environment variables** in the
+The proxy lives in `src/routes/api/*/+server.js` and is bundled into the site's
+worker by `@sveltejs/adapter-cloudflare`. In the Cloudflare Pages project set:
+
+- **Build command**: `npm run build`
+- **Build output directory**: `.svelte-kit/cloudflare`
+
+Add these as **encrypted environment variables** in the
 Cloudflare Pages project (Settings → Environment variables):
 
 | Variable | Value |
@@ -157,17 +165,18 @@ Cloudflare Pages project (Settings → Environment variables):
 
 Then apply migration `supabase/migrations/0002_api_usage_quota.sql` (adds the
 atomic `increment_api_usage()` quota function). Daily limits live in
-`functions/_lib/quota.js` (defaults: 200 chat requests, 600 Whisper-seconds).
+`src/lib/server/quota.js` (defaults: 200 chat requests, 600 Whisper-seconds).
 
 ### Testing the proxy locally
 
-`npm run dev` (Vite) serves only the static app — the `/api/*` functions aren't
-running, so a signed-in user without a BYO key can't reach AI locally. To
-exercise the proxy on your machine, run it through Cloudflare's emulator:
+Under `npm run dev` / `npm run preview` the `/api/*` endpoints exist but have no
+Cloudflare env bindings (`platform.env`), so they return a clean 500 — a
+signed-in user without a BYO key can't reach AI locally. To exercise the proxy
+with real bindings, run the built worker through Cloudflare's emulator:
 
 ```bash
 npm run build
-npx wrangler pages dev dist --compatibility-date=2024-01-01
+npx wrangler pages dev .svelte-kit/cloudflare --compatibility-date=2024-01-01
 ```
 
 (supply the same env vars via `--binding` / a `.dev.vars` file). Or just test the

@@ -5,14 +5,17 @@
 // the blob size (≈ size/8000 seconds at the 64 kbps recorder bitrate), then
 // forward with the server-side GROQ_API_KEY.
 
-import { authenticateRequest } from '../_lib/auth.js';
-import { reserveQuota } from '../_lib/quota.js';
-import { json } from '../_lib/http.js';
+import { authenticateRequest } from '$lib/server/auth.js';
+import { reserveQuota } from '$lib/server/quota.js';
+import { json } from '$lib/server/http.js';
 
 const WHISPER_MODEL = 'whisper-large-v3-turbo';
 const MAX_AUDIO_BYTES = 25 * 1024 * 1024; // Groq's per-file Whisper limit
 
-export async function onRequestPost({ request, env }) {
+export async function POST({ request, platform }) {
+  // Cloudflare env bindings surface via `platform.env` under adapter-cloudflare
+  // (absent in plain `vite dev`, where the endpoint returns 500 gracefully).
+  const env = platform?.env ?? {};
   if (!env.GROQ_API_KEY) return json({ error: 'Server AI key not configured.' }, 500);
 
   const auth = await authenticateRequest(request, env);

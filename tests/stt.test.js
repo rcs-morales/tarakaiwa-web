@@ -1,16 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import * as stt from '../src/stt.js';
-import { transcribeWithWhisper } from '../src/ai/whisper.js';
-import * as ui from '../src/ui.js';
-import * as aiIndex from '../src/ai/index.js';
+import * as stt from '../src/lib/stt.js';
+import { transcribeWithWhisper } from '../src/lib/ai/whisper.js';
+import * as ui from '../src/lib/ui.js';
+import * as aiIndex from '../src/lib/ai/index.js';
 
-vi.mock('../src/ui.js', () => ({
+vi.mock('../src/lib/ui.js', () => ({
   setStatus: vi.fn(),
   showTranscript: vi.fn(),
   showBtn: vi.fn(),
 }));
 
-vi.mock('../src/ai/groqClient.js', () => ({
+vi.mock('../src/lib/ai/groqClient.js', () => ({
   hasGroqApiKey: vi.fn(),
   getGroqApiKey: vi.fn(),
   hasAIAccess: vi.fn(),
