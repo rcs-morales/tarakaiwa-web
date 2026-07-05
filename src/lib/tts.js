@@ -264,7 +264,7 @@ function hideVoicevoxLoading() {
   if (overlay) overlay.remove();
 }
 
-async function speakWithVoicevox(text, onEnd, context) {
+async function speakWithVoicevox(text, onEnd, context, rate = 1) {
   const chan = channels[context];
   // Only show the loading overlay if the fetch takes longer than 2.5s
   const loadingTimer = setTimeout(() => showVoicevoxLoading(), 2500);
@@ -278,7 +278,7 @@ async function speakWithVoicevox(text, onEnd, context) {
     chan.url = URL.createObjectURL(blob);
     chan.audio = new Audio(chan.url);
 
-    chan.audio.playbackRate = getTTSSpeed();
+    chan.audio.playbackRate = rate;
 
     chan.audio.onplay = () => {
       if (context === 'practice') {
@@ -324,7 +324,7 @@ export function saveVoicevoxSpeaker() {
   }
 }
 
-function speakWithBrowser(text, onEnd, context) {
+function speakWithBrowser(text, onEnd, context, rate = 1) {
   const synth = window.speechSynthesis;
   if (!synth) {
     if (onEnd) onEnd();
@@ -337,7 +337,7 @@ function speakWithBrowser(text, onEnd, context) {
 
   const utter = new SpeechSynthesisUtterance(text);
   utter.lang = 'ja-JP';
-  utter.rate = getTTSSpeed();
+  utter.rate = rate;
   utter.pitch = 1.0;
 
   const jpVoice = pickJapaneseBrowserVoice();
@@ -401,12 +401,14 @@ export async function speakQuestion(text, onEnd, context = 'practice') {
     if (onEnd) onEnd();
   };
 
+  // Only questions follow the speech-speed slider — it's a listening-
+  // comprehension aid. Feedback/praise (speakFeedback) plays at natural speed.
   if (mode === 'voicevox') {
-    await speakWithVoicevox(text, wrapOnEnd, context);
+    await speakWithVoicevox(text, wrapOnEnd, context, getTTSSpeed());
     return;
   }
 
-  speakWithBrowser(text, wrapOnEnd, context);
+  speakWithBrowser(text, wrapOnEnd, context, getTTSSpeed());
 }
 
 export async function speakFeedback(text, onEnd, silent = false, context = 'practice') {
