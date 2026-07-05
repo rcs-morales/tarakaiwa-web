@@ -26,6 +26,7 @@ Rules:
 - Return ONLY a valid JSON object. Do not include any preamble, markdown blocks, or conversational text. Start your response immediately with the opening brace '{'.
 - TONE GUIDELINE: Act as a supportive, encouraging, and patient language tutor. Avoid harsh words like "nonsensical", "wrong", or "incorrect". Focus on guidance and encouragement.
 - In the \`general_feedback\` field, provide ONLY a short 1-sentence encouraging summary. DO NOT explain specific errors here—put ALL error explanations exclusively in the \`breakdown\` array to avoid double feedback.
+- REPEATED ATTEMPTS: The student answer comes from speech recognition and may contain several attempts at the same phrase (the student repeated or corrected themselves out loud). Grade ONLY the final attempt. NEVER create two breakdown items for the same underlying mistake — report each distinct correction exactly once.
 
   JSON Schema:
   {

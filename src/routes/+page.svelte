@@ -24,7 +24,7 @@
       <span class="chip">🎤 Voice Input</span>
       <span class="chip chip-ai" id="ai-status-chip">🧠 AI Grading: <span id="ai-status-text">Not
           configured</span></span>
-      <span class="chip" id="quota-chip" style="font-size: 0.85rem; color: var(--muted);"><span id="quota-text"></span></span>
+      <span class="chip hidden" id="quota-chip" style="font-size: 0.85rem; color: var(--muted);"><span id="quota-text"></span></span>
     </div>
 
     <!-- Account status bar (always visible) -->

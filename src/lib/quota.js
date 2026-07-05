@@ -13,13 +13,20 @@ const WHISPER_DAILY_LIMIT = 600;
  * or if they have a BYO key (quota doesn't apply).
  */
 export async function fetchQuotaUsage() {
-  // Only show quota if signed in AND without a BYO key (using shared quota)
-  if (!hasAIAccess() || hasGroqApiKey()) return null;
-
   try {
+    // Only show quota if signed in AND without a BYO key (using shared quota)
+    if (!hasAIAccess()) {
+      console.info('quota: hidden (not signed in)');
+      return null;
+    }
+    if (hasGroqApiKey()) {
+      console.info('quota: hidden (BYO key saved — personal Groq allowance applies, not the shared quota)');
+      return null;
+    }
+
     const { data, error } = await supabaseClient.rpc('get_api_usage');
     if (error) {
-      console.error('quota fetch failed:', error.message);
+      console.error('quota: get_api_usage RPC failed —', error.message);
       return null;
     }
     if (!Array.isArray(data) || data.length === 0) {
@@ -28,11 +35,11 @@ export async function fetchQuotaUsage() {
     }
     const row = data[0];
     return {
-      chatRequests: row.chat_requests ?? 0,
-      whisperSeconds: row.whisper_seconds ?? 0,
+      chatRequests: Number(row.chat_requests) || 0,
+      whisperSeconds: Number(row.whisper_seconds) || 0,
     };
   } catch (e) {
-    console.error('quota RPC error:', e);
+    console.error('quota: fetch error —', e);
     return null;
   }
 }

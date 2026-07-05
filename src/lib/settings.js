@@ -23,6 +23,9 @@ export const KEYS = {
   TUTORIAL_DONE: 'tutorial_done',
   // Device-local id of the synced deck row (never synced itself).
   DECK_ID: 'synced_deck_id',
+  // Device-local timestamp of the last local deck change — used by sync.js so
+  // an older remote deck never overwrites a newer local import.
+  DECK_UPDATED_AT: 'deck_updated_at',
 };
 
 /**

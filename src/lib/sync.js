@@ -27,6 +27,7 @@ const SYNC_EXCLUDE = new Set([
   KEYS.TTS_DEFAULT_FLAG,
   KEYS.QA_DATA,
   KEYS.DECK_ID,
+  KEYS.DECK_UPDATED_AT,
 ]);
 
 const SYNC_KEYS = Object.values(KEYS).filter((k) => !SYNC_EXCLUDE.has(k));
@@ -114,10 +115,12 @@ async function pullMergeSettings() {
  * Create or update the user's synced deck row from a freshly imported deck.
  * Called by import.js after a successful local import (dual-write). Reuses the
  * device-local DECK_ID when present, otherwise inserts a new row.
+ *
+ * @returns {Promise<boolean|null>} true = pushed, false = failed, null = logged out
  */
 export async function pushDeck(qa, name) {
   const user = getCurrentUser();
-  if (!user) return;
+  if (!user) return null;
 
   const row = {
     user_id: user.id,
@@ -130,12 +133,19 @@ export async function pushDeck(qa, name) {
   const deckId = localStorage.getItem(KEYS.DECK_ID);
   try {
     if (deckId) {
-      const { error } = await supabaseClient
+      const { data, error } = await supabaseClient
         .from('decks')
         .update(row)
         .eq('id', deckId)
-        .eq('user_id', user.id);
+        .eq('user_id', user.id)
+        .select('id');
       if (error) throw error;
+      if (!data || data.length === 0) {
+        // Stale pointer — the row no longer exists (0 rows matched, which
+        // Supabase does not treat as an error). Drop it and insert fresh.
+        localStorage.removeItem(KEYS.DECK_ID);
+        return pushDeck(qa, name);
+      }
     } else {
       const { data, error } = await supabaseClient
         .from('decks')
@@ -145,8 +155,11 @@ export async function pushDeck(qa, name) {
       if (error) throw error;
       if (data?.id) localStorage.setItem(KEYS.DECK_ID, data.id);
     }
+    localStorage.setItem(KEYS.DECK_UPDATED_AT, row.updated_at);
+    return true;
   } catch (e) {
     console.error('deck push failed:', e.message || e);
+    return false;
   }
 }
 
@@ -175,23 +188,39 @@ async function syncDecks(hasLocalCustomDeck) {
 
   const remote = data && data[0];
   if (remote && Array.isArray(remote.qa) && remote.qa.length > 0) {
+    // Last-write-wins: only let the remote deck replace the local one when it
+    // is actually newer. A local import whose upload was interrupted (page
+    // reload, OAuth redirect, network drop) must not be reverted on login.
+    const localTs = localStorage.getItem(KEYS.DECK_UPDATED_AT);
+    const remoteNewer = !hasLocalCustomDeck || !localTs
+      || Date.parse(remote.updated_at) > Date.parse(localTs);
+
     localStorage.setItem(KEYS.DECK_ID, remote.id);
-    window.dispatchEvent(new CustomEvent('deck-synced', {
-      detail: { qa: remote.qa, name: remote.name },
-    }));
+    if (remoteNewer) {
+      localStorage.setItem(KEYS.DECK_UPDATED_AT, remote.updated_at);
+      window.dispatchEvent(new CustomEvent('deck-synced', {
+        detail: { qa: remote.qa, name: remote.name },
+      }));
+    } else {
+      // Local deck is newer — push it up (re-uses the remote row via DECK_ID).
+      await pushLocalDeck();
+    }
     return;
   }
 
   // No usable remote deck — migrate the local custom deck up, if there is one.
-  if (hasLocalCustomDeck) {
-    const raw = localStorage.getItem(KEYS.QA_DATA);
-    if (!raw) return;
-    try {
-      const qa = JSON.parse(raw);
-      if (Array.isArray(qa) && qa.length > 0) await pushDeck(qa, 'My Deck');
-    } catch (e) {
-      console.error('deck migration parse failed:', e.message || e);
-    }
+  if (hasLocalCustomDeck) await pushLocalDeck();
+}
+
+/** Push the deck currently in localStorage up to Supabase. */
+async function pushLocalDeck() {
+  const raw = localStorage.getItem(KEYS.QA_DATA);
+  if (!raw) return;
+  try {
+    const qa = JSON.parse(raw);
+    if (Array.isArray(qa) && qa.length > 0) await pushDeck(qa, 'My Deck');
+  } catch (e) {
+    console.error('deck migration parse failed:', e.message || e);
   }
 }
 

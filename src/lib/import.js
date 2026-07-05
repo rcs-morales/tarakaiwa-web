@@ -45,12 +45,19 @@ export async function handleFileImport(event) {
 
       setQA(qa);
       set(KEYS.QA_DATA, JSON.stringify(qa));
-      // Dual-write to the cloud when signed in (no-op otherwise).
-      pushDeck(qa, file.name);
+      // Mark the local deck as changed NOW, so sync never lets an older remote
+      // deck overwrite this import even if the upload below is interrupted.
+      localStorage.setItem(KEYS.DECK_UPDATED_AT, new Date().toISOString());
       updateQACount(qa.length);
       updateStartButton(qa.length);
       updateSetupAccess(get(KEYS.SETUP_COMPLETE) === '1');
       showImportStatus('✅ Successfully imported ' + qa.length + ' question' + (qa.length !== 1 ? 's' : '') + ' from ' + file.name, 'success');
+
+      // Dual-write to the cloud when signed in (null = logged out, fine).
+      const pushed = await pushDeck(qa, file.name);
+      if (pushed === false) {
+        showImportStatus('✅ Imported ' + qa.length + ' questions (⚠️ cloud sync failed — the deck is saved on this device and will sync on your next sign-in)', 'info');
+      }
 
 
     } catch (error) {
