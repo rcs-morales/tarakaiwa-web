@@ -2,11 +2,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/svelte';
 import { fireEvent, waitFor } from '@testing-library/dom';
 
-// session.js drags in the whole practice stack (tts/stt/avatar) — stub the
-// two bindings the sheet reads. auth.js would construct a supabase client.
-vi.mock('$lib/session.js', () => ({
-  QA: [{ q: 'こんにちは', a: 'こんにちは' }],
-  isDefaultDeck: true,
+// session.svelte.js drags in the whole practice stack (tts/stt/avatar) — stub
+// the state object the sheet reads. auth.js would construct a supabase client.
+vi.mock('$lib/session.svelte.js', () => ({
+  session: { qa: [{ q: 'こんにちは', a: 'こんにちは' }], isDefaultDeck: true },
 }));
 
 const signInWithEmail = vi.fn(async () => ({ error: null }));

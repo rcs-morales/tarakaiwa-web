@@ -28,6 +28,7 @@ const SYNC_EXCLUDE = new Set([
   KEYS.QA_DATA,
   KEYS.DECK_ID,
   KEYS.DECK_UPDATED_AT,
+  KEYS.SESSION_HISTORY, // device-local; the cloud record is session_results
 ]);
 
 const SYNC_KEYS = Object.values(KEYS).filter((k) => !SYNC_EXCLUDE.has(k));
@@ -250,6 +251,33 @@ export async function saveSessionResult(payload) {
   } catch (e) {
     console.error('session result save failed:', e.message || e);
   }
+}
+
+/**
+ * Fetch the signed-in user's recent practice runs (newest first) in the
+ * shape history.svelte.js uses. Returns null when logged out or on error.
+ */
+export async function fetchSessionHistory(limit = 100) {
+  const user = getCurrentUser();
+  if (!user) return null;
+
+  const { data, error } = await supabaseClient
+    .from('session_results')
+    .select('created_at, score, total, jlpt_level')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.error('session history fetch failed:', error.message);
+    return null;
+  }
+  return (data || []).map((r) => ({
+    at: r.created_at,
+    score: r.score,
+    total: r.total,
+    jlpt: r.jlpt_level,
+  }));
 }
 
 // ─────────────────────────────────────────────

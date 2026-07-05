@@ -1,6 +1,6 @@
 import { DEFAULT_QA } from './data.js';
 import {
-  updateQACount, updateStartButton, showApiKeyStatus, toggleKeyVisibility,
+  showApiKeyStatus, toggleKeyVisibility,
   showStartScreen
 } from './ui.js';
 import {
@@ -18,10 +18,10 @@ import {
 import { abortRecognition, releaseMic } from './stt.js';
 import { get, set, remove, KEYS } from './settings.js';
 import {
-  startPractice, toggleQuestionText, translateQuestion,
+  toggleQuestionText, translateQuestion,
   finishRecording, checkAnswer, rerecordAnswer, nextQuestion,
-  skipQuestion, endSession, setQA, QA, isDefaultDeck
-} from './session.js';
+  skipQuestion, endSession, setQA, session
+} from './session.svelte.js';
 import {
   handleAssistantQuery, initAiPanelInteractivity, initAssistantFloatButton,
   assistantHistory
@@ -34,6 +34,7 @@ import {
   signInWithEmail, signInWithGoogle, signOut
 } from './auth.js';
 import { registerSettingsSync, onLogin, onLogout } from './sync.js';
+import { syncFromRemote, resetToLocal } from './history.svelte.js';
 import { updateQuotaDisplay } from './quota.js';
 import { initTheme, toggleTheme, applyTheme } from './theme.js';
 
@@ -41,12 +42,12 @@ import { initTheme, toggleTheme, applyTheme } from './theme.js';
 
 /** All phrases a full session can speak: deck questions + stock phrases. */
 function voicePackTexts() {
-  return [...QA.map(q => q.q), ...VOICEVOX_STOCK_PHRASES];
+  return [...session.qa.map(q => q.q), ...VOICEVOX_STOCK_PHRASES];
 }
 
 /** Kick off a quiet background download of any uncached audio (voicevox only). */
 function warmVoicesIfNeeded() {
-  if (get(KEYS.TTS_MODE) !== 'voicevox' || QA.length === 0) return;
+  if (get(KEYS.TTS_MODE) !== 'voicevox' || session.qa.length === 0) return;
   startVoicevoxWarmup(voicePackTexts());
 }
 
@@ -110,8 +111,6 @@ function restartApp() {
   assistantHistory.splice(0, assistantHistory.length);
   showStartScreen();
   updateQuotaDisplay();
-  updateQACount(QA.length, isDefaultDeck);
-  updateStartButton(QA.length);
 }
 
 // Reflect the current stored settings into the wizard controls. Safe to call
@@ -207,8 +206,6 @@ export function initApp() {
   } else {
     setQA(DEFAULT_QA.slice(0, 10), { isDefault: true });
   }
-  updateQACount(QA.length, isDefaultDeck);
-  updateStartButton(QA.length);
 
   const savedProvider = get(KEYS.API_PROVIDER);
   if (savedProvider && savedProvider !== 'groq') {
@@ -242,7 +239,8 @@ export function initApp() {
   bind('btn-test-api', testApiConnection);
   bind('btn-clear-api', clearApiKey);
   bind('btn-toggle-key', toggleKeyVisibility);
-  bind('btn-start-practice', startPractice);
+  // btn-start-practice is wired inside Dashboard.svelte (onclick={startPractice},
+  // kept synchronous for the mobile audio unlock).
   bind('btn-toggle-question', toggleQuestionText);
   bind('btn-translate', translateQuestion);
   bind('btn-submit', finishRecording);
@@ -398,8 +396,6 @@ export function initApp() {
     if (!Array.isArray(qa) || qa.length === 0) return;
     setQA(qa);
     set(KEYS.QA_DATA, JSON.stringify(qa));
-    updateQACount(qa.length, isDefaultDeck);
-    updateStartButton(qa.length);
     warmVoicesIfNeeded();
     refreshVoicePackStatus();
   });
@@ -412,9 +408,14 @@ export function initApp() {
     updateQuotaDisplay();
     const uid = user?.id ?? null;
     if (uid && uid !== lastUserId) {
-      // Transitioned into a signed-in state → pull settings + decks.
-      const hasLocalCustomDeck = !isDefaultDeck && QA.length > 0;
+      // Transitioned into a signed-in state → pull settings + decks, and show
+      // the cross-device practice history on the dashboard.
+      const hasLocalCustomDeck = !session.isDefaultDeck && session.qa.length > 0;
       onLogin(hasLocalCustomDeck);
+      syncFromRemote();
+    } else if (!uid && lastUserId) {
+      // Signed out — fall back to this device's own history.
+      resetToLocal();
     }
     lastUserId = uid;
   };
