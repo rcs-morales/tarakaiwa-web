@@ -5,6 +5,8 @@
   onMount(initApp);
 </script>
 
+<button id="btn-theme-toggle" class="theme-toggle" title="Switch theme">🌙</button>
+
 <header>
   <div class="title-jp">TaraKaiwa</div>
   <div class="title-en">A Japanese Speaking Practice App</div>

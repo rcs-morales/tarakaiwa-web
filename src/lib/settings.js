@@ -21,6 +21,8 @@ export const KEYS = {
   SOURCE_LANGUAGE: 'source_language',
   SETUP_COMPLETE: 'setup_complete',
   TUTORIAL_DONE: 'tutorial_done',
+  // 'light' | 'dark'; absent = follow the system preference. Synced.
+  THEME: 'app_theme',
   // Device-local id of the synced deck row (never synced itself).
   DECK_ID: 'synced_deck_id',
   // Device-local timestamp of the last local deck change — used by sync.js so
