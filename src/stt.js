@@ -1,5 +1,5 @@
 import { setStatus, showTranscript, showBtn } from './ui.js';
-import { hasGroqApiKey } from './ai/index.js';
+import { hasAIAccess } from './ai/index.js';
 import { getIsChecking } from './sessionFlags.js';
 
 let recog = null;
@@ -176,8 +176,8 @@ export async function startAIRecording(onError) {
     return false;
   }
 
-  if (!hasGroqApiKey()) {
-    onError('AI Whisper requires a Groq API key. Save your key in settings, or use Browser speech recognition.');
+  if (!hasAIAccess()) {
+    onError('AI Whisper requires signing in or a Groq API key. Save a key in settings, sign in, or use Browser speech recognition.');
     return false;
   }
 

@@ -5,7 +5,7 @@ import {
 } from './ui.js';
 import {
   getGradingModel, saveGradingModel, updateAIStatusChip,
-  saveApiKeyFromInput, clearApiKey, hasGroqApiKey, getGroqApiKey,
+  saveApiKeyFromInput, clearApiKey, getGroqApiKey,
   testApiConnection
 } from './ai/index.js';
 import { bugReporter } from './bugReporter.js';
@@ -30,6 +30,7 @@ import {
   signInWithEmail, signInWithGoogle, signOut
 } from './auth.js';
 import { registerSettingsSync, onLogin, onLogout } from './sync.js';
+import { fetchQuotaUsage, formatQuotaDisplay, isQuotaLow } from './quota.js';
 
 // ─────────────────────────────────────────────
 // SETUP FLOW
@@ -412,6 +413,8 @@ document.addEventListener('DOMContentLoaded', () => {
   let lastUserId = null;
   const handleUser = (user) => {
     updateAccountUI(user);
+    updateAIStatusChip();
+    updateQuotaDisplay();
     const uid = user?.id ?? null;
     if (uid && uid !== lastUserId) {
       // Transitioned into a signed-in state → pull settings + decks.

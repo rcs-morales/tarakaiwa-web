@@ -13,6 +13,8 @@ vi.mock('../src/ui.js', () => ({
 vi.mock('../src/ai/groqClient.js', () => ({
   hasGroqApiKey: vi.fn(),
   getGroqApiKey: vi.fn(),
+  hasAIAccess: vi.fn(),
+  resolveAIRoute: vi.fn(),
 }));
 
 
@@ -59,7 +61,7 @@ describe('Speech-to-Text (STT) Unit Tests', () => {
       stop() {}
       static isTypeSupported() { return true; }
     });
-    vi.spyOn(aiIndex, 'hasGroqApiKey').mockReturnValue(true);
+    vi.spyOn(aiIndex, 'hasAIAccess').mockReturnValue(true);
 
     await stt.startAIRecording(onError);
 
@@ -139,20 +141,26 @@ describe('AI Whisper Integration Tests', () => {
     vi.stubGlobal('fetch', vi.fn());
   });
 
-  it('should return null if API key is missing', async () => {
-    aiIndex.hasGroqApiKey.mockReturnValue(false);
+  const byoRoute = {
+    chatUrl: 'https://api.groq.com/openai/v1/chat/completions',
+    transcribeUrl: 'https://api.groq.com/openai/v1/audio/transcriptions',
+    headers: { Authorization: 'Bearer gsk_test' },
+  };
+
+  it('should return null if there is no AI access (no key, not signed in)', async () => {
+    aiIndex.resolveAIRoute.mockReturnValue(null);
     const result = await transcribeWithWhisper(new Blob(['test'], { type: 'audio/webm' }));
     expect(result).toBeNull();
   });
 
   it('should return null for empty audio blob', async () => {
-    aiIndex.hasGroqApiKey.mockReturnValue(true);
+    aiIndex.resolveAIRoute.mockReturnValue(byoRoute);
     const result = await transcribeWithWhisper(new Blob([], { type: 'audio/webm' }));
     expect(result).toBeNull();
   });
 
   it('should successfully transcribe audio via Groq API', async () => {
-    aiIndex.hasGroqApiKey.mockReturnValue(true);
+    aiIndex.resolveAIRoute.mockReturnValue(byoRoute);
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ text: 'こんにちは世界' })
@@ -165,7 +173,7 @@ describe('AI Whisper Integration Tests', () => {
   });
 
   it('should return null and log error on API failure', async () => {
-    aiIndex.hasGroqApiKey.mockReturnValue(true);
+    aiIndex.resolveAIRoute.mockReturnValue(byoRoute);
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: false,
       status: 401,

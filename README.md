@@ -86,6 +86,8 @@ npm test
 | src/sync.js | localStorage ⇄ Supabase sync for settings, decks, and results |
 | src/supabase.js | Supabase client initialization |
 | supabase/migrations/ | SQL migrations for accounts, sync, and quota tables |
+| functions/api/ | Cloudflare Pages Functions proxy (`chat`, `transcribe`) that hide the Groq key |
+| functions/_lib/ | Shared proxy helpers: JWT auth check, quota enforcement |
 | src/db.js | IndexedDB wrapper for cached audio and local data |
 | src/import.js | Parsing and import of external Q&A datasets |
 | src/stt.js | Speech-to-text logic |
@@ -127,6 +129,49 @@ devices. Logged-out behaviour is unchanged.
 Supabase free projects pause after ~7 idle days. A GitHub Actions workflow
 (`.github/workflows/keepalive.yml`) pings the REST API twice weekly. Add two repo
 secrets so it can run: `SUPABASE_URL` and `SUPABASE_ANON_KEY`.
+
+## 🔑 Hidden API key & quotas (server proxy)
+
+By default the app never exposes a Groq key in the browser. AI requests route by
+priority:
+
+1. **Your own Groq key** (optional, entered in Settings → Step 2): sent directly
+   to Groq, unlimited and quota-free — the personal escape hatch.
+2. **Signed in, no key**: routed through a Cloudflare Pages Function
+   (`/api/chat`, `/api/transcribe`) that verifies your Supabase session, enforces
+   a shared daily quota, and forwards the request using a server-side key you
+   never see.
+3. **Neither**: local offline grading + browser speech recognition.
+
+### Cloudflare setup (one-time)
+
+The proxy lives in `functions/` and deploys automatically with the Pages site —
+no build config needed. Add these as **encrypted environment variables** in the
+Cloudflare Pages project (Settings → Environment variables):
+
+| Variable | Value |
+|---|---|
+| `GROQ_API_KEY` | Your Groq secret key (`gsk_…`) |
+| `SUPABASE_URL` | Your Supabase project URL |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase **service-role** key (Settings → API) — server-only, never ship to the client |
+
+Then apply migration `supabase/migrations/0002_api_usage_quota.sql` (adds the
+atomic `increment_api_usage()` quota function). Daily limits live in
+`functions/_lib/quota.js` (defaults: 200 chat requests, 600 Whisper-seconds).
+
+### Testing the proxy locally
+
+`npm run dev` (Vite) serves only the static app — the `/api/*` functions aren't
+running, so a signed-in user without a BYO key can't reach AI locally. To
+exercise the proxy on your machine, run it through Cloudflare's emulator:
+
+```bash
+npm run build
+npx wrangler pages dev dist --compatibility-date=2024-01-01
+```
+
+(supply the same env vars via `--binding` / a `.dev.vars` file). Or just test the
+BYO-key path locally, which talks to Groq directly.
 
 ## 🗺️ Roadmap
 
