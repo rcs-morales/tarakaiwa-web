@@ -38,7 +38,7 @@ function normalizeJapaneseTranslation(raw) {
  * @returns {Promise<{response?: string, error?: string}>}
  */
 export async function askStudyAssistant(query, history = []) {
-  const route = resolveAIRoute();
+  const route = await resolveAIRoute();
   if (!route) return { error: 'MISSING_KEY' };
 
   try {
@@ -87,7 +87,7 @@ export async function askStudyAssistant(query, history = []) {
  * @returns {Promise<{japanese?: string, error?: string}>}
  */
 export async function translateToJapaneseWithAI(text, sourceLang = 'English') {
-  const route = resolveAIRoute();
+  const route = await resolveAIRoute();
   if (!route) return { error: 'MISSING_KEY' };
 
   try {
@@ -164,7 +164,7 @@ export async function translateToJapaneseWithAI(text, sourceLang = 'English') {
 }
 
 export async function translateWithAI(japaneseText, context = '') {
-  const route = resolveAIRoute();
+  const route = await resolveAIRoute();
   if (!route) return null;
 
   try {

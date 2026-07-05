@@ -16,7 +16,7 @@ import { resolveAIRoute } from './groqClient.js';
  * @returns {Promise<string|null>}
  */
 export async function transcribeForTool(audioBlob) {
-  const route = resolveAIRoute();
+  const route = await resolveAIRoute();
   if (!route) return null;
   if (!audioBlob || audioBlob.size === 0) return null;
 
@@ -49,7 +49,7 @@ export async function transcribeForTool(audioBlob) {
 }
 
 export async function transcribeWithWhisper(audioBlob, expectedAnswer = '') {
-  const route = resolveAIRoute();
+  const route = await resolveAIRoute();
   if (!route) return null;
   if (!audioBlob || audioBlob.size === 0) {
     console.error('Whisper request skipped: empty audio blob');

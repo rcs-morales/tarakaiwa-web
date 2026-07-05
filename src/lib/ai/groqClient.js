@@ -5,7 +5,7 @@
 import { GROQ_GRADING_MODELS} from '../data.js';
 import { showApiKeyStatus } from '../ui.js';
 import { get, set, remove, KEYS } from '../settings.js';
-import { isLoggedIn, getAccessToken } from '../auth.js';
+import { isLoggedIn, getFreshAccessToken } from '../auth.js';
 
 /**
  * Return the stored Groq API key, checking both current and legacy storage keys.
@@ -36,9 +36,12 @@ export function hasAIAccess() {
  *     Supabase JWT (the proxy holds the shared, quota-limited Groq key).
  *   - Neither: null — callers should fall back to local grading / show a
  *     "sign in or add a key" message.
- * @returns {{ chatUrl: string, transcribeUrl: string, headers: Record<string,string> } | null}
+ *
+ * Async because the proxy path fetches a guaranteed-fresh Supabase token
+ * (an expired cached one would 401 at the proxy).
+ * @returns {Promise<{ chatUrl: string, transcribeUrl: string, headers: Record<string,string> } | null>}
  */
-export function resolveAIRoute() {
+export async function resolveAIRoute() {
   const apiKey = getGroqApiKey();
   if (apiKey) {
     return {
@@ -48,7 +51,7 @@ export function resolveAIRoute() {
     };
   }
 
-  const token = getAccessToken();
+  const token = await getFreshAccessToken();
   if (token) {
     return {
       chatUrl: '/api/chat',

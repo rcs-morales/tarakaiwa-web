@@ -14,6 +14,7 @@ vi.mock('../src/lib/settings.js', () => ({
 vi.mock('../src/lib/auth.js', () => ({
   isLoggedIn: vi.fn(),
   getAccessToken: vi.fn(),
+  getFreshAccessToken: vi.fn(),
 }));
 
 import { resolveAIRoute, hasAIAccess } from '../src/lib/ai/groqClient.js';
@@ -23,42 +24,42 @@ import * as auth from '../src/lib/auth.js';
 describe('resolveAIRoute', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('routes directly to Groq with a BYO key', () => {
+  it('routes directly to Groq with a BYO key', async () => {
     settings.get.mockReturnValue('gsk_mykey');
     auth.isLoggedIn.mockReturnValue(false);
-    auth.getAccessToken.mockReturnValue(null);
+    auth.getFreshAccessToken.mockResolvedValue(null);
 
-    const route = resolveAIRoute();
+    const route = await resolveAIRoute();
     expect(route.chatUrl).toContain('api.groq.com');
     expect(route.transcribeUrl).toContain('api.groq.com');
     expect(route.headers.Authorization).toBe('Bearer gsk_mykey');
   });
 
-  it('routes through the proxy when signed in without a key', () => {
+  it('routes through the proxy when signed in without a key', async () => {
     settings.get.mockReturnValue(null);
     auth.isLoggedIn.mockReturnValue(true);
-    auth.getAccessToken.mockReturnValue('jwt_token');
+    auth.getFreshAccessToken.mockResolvedValue('jwt_token');
 
-    const route = resolveAIRoute();
+    const route = await resolveAIRoute();
     expect(route.chatUrl).toBe('/api/chat');
     expect(route.transcribeUrl).toBe('/api/transcribe');
     expect(route.headers.Authorization).toBe('Bearer jwt_token');
   });
 
-  it('returns null with neither a key nor a session', () => {
+  it('returns null with neither a key nor a session', async () => {
     settings.get.mockReturnValue(null);
     auth.isLoggedIn.mockReturnValue(false);
-    auth.getAccessToken.mockReturnValue(null);
+    auth.getFreshAccessToken.mockResolvedValue(null);
 
-    expect(resolveAIRoute()).toBeNull();
+    expect(await resolveAIRoute()).toBeNull();
   });
 
-  it('prefers the BYO key over the proxy when both are present', () => {
+  it('prefers the BYO key over the proxy when both are present', async () => {
     settings.get.mockReturnValue('gsk_mykey');
     auth.isLoggedIn.mockReturnValue(true);
-    auth.getAccessToken.mockReturnValue('jwt_token');
+    auth.getFreshAccessToken.mockResolvedValue('jwt_token');
 
-    expect(resolveAIRoute().headers.Authorization).toBe('Bearer gsk_mykey');
+    expect((await resolveAIRoute()).headers.Authorization).toBe('Bearer gsk_mykey');
   });
 });
 
