@@ -8,7 +8,6 @@ import * as parser from '../src/lib/parser.js';
 vi.mock('../src/lib/ui.js', () => ({
   updateQACount: vi.fn(),
   updateStartButton: vi.fn(),
-  updateSetupAccess: vi.fn(),
   showImportStatus: vi.fn(),
 }));
 

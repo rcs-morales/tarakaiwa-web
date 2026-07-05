@@ -1,104 +1,140 @@
 <script>
   import { onMount } from 'svelte';
   import { initApp } from '$lib/app.js';
+  import Shell from '$lib/components/Shell.svelte';
+  import Onboarding from '$lib/components/Onboarding.svelte';
+  import { shell } from '$lib/shell.svelte.js';
 
   onMount(initApp);
 </script>
 
-<button id="btn-theme-toggle" class="theme-toggle" title="Switch theme">🌙</button>
+<Shell>
 
-<header>
-  <div class="title-jp">TaraKaiwa</div>
-  <div class="title-en">A Japanese Speaking Practice App</div>
-</header>
+  <!-- ══ PRACTICE TAB ══ -->
+  <!-- Panels are toggled with the hidden class only — never unmounted, so the
+       Live2D canvas in #avatar-container survives tab switches. -->
+  <section class="tab-panel" class:hidden={shell.tab !== 'practice'}>
+    <div class="card">
 
-<div class="card">
-
-  <!-- ── START SCREEN ── -->
-  <div id="screen-start">
-    <div class="big-icon">🎙️</div>
-    <h2>Ready to Practice?</h2>
-    <p>The app will read each question aloud in Japanese.<br>Speak your answer clearly into your microphone.<br>Your
-      answer will be checked automatically. <br>(Try the 10 sample N5 questions by clicking "Start Practice")<br></p>
-    <div class="info-chips">
-      <span class="chip"><span id="qa-count-chip">🗂 No Questions Loaded</span></span>
-      <span class="chip">🇯🇵 Japanese</span>
-      <span class="chip">🎤 Voice Input</span>
-      <span class="chip chip-ai" id="ai-status-chip">🧠 AI Grading: <span id="ai-status-text">Not
-          configured</span></span>
-      <span class="chip hidden" id="quota-chip" style="font-size: 0.85rem; color: var(--muted);"><span id="quota-text"></span></span>
-    </div>
-
-    <!-- Account status bar (always visible) -->
-    <div id="account-bar" style="text-align: center; margin-bottom: 12px; font-size: 0.8rem; color: var(--muted);">
-      <span id="account-bar-status">🔓 Not signed in — practice saves to this device only</span>
-      <button class="btn btn-secondary btn-sm" id="btn-account-open" style="margin-left: 8px;">👤 Account</button>
-    </div>
-
-    <!-- Setup Entry Point -->
-    <div id="setup-entry-point" style="text-align: center; margin-bottom: 20px;">
-      <button class="btn btn-primary" id="btn-setup-env">⚙️ Setup Practice Environment</button>
-    </div>
-
-    <!-- Return to Setup (shown after setup is complete) -->
-    <div id="setup-return-point" class="hidden" style="text-align: center; margin-bottom: 20px;">
-      <button class="btn btn-secondary" id="btn-reopen-setup">⚙️ Edit Settings</button>
-    </div>
-
-    <!-- Settings Wizard Section -->
-    <div class="settings-section hidden" id="ai-settings-section" data-mode="wizard">
-
-      <!-- Settings Menu (Edit Mode Only) -->
-      <div id="settings-menu-section" class="edit-only hidden">
-        <h3 style="text-align: center; margin-bottom: 20px;">⚙️ Edit Settings</h3>
-        <div style="display: flex; flex-direction: column; gap: 12px; max-width: 400px; margin: 0 auto;">
-          <button class="btn btn-secondary" id="btn-menu-account" style="justify-content: flex-start; padding: 14px;">👤 Account & Sync</button>
-          <button class="btn btn-secondary" id="btn-menu-step1" style="justify-content: flex-start; padding: 14px;">📁 Edit Q&A Database</button>
-          <button class="btn btn-secondary" id="btn-menu-step2" style="justify-content: flex-start; padding: 14px;">🧠 Edit AI Grading (Groq)</button>
-          <button class="btn btn-secondary" id="btn-menu-step3" style="justify-content: flex-start; padding: 14px;">🔊 Edit Voice & Avatar</button>
+      <!-- ── START SCREEN ── -->
+      <div id="screen-start">
+        <div class="big-icon">🎙️</div>
+        <h2>Ready to Practice?</h2>
+        <p>The app will read each question aloud in Japanese.<br>Speak your answer clearly into your microphone.<br>Your
+          answer will be checked automatically. <br>(Try the 10 sample N5 questions by clicking "Start Practice")<br></p>
+        <div class="info-chips">
+          <span class="chip"><span id="qa-count-chip">🗂 No Questions Loaded</span></span>
+          <span class="chip">🇯🇵 Japanese</span>
+          <span class="chip">🎤 Voice Input</span>
+          <span class="chip chip-ai" id="ai-status-chip">🧠 AI Grading: <span id="ai-status-text">Not
+              configured</span></span>
         </div>
-        <div style="margin-top: 28px; text-align: center;">
-          <button class="btn btn-primary" id="btn-close-settings-menu">Done ✔</button>
+
+        <div style="display: flex; justify-content: center; gap: 10px; align-items: center; margin-top: 20px;">
+          <button class="btn btn-primary btn-disabled" id="btn-start-practice" disabled>
+            ⏳ Import a Q&amp;A database to begin
+          </button>
+          <button class="btn btn-secondary btn-sm btn-report-bug">🐞 Report Bug</button>
         </div>
       </div>
 
-      <!-- Account & Sync -->
-      <div id="setup-step-account" class="hidden">
-        <h3>👤 Account &amp; Sync</h3>
-        <p style="font-size: 0.85rem; color: var(--muted);">
-          Sign in to sync your settings, decks and scores across devices. Optional —
-          the app works fully offline without an account.
-        </p>
+      <!-- ── PRACTICE SCREEN ── -->
+      <div id="screen-practice" class="hidden">
+        <div id="avatar-container"></div>
+        <div class="progress-label" id="progress-label">Question 1 / 16</div>
+        <div class="progress-bar-wrap">
+          <div class="progress-bar-fill" id="progress-bar"></div>
+        </div>
 
-        <div id="account-signed-out">
-          <form class="api-key-row" id="magic-link-form" style="margin-top: 8px;">
-            <input type="email" id="account-email-input" class="api-key-input"
-              placeholder="you@example.com" autocomplete="email" />
-          </form>
-          <div class="import-buttons" style="margin-top: 8px;">
-            <button class="btn btn-import" id="btn-send-magic-link">📧 Send Magic Link</button>
-            <button class="btn btn-secondary" id="btn-google-signin">Continue with Google</button>
+        <div class="question-label" style="display: flex; justify-content: space-between; align-items: center;">
+          <span>Question</span>
+          <button class="btn btn-secondary" id="btn-toggle-question" style="padding: 4px 8px; font-size: 0.8rem; height: auto; min-height: 0;">👁 Show Text</button>
+        </div>
+        <div class="question-text" id="question-text" style="display: none;">—</div>
+        <div class="translate-row" id="translate-row" style="display: none;">
+          <span class="translate-link" id="btn-translate">🌐 Translate</span>
+          <div class="translate-result" id="translate-result"></div>
+        </div>
+
+        <div class="warning-box" id="warning-box">
+          ⚠️ Microphone access is required. Please allow microphone permission when prompted,
+
+          then click <strong>Retry</strong>.
+        </div>
+
+        <div class="status-area">
+          <div class="pulse-dot" id="pulse"></div>
+          <div class="status-text" id="status-text">Initializing...</div>
+        </div>
+
+        <div class="target-answer-box" id="target-answer-box">
+          <div class="target-label" id="target-label">🎯 Target Answer</div>
+          <div id="target-answer-text">—</div>
+          <div id="target-romaji-text" class="target-romaji">—</div>
+        </div>
+
+        <div class="transcript-box" id="transcript-box">
+          <span class="transcript-placeholder" id="transcript-placeholder">Your spoken answer will appear here (as
+            recognized)…</span>
+          <div id="transcript-content" class="hidden"></div>
+        </div>
+
+        <div class="result-badge" id="result-badge">
+          <span class="icon" id="result-icon"></span>
+          <div class="result-badge-content">
+            <div id="result-msg"></div>
+            <div class="answer-reveal" id="answer-reveal"></div>
+            <div id="answer-translation" class="ai-feedback-text" style="font-style: normal; opacity: 0.8; margin-bottom: 4px;"></div>
+            <div class="ai-feedback" id="ai-feedback"></div>
           </div>
-          <p style="font-size: 0.72rem; color: var(--muted); margin-top: 6px;">
-            We'll email you a one-time sign-in link — no password required.
-          </p>
         </div>
 
-        <div id="account-signed-in" class="hidden" style="margin-top: 8px;">
-          <p style="font-size: 0.9rem;">Signed in as <strong id="account-email-display">—</strong></p>
-          <button class="btn btn-secondary" id="btn-sign-out" style="margin-top: 8px;">Sign Out</button>
-        </div>
-
-        <div class="import-status" id="account-status-msg"></div>
-
-        <div style="margin-top: 20px; text-align: left;" class="edit-only">
-          <button class="btn btn-secondary btn-back-to-menu">⬅ Back to Menu</button>
+        <div class="btn-row">
+          <div class="btn-group-record">
+            <button class="btn btn-submit hidden" id="btn-submit">■ Finish Recording</button>
+            <button class="btn btn-primary hidden" id="btn-check">✔ Check Answer</button>
+            <button class="btn btn-secondary hidden" id="btn-rerecord">🎤 Re-record</button>
+          </div>
+          <button class="btn btn-primary hidden" id="btn-next">Next →</button>
+          <button class="btn btn-secondary" id="btn-skip">Skip ▷</button>
+          <button class="btn btn-danger" id="btn-end-session">✕ End</button>
         </div>
       </div>
 
-      <!-- Step 1: Import Q&A Database -->
-      <div id="import-section">
-        <h3>📁 Step 1: Import Your Q&A Database</h3>
+      <!-- ── RESULTS SCREEN ── -->
+      <div id="screen-results" class="hidden">
+        <div class="score-hero">
+          <div class="score-big" id="score-display">0/16</div>
+          <div class="score-label">Final Score</div>
+          <div class="score-bar-wrap">
+            <div class="score-bar" id="score-bar" style="width:0%"></div>
+          </div>
+          <div id="score-message" style="color:var(--muted);font-size:0.9rem;"></div>
+        </div>
+
+        <hr class="divider">
+
+        <div class="results-list" id="results-list"></div>
+
+        <hr class="divider">
+
+        <div class="btn-row" style="justify-content:center;">
+          <button class="btn btn-primary" id="btn-restart-app">↺ Restart</button>
+        </div>
+        <div style="text-align: center; margin-top: 20px;">
+          <button class="btn btn-secondary btn-sm btn-report-bug">🐞 Report Bug</button>
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ══ DECKS TAB ══ -->
+  <section class="tab-panel" class:hidden={shell.tab !== 'decks'}>
+    <div class="card">
+      <div class="settings-section" id="import-section">
+        <h3>📁 Your Q&amp;A Deck</h3>
         <p>Load your custom questions and answers from Excel, JSON or CSV file:</p>
         <p style="font-size: 0.75rem; color: var(--muted); margin-bottom: 6px;">
           <strong>Excel format:</strong> .xlsx or .xls file with two columns (Question, Answer)<br>
@@ -125,17 +161,61 @@
             Turn off to practice questions in the same order as your file.
           </p>
         </div>
-        <div style="margin-top: 20px; text-align: right;" class="wizard-only">
-          <button class="btn btn-primary" id="btn-setup-next-import">Next: AI Grading Settings →</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ PROGRESS TAB ══ -->
+  <section class="tab-panel" class:hidden={shell.tab !== 'progress'}>
+    <div class="card">
+      <div id="progress-placeholder" style="text-align: center; padding: 32px 8px;">
+        <div class="big-icon">📈</div>
+        <h2>Progress</h2>
+        <p style="color: var(--muted); font-size: 0.9rem; margin-top: 8px;">
+          Session history and score trends are coming soon.<br>
+          Finish a practice session and check back here.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ SETTINGS TAB ══ -->
+  <section class="tab-panel" class:hidden={shell.tab !== 'settings'}>
+    <div class="card">
+
+      <!-- Account & Sync -->
+      <div class="settings-section" id="setup-step-account">
+        <h3>👤 Account &amp; Sync</h3>
+        <p style="font-size: 0.85rem; color: var(--muted);">
+          Sign in to sync your settings, decks and scores across devices. Optional —
+          the app works fully offline without an account.
+        </p>
+
+        <div id="account-signed-out">
+          <form class="api-key-row" id="magic-link-form" style="margin-top: 8px;">
+            <input type="email" id="account-email-input" class="api-key-input"
+              placeholder="you@example.com" autocomplete="email" />
+          </form>
+          <div class="import-buttons" style="margin-top: 8px;">
+            <button class="btn btn-import" id="btn-send-magic-link">📧 Send Magic Link</button>
+            <button class="btn btn-secondary" id="btn-google-signin">Continue with Google</button>
+          </div>
+          <p style="font-size: 0.72rem; color: var(--muted); margin-top: 6px;">
+            We'll email you a one-time sign-in link — no password required.
+          </p>
         </div>
-        <div style="margin-top: 20px; text-align: left;" class="edit-only">
-          <button class="btn btn-secondary btn-back-to-menu">⬅ Back to Menu</button>
+
+        <div id="account-signed-in" class="hidden" style="margin-top: 8px;">
+          <p style="font-size: 0.9rem;">Signed in as <strong id="account-email-display">—</strong></p>
+          <button class="btn btn-secondary" id="btn-sign-out" style="margin-top: 8px;">Sign Out</button>
         </div>
+
+        <div class="import-status" id="account-status-msg"></div>
       </div>
 
-      <!-- Step 2: API Key + Grading -->
-      <div id="setup-step-api-key" class="hidden">
-        <h3>🧠 Step 2: AI Answer Grading (Groq)</h3>
+      <!-- AI Grading (Groq) -->
+      <div class="settings-section" id="setup-step-api-key">
+        <h3>🧠 AI Answer Grading (Groq)</h3>
         <p><strong>Optional — the app works signed in without a key.</strong> Add your own Groq API key to
           bypass the shared daily quota and use your own allowance. Signed-in users without a key
           share a daily limit (200 chat requests, 600 Whisper-seconds).</p>
@@ -175,17 +255,11 @@
             Fast mode returns grading results sooner; Balanced mode is more reliable for nuanced answers.
           </p>
         </div>
-        <div style="margin-top: 20px; text-align: right;" class="wizard-only">
-          <button class="btn btn-primary" id="btn-next-to-preferences">Next: Voice & Avatar Settings →</button>
-        </div>
-        <div style="margin-top: 20px; text-align: left;" class="edit-only">
-          <button class="btn btn-secondary btn-back-to-menu">⬅ Back to Menu</button>
-        </div>
       </div>
 
-      <!-- Step 3: Voice/Avatar/Level -->
-      <div id="setup-step-settings" class="hidden">
-        <h3>🔊 Step 3: Voice & Avatar Settings</h3>
+      <!-- Voice & Avatar -->
+      <div class="settings-section" id="setup-step-settings">
+        <h3>🔊 Voice &amp; Avatar</h3>
         <div style="margin-bottom: 12px;">
           <label for="stt-mode-select" style="font-size: 0.85rem; font-weight: bold; margin-right: 8px;">Speech Recognition:</label>
           <select id="stt-mode-select"
@@ -258,115 +332,15 @@
             Choose the Live2D avatar you want to use when practice starts.
           </p>
         </div>
-        <div style="margin-top: 24px; text-align: right;" class="wizard-only">
-          <button class="btn btn-submit" id="btn-finish-setup" style="padding: 10px 24px; font-size: 0.9rem;">Finish Setup ✔</button>
-        </div>
-        <div style="margin-top: 24px; text-align: left;" class="edit-only">
-          <button class="btn btn-secondary btn-back-to-menu">⬅ Back to Menu</button>
-        </div>
       </div>
 
     </div>
+  </section>
 
-    <!-- Start Practice & Report Bug — landing page only -->
-    <div style="display: flex; justify-content: center; gap: 10px; align-items: center; margin-top: 20px;">
-      <button class="btn btn-primary btn-disabled" id="btn-start-practice" disabled>
-        ⏳ Import a Q&amp;A database to begin
-      </button>
-      <button class="btn btn-secondary btn-sm btn-report-bug">🐞 Report Bug</button>
-    </div>
-  </div>
+</Shell>
 
-  <!-- ── PRACTICE SCREEN ── -->
-  <div id="screen-practice" class="hidden">
-    <div id="avatar-container"></div>
-    <div class="progress-label" id="progress-label">Question 1 / 16</div>
-    <div class="progress-bar-wrap">
-      <div class="progress-bar-fill" id="progress-bar"></div>
-    </div>
+<Onboarding />
 
-    <div class="question-label" style="display: flex; justify-content: space-between; align-items: center;">
-      <span>Question</span>
-      <button class="btn btn-secondary" id="btn-toggle-question" style="padding: 4px 8px; font-size: 0.8rem; height: auto; min-height: 0;">👁 Show Text</button>
-    </div>
-    <div class="question-text" id="question-text" style="display: none;">—</div>
-    <div class="translate-row" id="translate-row" style="display: none;">
-      <span class="translate-link" id="btn-translate">🌐 Translate</span>
-      <div class="translate-result" id="translate-result"></div>
-    </div>
-
-    <div class="warning-box" id="warning-box">
-      ⚠️ Microphone access is required. Please allow microphone permission when prompted,
-
-      then click <strong>Retry</strong>.
-    </div>
-
-    <div class="status-area">
-      <div class="pulse-dot" id="pulse"></div>
-      <div class="status-text" id="status-text">Initializing...</div>
-    </div>
-
-    <div class="target-answer-box" id="target-answer-box">
-      <div class="target-label" id="target-label">🎯 Target Answer</div>
-      <div id="target-answer-text">—</div>
-      <div id="target-romaji-text" class="target-romaji">—</div>
-    </div>
-
-    <div class="transcript-box" id="transcript-box">
-      <span class="transcript-placeholder" id="transcript-placeholder">Your spoken answer will appear here (as
-        recognized)…</span>
-      <div id="transcript-content" class="hidden"></div>
-    </div>
-
-    <div class="result-badge" id="result-badge">
-      <span class="icon" id="result-icon"></span>
-      <div class="result-badge-content">
-        <div id="result-msg"></div>
-        <div class="answer-reveal" id="answer-reveal"></div>
-        <div id="answer-translation" class="ai-feedback-text" style="font-style: normal; opacity: 0.8; margin-bottom: 4px;"></div>
-        <div class="ai-feedback" id="ai-feedback"></div>
-      </div>
-    </div>
-
-    <div class="btn-row">
-      <div class="btn-group-record">
-        <button class="btn btn-submit hidden" id="btn-submit">■ Finish Recording</button>
-        <button class="btn btn-primary hidden" id="btn-check">✔ Check Answer</button>
-        <button class="btn btn-secondary hidden" id="btn-rerecord">🎤 Re-record</button>
-      </div>
-      <button class="btn btn-primary hidden" id="btn-next">Next →</button>
-      <button class="btn btn-secondary" id="btn-skip">Skip ▷</button>
-      <button class="btn btn-danger" id="btn-end-session">✕ End</button>
-    </div>
-  </div>
-
-  <!-- ── RESULTS SCREEN ── -->
-  <div id="screen-results" class="hidden">
-    <div class="score-hero">
-      <div class="score-big" id="score-display">0/16</div>
-      <div class="score-label">Final Score</div>
-      <div class="score-bar-wrap">
-        <div class="score-bar" id="score-bar" style="width:0%"></div>
-      </div>
-      <div id="score-message" style="color:var(--muted);font-size:0.9rem;"></div>
-    </div>
-
-    <hr class="divider">
-
-    <div class="results-list" id="results-list"></div>
-
-    <hr class="divider">
-
-    <div class="btn-row" style="justify-content:center;">
-      <button class="btn btn-primary" id="btn-restart-app">↺ Restart</button>
-    </div>
-    <div style="text-align: center; margin-top: 20px;">
-      <button class="btn btn-secondary btn-sm btn-report-bug">🐞 Report Bug</button>
-    </div>
-
-  </div>
-
-</div>  <!-- /card -->
 <div id="final-score-overlay" class="hidden">
   <div class="final-score-card">
     <div id="final-score-icon">🏆</div>
@@ -441,3 +415,14 @@
   </div>
   <div class="ai-panel-resizer"></div>
 </div>
+
+<style>
+  /* Panel wrapper replaces the old body-level centering: each tab centers its
+     card with the same spacing the body used to provide. */
+  .tab-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 32px 16px 64px;
+  }
+</style>

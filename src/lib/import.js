@@ -3,9 +3,9 @@ import {
   parseJSON, parseCSV, parseExcel, ensureXLSXLoaded
 } from './parser.js';
 import {
-  updateQACount, updateStartButton, updateSetupAccess, showImportStatus
+  updateQACount, updateStartButton, showImportStatus
 } from './ui.js';
-import { get, set, remove, KEYS } from './settings.js';
+import { set, remove, KEYS } from './settings.js';
 import { setQA } from './session.js';
 import { pushDeck } from './sync.js';
 
@@ -50,7 +50,6 @@ export async function handleFileImport(event) {
       localStorage.setItem(KEYS.DECK_UPDATED_AT, new Date().toISOString());
       updateQACount(qa.length);
       updateStartButton(qa.length);
-      updateSetupAccess(get(KEYS.SETUP_COMPLETE) === '1');
       showImportStatus('✅ Successfully imported ' + qa.length + ' question' + (qa.length !== 1 ? 's' : '') + ' from ' + file.name, 'success');
       // Let app.js warm the Voicevox cache / refresh the voice-pack indicator
       // (dispatched as an event to avoid an import cycle with app.js).
@@ -89,7 +88,6 @@ export function clearDatabase() {
   setQA([]);
   updateQACount(0);
   updateStartButton(0);
-  updateSetupAccess(get(KEYS.SETUP_COMPLETE) === '1');
   showImportStatus('🗑 Database cleared. Import a Q&A file to begin practice.', 'info');
   const fileInput = document.getElementById('file-input');
   if (fileInput) fileInput.value = '';
