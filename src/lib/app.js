@@ -31,6 +31,7 @@ import {
 } from './auth.js';
 import { registerSettingsSync, onLogin, onLogout } from './sync.js';
 import { updateQuotaDisplay } from './quota.js';
+import { initTheme, toggleTheme, applyTheme } from './theme.js';
 
 // ─────────────────────────────────────────────
 // SETUP FLOW
@@ -200,6 +201,10 @@ function updateAccountUI(user) {
 // Called from +page.svelte's onMount (the SvelteKit replacement for the old
 // DOMContentLoaded listener — the markup is guaranteed mounted by then).
 export function initApp() {
+  // Sync the theme toggle icon with the pre-paint theme from app.html, and
+  // start following OS preference changes.
+  initTheme();
+
   const savedQA = get(KEYS.QA_DATA);
   if (savedQA) {
     try {
@@ -239,6 +244,7 @@ export function initApp() {
     if (el) el.addEventListener('click', fn);
   };
 
+  bind('btn-theme-toggle', toggleTheme);
   bind('btn-setup-env', () => startSetupFlow());
   bind('btn-reopen-setup', reopenSetupFlow);
   bind('btn-restart-app', restartApp);
@@ -396,10 +402,12 @@ export function initApp() {
   // Install the settings-change hook (no-ops until signed in).
   registerSettingsSync();
 
-  // A login pull rewrote localStorage settings — refresh the controls + avatar.
+  // A login pull rewrote localStorage settings — refresh the controls, avatar,
+  // and theme (the synced choice may differ from this device's).
   window.addEventListener('settings-synced', () => {
     applySettingsToUI();
     initAvatar();
+    applyTheme();
   });
 
   // A synced deck arrived from the cloud — load it into the session + storage.
