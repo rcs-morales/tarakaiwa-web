@@ -159,32 +159,6 @@ export function showBtn(id, visible) {
   if (btn) btn.classList.toggle('hidden', !visible);
 }
 
-export function updateQACount(count, isDefault = false) {
-  const chip = document.getElementById('qa-count-chip');
-  if (!chip) return;
-  if (count === 0) {
-    chip.textContent = '🗂 No Questions Loaded';
-  } else if (isDefault) {
-    chip.textContent = '🎓 Sample Deck — ' + count + ' Question' + (count !== 1 ? 's' : '') + ' (import your own!)';
-  } else {
-    chip.textContent = '🗂 ' + count + ' Question' + (count !== 1 ? 's' : '');
-  }
-}
-
-export function updateStartButton(count) {
-  const btn = document.getElementById('btn-start-practice');
-  if (!btn) return;
-  if (count === 0) {
-    btn.disabled = true;
-    btn.textContent = '⏳ Import a Q&A database to begin';
-    btn.classList.add('btn-disabled');
-  } else {
-    btn.disabled = false;
-    btn.textContent = '▶ Start Practice';
-    btn.classList.remove('btn-disabled');
-  }
-}
-
 export function showImportStatus(message, type) {
   const statusDiv = document.getElementById('import-status');
   if (!statusDiv) return;

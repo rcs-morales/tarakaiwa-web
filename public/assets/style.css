@@ -1044,6 +1044,31 @@ rt {
   background: var(--ink-hover);
 }
 
+/* ── Mobile (Phase 5c): clear the fixed bottom tab bar, tighten the card,
+      and shrink the float buttons so they don't dominate a phone screen. */
+@media (max-width: 719px) {
+  .card {
+    padding: 22px 16px;
+    border-radius: 12px;
+  }
+
+  .btn-ai-float {
+    bottom: calc(84px + env(safe-area-inset-bottom));
+    right: 14px;
+    width: 48px;
+    height: 48px;
+    font-size: 1.4rem;
+  }
+
+  .btn-translate-float {
+    bottom: calc(142px + env(safe-area-inset-bottom));
+    right: 14px;
+    width: 48px;
+    height: 48px;
+    font-size: 1.4rem;
+  }
+}
+
 .translate-panel {
   height: 420px;
 }

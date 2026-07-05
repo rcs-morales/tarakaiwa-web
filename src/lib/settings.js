@@ -25,6 +25,10 @@ export const KEYS = {
   THEME: 'app_theme',
   // '1' (default) = shuffle question order each session; '0' = deck order.
   SHUFFLE_QUESTIONS: 'shuffle_questions',
+  // Device-local record of finished practice runs (newest first, capped) —
+  // the dashboard's stats source. The signed-in cross-device record lives in
+  // the session_results table instead; this key never syncs.
+  SESSION_HISTORY: 'session_history',
   // Device-local id of the synced deck row (never synced itself).
   DECK_ID: 'synced_deck_id',
   // Device-local timestamp of the last local deck change — used by sync.js so

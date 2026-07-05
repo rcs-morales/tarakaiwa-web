@@ -5,40 +5,26 @@
   // works with the sample deck, signed out.
   import { onMount } from 'svelte';
   import { get, set, KEYS } from '$lib/settings.js';
-  import { QA, isDefaultDeck } from '$lib/session.js';
+  import { session } from '$lib/session.svelte.js';
   import { signInWithEmail, signInWithGoogle, onAuthChange, getCurrentUser } from '$lib/auth.js';
   import { setTab } from '$lib/shell.svelte.js';
 
   let open = $state(false);
   let step = $state(1);
-  let deckCount = $state(0);
-  let deckIsSample = $state(true);
   let user = $state(null);
   let email = $state('');
   let authMsg = $state('');
   let authMsgType = $state('info');
 
-  function refreshDeck() {
-    deckCount = QA.length;
-    deckIsSample = isDefaultDeck;
-  }
+  // Deck info comes straight from the reactive session state — no event
+  // plumbing needed since Phase 5c.
+  const deckCount = $derived(session.qa.length);
+  const deckIsSample = $derived(session.isDefaultDeck);
 
   onMount(() => {
     open = get(KEYS.SETUP_COMPLETE) !== '1';
     user = getCurrentUser();
     onAuthChange((u) => { user = u; });
-
-    // initApp (the parent page's onMount) loads the deck after this component
-    // mounts — refresh once it announces readiness, and again on any import.
-    refreshDeck();
-    window.addEventListener('app-ready', refreshDeck);
-    window.addEventListener('deck-imported', refreshDeck);
-    window.addEventListener('deck-synced', refreshDeck);
-    return () => {
-      window.removeEventListener('app-ready', refreshDeck);
-      window.removeEventListener('deck-imported', refreshDeck);
-      window.removeEventListener('deck-synced', refreshDeck);
-    };
   });
 
   function importDeck() {

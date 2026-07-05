@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import * as session from '../src/lib/session.js';
+import {
+  session, setQA, setCurrent, setScore, setResults,
+  startPractice, checkAnswer, nextQuestion, skipQuestion, endSession
+} from '../src/lib/session.svelte.js';
 import * as ui from '../src/lib/ui.js';
 import * as ai from '../src/lib/ai/index.js';
 import * as settings from '../src/lib/settings.js';
@@ -14,8 +17,6 @@ vi.mock('../src/lib/ui.js', () => ({
   showResult: vi.fn(),
   showResultPanel: vi.fn(),
   showBtn: vi.fn(),
-  updateQACount: vi.fn(),
-  updateStartButton: vi.fn(),
   showAnswerTranslation: vi.fn(),
   updateCheckedTranslation: vi.fn(),
   showPracticeScreen: vi.fn(),
@@ -118,7 +119,7 @@ describe('Session Flow Integration Tests', () => {
 
     vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue();
 
-    session.setQA([
+    setQA([
       { q: 'Question 1', a: 'Answer 1', r: 'Answer 1 Romaji' },
       { q: 'Question 2', a: 'Answer 2', r: 'Answer 2 Romaji' }
     ]);
@@ -127,7 +128,7 @@ describe('Session Flow Integration Tests', () => {
   it('should start practice and load the first question', async () => {
     vi.spyOn(Math, 'random').mockReturnValue(0.999999); // Disable shuffle
     settings.get.mockReturnValue('browser');
-    await session.startPractice();
+    await startPractice();
 
     expect(ui.showPracticeScreen).toHaveBeenCalled();
     expect(document.getElementById('question-text').textContent).toBe('Question 1');
@@ -147,7 +148,7 @@ describe('Session Flow Integration Tests', () => {
       order.push('preload');
     });
 
-    await session.startPractice();
+    await startPractice();
 
     expect(order).toContain('mic');
     expect(order).toContain('preload');
@@ -159,16 +160,16 @@ describe('Session Flow Integration Tests', () => {
     window.webkitSpeechRecognition = undefined;
     vi.stubGlobal('alert', vi.fn());
 
-    await session.startPractice();
+    await startPractice();
 
     expect(stt.ensureMicAccess).toHaveBeenCalled();
   });
 
   it('should correctly track score and results during checkAnswer', async () => {
-    session.setQA([{ q: 'Q1', a: 'A1', r: 'R1' }]);
-    session.setCurrent(0);
-    session.setScore(0);
-    session.setResults([]);
+    setQA([{ q: 'Q1', a: 'A1', r: 'R1' }]);
+    setCurrent(0);
+    setScore(0);
+    setResults([]);
 
     ai.gradeWithAI.mockResolvedValue({
       correct: true,
@@ -179,7 +180,7 @@ describe('Session Flow Integration Tests', () => {
       source: 'groq'
     });
 
-    await session.checkAnswer();
+    await checkAnswer();
 
     expect(session.score).toBe(1);
     expect(session.results.length).toBe(1);
@@ -188,10 +189,10 @@ describe('Session Flow Integration Tests', () => {
   });
 
   it('should progress to next question and finish when reaching the end', async () => {
-    session.setQA([{ q: 'Q1', a: 'A1', r: 'R1' }]);
-    session.setCurrent(0);
+    setQA([{ q: 'Q1', a: 'A1', r: 'R1' }]);
+    setCurrent(0);
 
-    await session.nextQuestion();
+    await nextQuestion();
     await Promise.resolve();
 
     // Since current was 0 and length was 1, it should have called handleFinishPractice
@@ -199,11 +200,11 @@ describe('Session Flow Integration Tests', () => {
   });
 
   it('should handle skipping questions correctly', async () => {
-    session.setQA([{ q: 'Q1', a: 'A1', r: 'R1' }, { q: 'Q2', a: 'A2', r: 'R2' }]);
-    session.setCurrent(0);
-    session.setResults([]);
+    setQA([{ q: 'Q1', a: 'A1', r: 'R1' }, { q: 'Q2', a: 'A2', r: 'R2' }]);
+    setCurrent(0);
+    setResults([]);
 
-    await session.skipQuestion();
+    await skipQuestion();
 
     expect(session.current).toBe(1);
     expect(session.results[0].transcript).toBe('(skipped)');
@@ -211,17 +212,17 @@ describe('Session Flow Integration Tests', () => {
   });
 
   it('should properly end the session and fill missing results', () => {
-    session.setQA([
+    setQA([
       { q: 'Q1', a: 'A1', r: 'R1' },
       { q: 'Q2', a: 'A2', r: 'R2' },
       { q: 'Q3', a: 'A3', r: 'R3' }
     ]);
-    session.setCurrent(1);
-    session.setResults([
+    setCurrent(1);
+    setResults([
       { q: 'Q1', a: 'A1', transcript: 'A1', correct: true }
     ]);
 
-    session.endSession();
+    endSession();
 
     expect(session.results.length).toBe(3);
     expect(session.results[1].transcript).toBe('(not reached)');

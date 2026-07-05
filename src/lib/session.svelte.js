@@ -1,6 +1,6 @@
 import {
   setStatus, showTranscript, showCheckedTranscript,
-  showResult, showResultPanel, showBtn, updateQACount, updateStartButton,
+  showResult, showResultPanel, showBtn,
   showAnswerTranslation, updateCheckedTranslation,
   showPracticeScreen, showResultsScreen
 } from './ui.js';
@@ -12,6 +12,7 @@ import {
 import { updateQuotaDisplay } from './quota.js';
 import { get, set, KEYS } from './settings.js';
 import { saveSessionResult } from './sync.js';
+import { recordSession } from './history.svelte.js';
 import { getIsChecking, setIsChecking } from './sessionFlags.js';
 import {
   speakQuestion, speakFeedback, cancelSpeech, preloadVoicevoxAudio,
@@ -25,29 +26,33 @@ import {
 import { formatLiveTranscript } from './parser.js';
 
 // ─────────────────────────────────────────────
-// SESSION STATE
+// SESSION STATE — reactive ($state) since Phase 5c
 // ─────────────────────────────────────────────
-export let QA = [];
-export let current   = 0;
-export let score     = 0;
-export let results   = [];
-
-// True only when QA is the built-in starter deck (tutorial mode + sample-deck
-// labeling key off this, not off the shape of the data).
-export let isDefaultDeck = false;
+// One reactive object instead of module-level lets, so components (Dashboard,
+// Results, Onboarding) render from it directly. The imperative practice flow
+// below mutates it exactly as before.
+export const session = $state({
+  qa: [],
+  current: 0,
+  score: 0,
+  results: [],
+  // True only when qa is the built-in starter deck (tutorial mode +
+  // sample-deck labeling key off this, not off the shape of the data).
+  isDefaultDeck: false,
+});
 
 export function setQA(newData, { isDefault = false } = {}) {
-  QA = newData;
-  isDefaultDeck = isDefault;
+  session.qa = newData;
+  session.isDefaultDeck = isDefault;
 }
 export function setCurrent(val) {
-  current = val;
+  session.current = val;
 }
 export function setScore(val) {
-  score = val;
+  session.score = val;
 }
 export function setResults(val) {
-  results = val;
+  session.results = val;
 }
 
 function playSound(type) {
@@ -65,7 +70,7 @@ export async function startPractice() {
   // BEFORE any await, so TTS works on the first question.
   unlockAudioForMobile();
 
-  if (QA.length === 0) {
+  if (session.qa.length === 0) {
     alert('Please import a Q&A database before starting practice.');
     return;
   }
@@ -75,12 +80,12 @@ export async function startPractice() {
   }
   // Shuffle questions (unless the user turned shuffling off in settings)
   if (get(KEYS.SHUFFLE_QUESTIONS) !== '0') {
-    for (let i = QA.length - 1; i > 0; i--) {
+    for (let i = session.qa.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
-      [QA[i], QA[j]] = [QA[j], QA[i]];
+      [session.qa[i], session.qa[j]] = [session.qa[j], session.qa[i]];
     }
   }
-  current = 0; score = 0; results = [];
+  session.current = 0; session.score = 0; session.results = [];
 
   try {
     const micReady = await ensureMicAccess();
@@ -101,7 +106,7 @@ export async function startPractice() {
   // demand if it gets ahead — the >2.5s "Loading Cloud Voice" overlay in
   // tts.js covers that visibly.
   if (get(KEYS.TTS_MODE) === 'voicevox') {
-    startVoicevoxWarmup([...QA.map(q => q.q), ...VOICEVOX_STOCK_PHRASES]);
+    startVoicevoxWarmup([...session.qa.map(q => q.q), ...VOICEVOX_STOCK_PHRASES]);
   }
 
   showPracticeScreen();
@@ -109,7 +114,7 @@ export async function startPractice() {
 }
 
 export async function loadQuestion() {
-  const item = QA[current];
+  const item = session.qa[session.current];
   const qText = document.getElementById('question-text');
   qText.textContent = item.q;
   qText.style.display = 'none';
@@ -144,10 +149,10 @@ export async function loadQuestion() {
     targetBox.style.display = 'none';
   }
 
-  const pct = (current / QA.length) * 100;
+  const pct = (session.current / session.qa.length) * 100;
   document.getElementById('progress-bar').style.width = pct + '%';
   document.getElementById('progress-label').textContent =
-    'Question ' + (current + 1) + ' / ' + QA.length;
+    'Question ' + (session.current + 1) + ' / ' + session.qa.length;
 
   cancelSpeech('practice');
   setStatus('speaking', 'Preparing…');
@@ -189,7 +194,7 @@ export function toggleQuestionText() {
 const translationCache = new Map();
 
 export async function translateQuestion() {
-  const item = QA[current];
+  const item = session.qa[session.current];
   if (!item) return;
 
   const link = document.getElementById('btn-translate');
@@ -239,26 +244,26 @@ export async function translateQuestion() {
 
 function speakThenListen(item) {
   speakQuestion(item.q, () => {
-    if (QA[current] !== item) return;
+    if (session.qa[session.current] !== item) return;
     setStatus('', 'Starting microphone…');
     setTimeout(() => {
-      if (QA[current] !== item) return;
+      if (session.qa[session.current] !== item) return;
       beginListen();
     }, 800);
   });
 }
 
 async function beginListen() {
-  const item = QA[current];
+  const item = session.qa[session.current];
   const targetBox = document.getElementById('target-answer-box');
   if (targetBox) {
-    if (isDefaultDeck && item.r && current < 3 && get(KEYS.TUTORIAL_DONE) !== '1') {
+    if (session.isDefaultDeck && item.r && session.current < 3 && get(KEYS.TUTORIAL_DONE) !== '1') {
       const label = document.getElementById('target-label');
-      if (label) label.textContent = '🎯 Tutorial Mode (' + (current + 1) + '/3) Please say the sample answer clearly:';
+      if (label) label.textContent = '🎯 Tutorial Mode (' + (session.current + 1) + '/3) Please say the sample answer clearly:';
       document.getElementById('target-answer-text').textContent = item.a;
       document.getElementById('target-romaji-text').textContent = item.r;
       targetBox.style.display = 'block';
-    } else if (current >= 3 && !hasAIAccess()) {
+    } else if (session.current >= 3 && !hasAIAccess()) {
       const label = document.getElementById('target-label');
       if (label) {
         label.innerHTML = '⚠️ AI Grading Not Configured<br><span style="font-size:0.75rem; font-weight:normal; color:var(--teal);">Showing answer key. Sign in or add a Groq key in settings for flexible answers and feedback!</span>';
@@ -272,10 +277,10 @@ async function beginListen() {
   // First-time hints (tutorial box above + Show Text pulse) are one-time:
   // once the third question's hints have been shown, the flag turns them off
   // for all future sessions — on any deck.
-  if (current < 3 && get(KEYS.TUTORIAL_DONE) !== '1') {
+  if (session.current < 3 && get(KEYS.TUTORIAL_DONE) !== '1') {
     const toggleBtn = document.getElementById('btn-toggle-question');
     if (toggleBtn) toggleBtn.classList.add('highlight-pulse');
-    if (current === 2) set(KEYS.TUTORIAL_DONE, '1');
+    if (session.current === 2) set(KEYS.TUTORIAL_DONE, '1');
   }
 
   const sttMode = get(KEYS.STT_MODE) || 'ai';
@@ -335,7 +340,7 @@ export async function finishRecording() {
   showBtn('btn-skip', false);
 
   const sttMode = get(KEYS.STT_MODE) || 'ai';
-  const item = QA[current];
+  const item = session.qa[session.current];
 
   if (sttMode === 'ai' && hasAIAccess()) {
     setStatus('checking', '🤖 Transcribing audio…');
@@ -388,7 +393,7 @@ export async function checkAnswer() {
   showBtn('btn-rerecord', false);
   showBtn('btn-skip', false);
 
-  const item = QA[current];
+  const item = session.qa[session.current];
   const raw = getLiveTranscript().trim();
 
   const level = get(KEYS.JLPT_LEVEL) || 'N5';
@@ -408,9 +413,9 @@ export async function checkAnswer() {
     gradeResult = await isCorrectLocal(raw, item.a, item.q);
   }
 
-  if (gradeResult.correct) { score++; playSound("correct"); } else { playSound("incorrect"); }
+  if (gradeResult.correct) { session.score++; playSound("correct"); } else { playSound("incorrect"); }
   const feedbackText = gradeResult.correct ? '正解です！' : '不正解です。';
-  results.push({
+  session.results.push({
     q: item.q, a: item.a, transcript: raw, furigana: furiganaReading,
     correct: gradeResult.correct, gradeResult: gradeResult
   });
@@ -468,7 +473,7 @@ export async function checkAnswer() {
   const btnNext = document.getElementById('btn-next');
   if (btnNext) {
     showBtn('btn-next', true);
-    if (current === QA.length - 1) {
+    if (session.current === session.qa.length - 1) {
       btnNext.textContent = 'Finish Practice';
     }
   }
@@ -482,7 +487,7 @@ export async function checkAnswer() {
 }
 
 export async function rerecordAnswer() {
-  const item = QA[current];
+  const item = session.qa[session.current];
   await ensureMicAccess();
   abortRecognition();
   setLiveTranscript('');
@@ -499,11 +504,11 @@ export async function nextQuestion() {
   cancelSpeech('practice');
   await ensureMicAccess();
   abortRecognition();
-  if (current === QA.length - 1) {
+  if (session.current === session.qa.length - 1) {
     handleFinishPractice();
     return;
   }
-  current++;
+  session.current++;
   loadQuestion();
 }
 
@@ -511,12 +516,12 @@ export async function skipQuestion() {
   cancelSpeech('practice');
   await ensureMicAccess();
   abortRecognition();
-  results.push({ q: QA[current].q, a: QA[current].a, transcript: '(skipped)', correct: false });
-  if (current === QA.length - 1) {
+  session.results.push({ q: session.qa[session.current].q, a: session.qa[session.current].a, transcript: '(skipped)', correct: false });
+  if (session.current === session.qa.length - 1) {
     handleFinishPractice();
     return;
   }
-  current++;
+  session.current++;
   loadQuestion();
 }
 
@@ -524,9 +529,9 @@ export function endSession() {
   cancelSpeech('practice');
   abortRecognition();
   releaseMic();
-  while (results.length < QA.length) {
-    const i = results.length;
-    results.push({ q: QA[i].q, a: QA[i].a, transcript: '(not reached)', correct: false });
+  while (session.results.length < session.qa.length) {
+    const i = session.results.length;
+    session.results.push({ q: session.qa[i].q, a: session.qa[i].a, transcript: '(not reached)', correct: false });
   }
   showResults();
 }
@@ -550,8 +555,8 @@ async function handleFinishPractice() {
     ]
   };
 
-  const total = results.length;
-  const scoreVal = score;
+  const total = session.results.length;
+  const scoreVal = session.score;
   const pct = total ? Math.round((scoreVal / total) * 100) : 0;
   const passed = pct >= 75;
   const choice = responses[passed ? 'pass' : 'fail'][Math.floor(Math.random() * (passed ? responses.pass.length : responses.fail.length))];
@@ -566,103 +571,26 @@ async function handleFinishPractice() {
 async function showResults(choice) {
   const synth = window.speechSynthesis;
   if (synth.speaking) synth.cancel();
+
+  // The score hero and per-question list render reactively from session
+  // state in Results.svelte — this only reveals the screen + overlay.
   showResultsScreen();
 
-  const total = results.length;
-  const pct   = total ? Math.round((score / total) * 100) : 0;
-
-  document.getElementById('score-display').textContent = score + ' / ' + total;
-  document.getElementById('score-bar').style.width = pct + '%';
-
-  const msg = pct === 100 ? '🏆 Perfect score! Excellent work!' :
-              pct >= 75   ? '✨ Great job! Almost there.' :
-              pct >= 50   ? '👍 Good effort. Keep practicing!' :
-                            '📚 Keep studying, you\'ll improve!';
-  document.getElementById('score-message').textContent = msg;
+  const total = session.results.length;
+  const pct   = total ? Math.round((session.score / total) * 100) : 0;
 
   showFinalOverlay(pct, choice);
 
-  const list = document.getElementById('results-list');
-  if (list) list.replaceChildren();
-  results.forEach((r, i) => {
-    const div = document.createElement('div');
-    div.className = 'result-row ' + (r.correct ? 'c' : 'w');
-    const tag = document.createElement('span');
-    tag.className = 'tag ' + (r.correct ? 'tag-ok' : 'tag-ng');
-    tag.textContent = (i + 1) + '. ' + (r.correct ? '✓ Correct' : '✗ Incorrect');
-    const rq = document.createElement('div');
-    rq.className = 'rq';
-    rq.textContent = r.q;
-    const ans = document.createElement('div');
-    ans.className = r.correct ? 'rc' : 'rw';
-    ans.textContent = 'Heard: ' + r.transcript;
-    div.append(tag, rq, ans);
-    const expected = document.createElement('div');
-    expected.className = 'ra';
-    expected.textContent = (r.correct ? '📝 Expected: ' : '✔ Expected: ') + r.a;
-    div.appendChild(expected);
-    if (r.gradeResult) {
-      const fbDiv = document.createElement('div');
-      fbDiv.className = 'ai-result-feedback';
-      const src = r.gradeResult.source === 'groq' ? '🤖' : '⚙️';
-
-      const generalFb = document.createElement('div');
-      generalFb.className = 'ai-feedback-main';
-      generalFb.textContent = src + ' ' + (r.gradeResult.general_feedback || r.gradeResult.feedback || '');
-      fbDiv.appendChild(generalFb);
-
-      const breakdown = r.gradeResult.breakdown || [];
-      if (breakdown.length > 0) {
-        const bdCont = document.createElement('div');
-        bdCont.className = 'ai-breakdown-container';
-
-        breakdown.forEach(item => {
-          const card = document.createElement('div');
-          card.className = 'rich-breakdown-card';
-          
-          const top = document.createElement('div');
-          top.className = 'rich-breakdown-top';
-          
-          const changes = document.createElement('div');
-          changes.className = 'rich-breakdown-changes';
-          changes.innerHTML = `<span class="rich-breakdown-old">${item.original}</span> <span class="rich-breakdown-arrow">→</span> <span class="rich-breakdown-new">${item.corrected}</span>`;
-          
-          const tag = document.createElement('div');
-          const catLower = (item.category || '').toLowerCase().replace(/\\s+/g, '-');
-          let tagClass = 'rich-tag-default';
-          if (catLower.includes('sentence')) tagClass = 'rich-tag-sentence-structure';
-          else if (catLower.includes('word') || catLower.includes('vocab')) tagClass = 'rich-tag-word-choice';
-          else if (catLower.includes('particle')) tagClass = 'rich-tag-particle';
-          else if (catLower.includes('conjugation') || catLower.includes('tense')) tagClass = 'rich-tag-conjugation';
-          else if (catLower.includes('completeness')) tagClass = 'rich-tag-sentence-structure';
-          
-          tag.className = `rich-breakdown-tag ${tagClass}`;
-          tag.textContent = item.category || 'Feedback';
-          
-          top.append(changes, tag);
-          
-          const desc = document.createElement('div');
-          desc.className = 'rich-breakdown-desc';
-          desc.textContent = item.explanation;
-          
-          card.append(top, desc);
-          bdCont.appendChild(card);
-        });
-        fbDiv.appendChild(bdCont);
-      }
-      div.appendChild(fbDiv);
-    }
-    list.appendChild(div);
-  });
-
-  // Persist this run to the cloud when signed in (no-op / fire-and-forget
-  // otherwise). Covers both the "finished all questions" and "End" paths since
-  // both funnel through here.
+  // Persist this run: always to the device-local history (dashboard stats),
+  // and to the cloud when signed in (no-op / fire-and-forget otherwise).
+  // Covers both the "finished all questions" and "End" paths since both
+  // funnel through here.
+  recordSession({ score: session.score, total, jlpt: get(KEYS.JLPT_LEVEL) });
   saveSessionResult({
     jlpt_level: get(KEYS.JLPT_LEVEL),
-    score,
+    score: session.score,
     total,
-    results,
+    results: session.results,
   });
 }
 
@@ -676,7 +604,7 @@ async function showFinalOverlay(pct, choice) {
     icon.textContent = passed ? '🎉' : '💪';
 
     const choiceEn = choice?.en || (passed ? 'Great job!' : 'Keep practicing!');
-    text.innerHTML = `<div style="font-size: 1.5rem; font-weight: bold; margin-bottom: 4px;">${score} / ${QA.length}</div>
+    text.innerHTML = `<div style="font-size: 1.5rem; font-weight: bold; margin-bottom: 4px;">${session.score} / ${session.qa.length}</div>
                      <div style="font-size: 1.1rem; color: var(--muted);">${choiceEn}</div>`;
 
     overlay.style.display = '';

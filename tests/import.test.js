@@ -2,12 +2,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { handleFileImport, clearDatabase } from '../src/lib/import.js';
 import * as ui from '../src/lib/ui.js';
 import * as settings from '../src/lib/settings.js';
-import * as session from '../src/lib/session.js';
+import * as session from '../src/lib/session.svelte.js';
 import * as parser from '../src/lib/parser.js';
 
 vi.mock('../src/lib/ui.js', () => ({
-  updateQACount: vi.fn(),
-  updateStartButton: vi.fn(),
   showImportStatus: vi.fn(),
 }));
 
@@ -22,7 +20,7 @@ vi.mock('../src/lib/settings.js', () => ({
   KEYS: { QA_DATA: 'qa_data', SETUP_COMPLETE: 'setup_complete' }
 }));
 
-vi.mock('../src/lib/session.js', () => ({
+vi.mock('../src/lib/session.svelte.js', () => ({
   setQA: vi.fn(),
 }));
 
@@ -149,8 +147,6 @@ describe('Data Import/Export Tests', () => {
     clearDatabase();
     expect(settings.remove).toHaveBeenCalledWith(settings.KEYS.QA_DATA);
     expect(session.setQA).toHaveBeenCalledWith([]);
-    expect(ui.updateQACount).toHaveBeenCalledWith(0);
-    expect(ui.updateStartButton).toHaveBeenCalledWith(0);
     expect(ui.showImportStatus).toHaveBeenCalledWith(expect.stringContaining('Database cleared'), 'info');
   });
 });

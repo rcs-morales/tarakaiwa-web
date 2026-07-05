@@ -3,6 +3,9 @@
   import { initApp } from '$lib/app.js';
   import Shell from '$lib/components/Shell.svelte';
   import Onboarding from '$lib/components/Onboarding.svelte';
+  import Dashboard from '$lib/components/Dashboard.svelte';
+  import Practice from '$lib/components/Practice.svelte';
+  import Results from '$lib/components/Results.svelte';
   import { shell } from '$lib/shell.svelte.js';
 
   onMount(initApp);
@@ -12,121 +15,13 @@
 
   <!-- ══ PRACTICE TAB ══ -->
   <!-- Panels are toggled with the hidden class only — never unmounted, so the
-       Live2D canvas in #avatar-container survives tab switches. -->
+       Live2D canvas in #avatar-container survives tab switches. The three
+       screens inside are hidden-class toggled by ui.js exactly as before. -->
   <section class="tab-panel" class:hidden={shell.tab !== 'practice'}>
     <div class="card">
-
-      <!-- ── START SCREEN ── -->
-      <div id="screen-start">
-        <div class="big-icon">🎙️</div>
-        <h2>Ready to Practice?</h2>
-        <p>The app will read each question aloud in Japanese.<br>Speak your answer clearly into your microphone.<br>Your
-          answer will be checked automatically. <br>(Try the 10 sample N5 questions by clicking "Start Practice")<br></p>
-        <div class="info-chips">
-          <span class="chip"><span id="qa-count-chip">🗂 No Questions Loaded</span></span>
-          <span class="chip">🇯🇵 Japanese</span>
-          <span class="chip">🎤 Voice Input</span>
-          <span class="chip chip-ai" id="ai-status-chip">🧠 AI Grading: <span id="ai-status-text">Not
-              configured</span></span>
-        </div>
-
-        <div style="display: flex; justify-content: center; gap: 10px; align-items: center; margin-top: 20px;">
-          <button class="btn btn-primary btn-disabled" id="btn-start-practice" disabled>
-            ⏳ Import a Q&amp;A database to begin
-          </button>
-          <button class="btn btn-secondary btn-sm btn-report-bug">🐞 Report Bug</button>
-        </div>
-      </div>
-
-      <!-- ── PRACTICE SCREEN ── -->
-      <div id="screen-practice" class="hidden">
-        <div id="avatar-container"></div>
-        <div class="progress-label" id="progress-label">Question 1 / 16</div>
-        <div class="progress-bar-wrap">
-          <div class="progress-bar-fill" id="progress-bar"></div>
-        </div>
-
-        <div class="question-label" style="display: flex; justify-content: space-between; align-items: center;">
-          <span>Question</span>
-          <button class="btn btn-secondary" id="btn-toggle-question" style="padding: 4px 8px; font-size: 0.8rem; height: auto; min-height: 0;">👁 Show Text</button>
-        </div>
-        <div class="question-text" id="question-text" style="display: none;">—</div>
-        <div class="translate-row" id="translate-row" style="display: none;">
-          <span class="translate-link" id="btn-translate">🌐 Translate</span>
-          <div class="translate-result" id="translate-result"></div>
-        </div>
-
-        <div class="warning-box" id="warning-box">
-          ⚠️ Microphone access is required. Please allow microphone permission when prompted,
-
-          then click <strong>Retry</strong>.
-        </div>
-
-        <div class="status-area">
-          <div class="pulse-dot" id="pulse"></div>
-          <div class="status-text" id="status-text">Initializing...</div>
-        </div>
-
-        <div class="target-answer-box" id="target-answer-box">
-          <div class="target-label" id="target-label">🎯 Target Answer</div>
-          <div id="target-answer-text">—</div>
-          <div id="target-romaji-text" class="target-romaji">—</div>
-        </div>
-
-        <div class="transcript-box" id="transcript-box">
-          <span class="transcript-placeholder" id="transcript-placeholder">Your spoken answer will appear here (as
-            recognized)…</span>
-          <div id="transcript-content" class="hidden"></div>
-        </div>
-
-        <div class="result-badge" id="result-badge">
-          <span class="icon" id="result-icon"></span>
-          <div class="result-badge-content">
-            <div id="result-msg"></div>
-            <div class="answer-reveal" id="answer-reveal"></div>
-            <div id="answer-translation" class="ai-feedback-text" style="font-style: normal; opacity: 0.8; margin-bottom: 4px;"></div>
-            <div class="ai-feedback" id="ai-feedback"></div>
-          </div>
-        </div>
-
-        <div class="btn-row">
-          <div class="btn-group-record">
-            <button class="btn btn-submit hidden" id="btn-submit">■ Finish Recording</button>
-            <button class="btn btn-primary hidden" id="btn-check">✔ Check Answer</button>
-            <button class="btn btn-secondary hidden" id="btn-rerecord">🎤 Re-record</button>
-          </div>
-          <button class="btn btn-primary hidden" id="btn-next">Next →</button>
-          <button class="btn btn-secondary" id="btn-skip">Skip ▷</button>
-          <button class="btn btn-danger" id="btn-end-session">✕ End</button>
-        </div>
-      </div>
-
-      <!-- ── RESULTS SCREEN ── -->
-      <div id="screen-results" class="hidden">
-        <div class="score-hero">
-          <div class="score-big" id="score-display">0/16</div>
-          <div class="score-label">Final Score</div>
-          <div class="score-bar-wrap">
-            <div class="score-bar" id="score-bar" style="width:0%"></div>
-          </div>
-          <div id="score-message" style="color:var(--muted);font-size:0.9rem;"></div>
-        </div>
-
-        <hr class="divider">
-
-        <div class="results-list" id="results-list"></div>
-
-        <hr class="divider">
-
-        <div class="btn-row" style="justify-content:center;">
-          <button class="btn btn-primary" id="btn-restart-app">↺ Restart</button>
-        </div>
-        <div style="text-align: center; margin-top: 20px;">
-          <button class="btn btn-secondary btn-sm btn-report-bug">🐞 Report Bug</button>
-        </div>
-
-      </div>
-
+      <Dashboard />
+      <Practice />
+      <Results />
     </div>
   </section>
 
@@ -424,5 +319,13 @@
     flex-direction: column;
     align-items: center;
     padding: 32px 16px 64px;
+  }
+
+  @media (max-width: 719px) {
+    /* The shell already pads for the bottom nav — anything more forces the
+       practice screen past 100vh (the "no mid-recording scroll" criterion). */
+    .tab-panel {
+      padding: 10px 10px 8px;
+    }
   }
 </style>
