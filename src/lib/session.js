@@ -391,6 +391,9 @@ export async function finishRecording() {
   showBtn('btn-rerecord', true);
   showBtn('btn-skip', true);
   setIsChecking(false);
+
+  // A Whisper request consumed shared quota — keep the start-screen chip fresh.
+  updateQuotaDisplay();
 }
 
 export async function checkAnswer() {
@@ -489,6 +492,9 @@ export async function checkAnswer() {
   showBtn('btn-check',    false);
   showBtn('btn-skip',     false);
   setIsChecking(false);
+
+  // A grading request consumed shared quota — keep the start-screen chip fresh.
+  updateQuotaDisplay();
 }
 
 export async function rerecordAnswer() {

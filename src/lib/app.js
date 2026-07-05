@@ -126,6 +126,7 @@ function restartApp() {
   releaseMic();
   assistantHistory.splice(0, assistantHistory.length);
   showStartScreen();
+  updateQuotaDisplay();
   updateQACount(QA.length, isDefaultDeck);
   updateStartButton(QA.length);
 
