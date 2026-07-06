@@ -5,8 +5,14 @@
   // always rendered (toggled with CSS) because app.js and quota.js write to
   // them imperatively by id.
   import { shell, setTab, TABS } from '$lib/shell.svelte.js';
+  import { history, computeStats } from '$lib/history.svelte.js';
+  import { computeXP } from '$lib/gamification.svelte.js';
 
   let { children } = $props();
+
+  // Gamification status pills — derived from the reactive session history.
+  let streak = $derived(computeStats(history.entries).streakDays);
+  let totalXP = $derived(computeXP(history.entries).totalXP);
 
   let menuOpen = $state(false);
   let menuWrap;
@@ -44,6 +50,15 @@
         ><span class="nav-icon" aria-hidden="true">{t.icon}</span>{t.label}</button>
       {/each}
     </nav>
+
+    <div class="status-pills" aria-label="Your progress">
+      <span class="pill pill-streak" title="Day streak">
+        <span aria-hidden="true">🔥</span><span class="pill-num">{streak}</span>
+      </span>
+      <span class="pill pill-xp" title="Total XP">
+        <span aria-hidden="true">◆</span><span class="pill-num">{totalXP}</span>
+      </span>
+    </div>
 
     <div class="topbar-actions">
       <button id="btn-theme-toggle" class="icon-btn" title="Switch theme">🌙</button>
@@ -112,11 +127,11 @@
   }
 
   .brand-jp {
-    font-family: 'Noto Serif JP', serif;
-    font-weight: 700;
-    font-size: 1.15rem;
+    font-family: var(--font-jp);
+    font-weight: 800;
+    font-size: 1.2rem;
     color: var(--text);
-    letter-spacing: 0.02em;
+    letter-spacing: 0.01em;
   }
 
   .brand-sub {
@@ -160,6 +175,43 @@
 
   .nav-icon {
     font-size: 0.95rem;
+  }
+
+  /* ── Status pills (streak + XP) ── */
+  .status-pills {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 30px;
+    padding: 0 11px;
+    border-radius: 999px;
+    border: 1.5px solid transparent;
+    font-size: 0.82rem;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  .pill-num {
+    font-family: var(--font-mono);
+    font-weight: 500;
+  }
+
+  .pill-streak {
+    background: var(--amber-bg);
+    border-color: var(--amber-border);
+    color: var(--amber-text);
+  }
+
+  .pill-xp {
+    background: var(--primary-tint);
+    border-color: var(--primary-tint);
+    color: var(--primary);
   }
 
   /* ── Top bar actions (theme + account) ── */
@@ -299,8 +351,17 @@
       display: none;
     }
 
-    .topbar-actions {
+    /* Wordmark only on phones — the pills and actions ride to the right. */
+    .brand-sub {
+      display: none;
+    }
+
+    .status-pills {
       margin-left: auto;
+    }
+
+    .topbar {
+      gap: 10px;
     }
 
     .bottomnav {
