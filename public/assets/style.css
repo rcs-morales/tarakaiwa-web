@@ -1,121 +1,173 @@
 /* ── Design tokens ─────────────────────────────
-   Light theme (default): the washi/ink/teal/gold heritage palette.
-   Dark theme overrides every token under :root[data-theme="dark"] below.
+   Light theme (default): the "Kaiwa Quest" palette — sunny cream canvas, a
+   single vermillion action color, warm green for success, amber for goals.
+   Token *names* are carried over from the older heritage palette so every
+   existing component inherits the new look without edits: --teal is now the
+   vermillion primary accent, --gold the amber accent, --correct the success
+   green. Dark theme overrides every token under :root[data-theme="dark"].
    The <html data-theme> attribute is set before paint by the boot script
    in app.html (saved preference, else prefers-color-scheme). */
 :root {
   color-scheme: light;
 
-  /* Heritage palette */
-  --ink:       #1a1a2e;
-  --ink-mid:   #2d2d4e;
-  --ink-hover: #2d2d4a;
-  --paper:     #f5f0e8;
-  --paper-2:   #ede7d9;
-  --red:       #c0392b;
-  --gold:      #b8860b;
-  --teal:      #0d7377;
-  --teal-lt:   #14a085;
-  --correct:   #1a7a4a;
-  --wrong:     #c0392b;
-  --muted:     #8a8070;
+  /* Core palette (names kept for compatibility; values are Kaiwa Quest) */
+  --ink:       #3d2e26;   /* primary text */
+  --ink-mid:   #6b5544;   /* secondary text */
+  --ink-hover: #2a1f19;
+  --paper:     #fff7ea;   /* canvas — paper cream */
+  --paper-2:   #f3e8d5;   /* faint tracks / insets */
+  --red:       #c0553e;
+  --gold:      #b4690e;   /* amber accent (text-legible) */
+  --teal:      #f4562a;   /* PRIMARY — vermillion */
+  --teal-lt:   #ff6b42;
+  --correct:   #2e7d44;   /* success green */
+  --wrong:     #c0553e;
+  --muted:     #a08b75;
+
+  /* Fonts — M PLUS Rounded 1c for the warm rounded UI, DM Mono for numerics */
+  --font-ui:    'M PLUS Rounded 1c', 'Noto Sans JP', sans-serif;
+  --font-jp:    'M PLUS Rounded 1c', 'Noto Sans JP', sans-serif;
+  --font-serif: 'Noto Serif JP', serif;
+  --font-mono:  'DM Mono', monospace;
 
   /* Semantic tokens */
   --text: var(--ink);
-  --surface:         #fff;
-  --surface-alt:     #fafaf7;
-  --surface-hover:   #e0d8ca;
+  --surface:         #ffffff;
+  --surface-alt:     #fffbf3;
+  --surface-hover:   #fbefe0;
   --surface-veil:    rgba(255,255,255,0.6);
   --inset-highlight: rgba(255,255,255,1);
-  --border:       #d0c8b8;
-  --border-light: #f0f0f0;
-  --border-faint: rgba(0,0,0,0.05);
-  --grid-line-1:  rgba(0,0,0,0.04);
-  --grid-line-2:  rgba(0,0,0,0.02);
-  --overlay:        rgba(26,26,46,0.65);
-  --overlay-strong: rgba(26,26,46,0.85);
+  --border:       #f1e3cc;   /* 2px card border */
+  --border-light: #f3e8d5;
+  --border-faint: rgba(61,46,38,0.06);
+  --grid-line-1:  rgba(61,46,38,0.02);
+  --grid-line-2:  rgba(61,46,38,0.012);
+  --overlay:        rgba(61,46,38,0.55);
+  --overlay-strong: rgba(61,46,38,0.80);
   --on-accent: #fff;
 
+  /* Kaiwa Quest semantic tokens (for the overhaul screens) */
+  --canvas:          #fff7ea;
+  --desk:            #efeae0;
+  --card-border:     #f1e3cc;
+  --faint:           #f3e8d5;
+  --muted-2:         #8a7560;
+  --primary:         #f4562a;
+  --primary-shadow:  #c23a16;   /* press-down bottom shadow */
+  --primary-tint:    #ffe9df;   /* pill bg / active tab */
+  --success:         #2e7d44;
+  --success-shadow:  #1e5730;
+  --success-border:  #6cc183;
+  --success-tint:    #e4f4e6;
+  --amber-text:      #b4690e;
+  --amber-border:    #f5b84c;
+  --amber-bg:        #fff1d6;
+  --amber-bg-2:      #ffe7c2;
+  --xp-grad-1:       #ffb03a;   /* XP bar gradient start */
+  --xp-grad-2:       #f4562a;   /* XP bar gradient end */
+  --btn-shadow:      #e8d8be;   /* secondary/white button press shadow */
+
   /* Status */
-  --ok-bg: #e6f4ee;     --ok-border: #b2dfc5;     --ok-tag-bg: #1a7a4a22;
-  --err-bg: #fdf0ef;    --err-border: #f0b8b2;    --err-tag-bg: #c0392b22;
-  --err-hover: #a93226;
-  --warn: #8a6a00;      --warn-bg: #fff8e1;       --warn-border: #f0c040;
-  --warn-text: #7a5c00;
-  --info-bg: #f0f4f8;   --info-border: #d0e4f0;
-  --target-bg: #f0fdf4; --target-border: #bbf7d0; --target-label: #16a34a;
-  --target-grad-1: #e8f6ef; --target-grad-2: #d0ece1;
-  --success-text: #2e7d32;
-  --rec-bg: #ffe0e0;    --rec-border: #e57373;
-  --tint-teal: #f0faf9; --chip-ai-bg: #e6f7f7;
-  --neutral-tag-bg: #ddd;
+  --ok-bg: #e4f4e6;     --ok-border: #6cc183;     --ok-tag-bg: #2e7d4422;
+  --err-bg: #fbeae4;    --err-border: #e3a491;    --err-tag-bg: #c0553e22;
+  --err-hover: #a63f2c;
+  --warn: #b4690e;      --warn-bg: #fff1d6;       --warn-border: #f5b84c;
+  --warn-text: #8a5209;
+  --info-bg: #fbf3e6;   --info-border: #ebd9bc;
+  --target-bg: #e4f4e6; --target-border: #6cc183; --target-label: #2e7d44;
+  --target-grad-1: #e4f4e6; --target-grad-2: #d2ecd8;
+  --success-text: #2e7d44;
+  --rec-bg: #ffe9df;    --rec-border: #f4562a;
+  --tint-teal: #ffe9df; --chip-ai-bg: #e4f4e6;
+  --neutral-tag-bg: #f3e8d5;
 
   /* Feedback category tags */
-  --tag-yellow-bg: #fdf5d3; --tag-yellow-text: #8a6a00;
-  --tag-green-bg:  #e2f7e8; --tag-green-text:  #1a7a4a;
-  --tag-blue-bg:   #e0ecff; --tag-blue-text:   #1a4a99;
-  --tag-red-bg:    #fbe6e6; --tag-red-text:    #c0392b;
-  --tag-gray-bg:   #f0f0f0; --tag-gray-text:   #555;
-  --tag-gray-border:   #dee2e6;
-  --tag-blue-border:   #d0ebff;
+  --tag-yellow-bg: #fff1d6; --tag-yellow-text: #8a5209;
+  --tag-green-bg:  #e4f4e6; --tag-green-text:  #2e7d44;
+  --tag-blue-bg:   #e4ecfb; --tag-blue-text:   #2f5aa8;
+  --tag-red-bg:    #fbeae4; --tag-red-text:    #c0553e;
+  --tag-gray-bg:   #f3e8d5; --tag-gray-text:   #6b5544;
+  --tag-gray-border:   #e7d8be;
+  --tag-blue-border:   #d0dcf5;
   --tag-purple-border: #e5dbff;
   --tag-pink-border:   #ffdeeb;
-  --tag-orange-border: #ffe8cc;
+  --tag-orange-border: #ffe0c2;
 }
 
-/* ── Dark theme (night ink) ── */
+/* ── Dark theme (warm night) — a dim, cozy mirror of Kaiwa Quest ── */
 :root[data-theme="dark"] {
   color-scheme: dark;
 
-  --ink:       #e8e5dc;
-  --ink-mid:   #cdc9bd;
-  --ink-hover: #3a3a52;
-  --paper:     #131320;
-  --paper-2:   #232334;
-  --red:       #e0685a;
-  --gold:      #d4a72c;
-  --teal:      #17a2a8;
-  --teal-lt:   #1fc0a0;
-  --correct:   #4ec98a;
-  --wrong:     #e0685a;
-  --muted:     #8f8b80;
+  --ink:       #f3e7d8;
+  --ink-mid:   #d8c6b2;
+  --ink-hover: #3a2e25;
+  --paper:     #241c16;   /* warm brown canvas */
+  --paper-2:   #2e241c;
+  --red:       #e38a72;
+  --gold:      #e5a24c;
+  --teal:      #ff6b42;   /* PRIMARY — vermillion (brighter for dark) */
+  --teal-lt:   #ff835e;
+  --correct:   #5fbf7e;
+  --wrong:     #e38a72;
+  --muted:     #a8917b;
 
-  --surface:         #1b1b2b;
-  --surface-alt:     #202032;
-  --surface-hover:   #2e2e42;
+  --surface:         #2a211a;
+  --surface-alt:     #31271f;
+  --surface-hover:   #3a2e25;
   --surface-veil:    rgba(0,0,0,0.25);
   --inset-highlight: rgba(255,255,255,0.05);
-  --border:       #3c3c50;
-  --border-light: #32323f;
+  --border:       #453729;
+  --border-light: #3a2e24;
   --border-faint: rgba(255,255,255,0.06);
-  --grid-line-1:  rgba(255,255,255,0.035);
-  --grid-line-2:  rgba(255,255,255,0.018);
-  --overlay:        rgba(8,8,16,0.72);
-  --overlay-strong: rgba(8,8,16,0.88);
+  --grid-line-1:  rgba(255,255,255,0.02);
+  --grid-line-2:  rgba(255,255,255,0.012);
+  --overlay:        rgba(10,7,4,0.72);
+  --overlay-strong: rgba(10,7,4,0.88);
   --on-accent: #fff;
 
-  --ok-bg: #14291e;     --ok-border: #2c5c42;     --ok-tag-bg: #4ec98a2b;
-  --err-bg: #2e1a18;    --err-border: #6b352e;    --err-tag-bg: #e0685a2b;
-  --err-hover: #c25548;
-  --warn: #e8c468;      --warn-bg: #2b2412;       --warn-border: #7a6420;
-  --warn-text: #e8c468;
-  --info-bg: #1a2230;   --info-border: #2c3e57;
-  --target-bg: #142a1c; --target-border: #2c5c42; --target-label: #4ec98a;
-  --target-grad-1: #16281e; --target-grad-2: #1a3325;
-  --success-text: #58c27d;
-  --rec-bg: #3a1f1f;    --rec-border: #b05959;
-  --tint-teal: #16262c; --chip-ai-bg: #14282c;
-  --neutral-tag-bg: #3a3a48;
+  /* Kaiwa Quest semantic tokens (dark) */
+  --canvas:          #241c16;
+  --desk:            #1b140f;
+  --card-border:     #453729;
+  --faint:           #2e241c;
+  --muted-2:         #a8917b;
+  --primary:         #ff6b42;
+  --primary-shadow:  #b23a18;
+  --primary-tint:    #3a241c;
+  --success:         #5fbf7e;
+  --success-shadow:  #1e5730;
+  --success-border:  #2e6042;
+  --success-tint:    #17301f;
+  --amber-text:      #e5a24c;
+  --amber-border:    #7a5a22;
+  --amber-bg:        #2e2413;
+  --amber-bg-2:      #35290f;
+  --xp-grad-1:       #e5a24c;
+  --xp-grad-2:       #ff6b42;
+  --btn-shadow:      #1a140f;
 
-  --tag-yellow-bg: #2e2812; --tag-yellow-text: #dfc46a;
-  --tag-green-bg:  #16291d; --tag-green-text:  #63c78a;
-  --tag-blue-bg:   #182338; --tag-blue-text:   #7ea9e8;
-  --tag-red-bg:    #301a1a; --tag-red-text:    #e08a80;
-  --tag-gray-bg:   #2c2c38; --tag-gray-text:   #b8b4ac;
-  --tag-gray-border:   #3a3a48;
-  --tag-blue-border:   #2b3a55;
+  --ok-bg: #17301f;     --ok-border: #2e6042;     --ok-tag-bg: #5fbf7e2b;
+  --err-bg: #331e18;    --err-border: #6e3a2c;    --err-tag-bg: #e38a722b;
+  --err-hover: #c56a54;
+  --warn: #e5a24c;      --warn-bg: #2e2413;       --warn-border: #7a5a22;
+  --warn-text: #e5a24c;
+  --info-bg: #22262f;   --info-border: #363e4e;
+  --target-bg: #16301e; --target-border: #2e6042; --target-label: #5fbf7e;
+  --target-grad-1: #17301f; --target-grad-2: #1d3a27;
+  --success-text: #6bcb8b;
+  --rec-bg: #3a241c;    --rec-border: #ff6b42;
+  --tint-teal: #3a241c; --chip-ai-bg: #17301f;
+  --neutral-tag-bg: #3a2e24;
+
+  --tag-yellow-bg: #2e2413; --tag-yellow-text: #e5b96a;
+  --tag-green-bg:  #17301f; --tag-green-text:  #6bcb8b;
+  --tag-blue-bg:   #1a2740; --tag-blue-text:   #86a9e8;
+  --tag-red-bg:    #331e18; --tag-red-text:    #e39684;
+  --tag-gray-bg:   #322619; --tag-gray-text:   #c2b4a0;
+  --tag-gray-border:   #453729;
+  --tag-blue-border:   #2e3d57;
   --tag-purple-border: #39304f;
-  --tag-pink-border:   #472b38;
+  --tag-pink-border:   #472b30;
   --tag-orange-border: #46331d;
 }
 
@@ -124,7 +176,7 @@
 /* Layout (centering, page padding) moved into the app shell in Phase 5b:
    Shell.svelte owns the chrome, each .tab-panel centers its own card. */
 body {
-  font-family: 'Noto Sans JP', sans-serif;
+  font-family: var(--font-ui);
   background: var(--paper);
   color: var(--ink);
   min-height: 100vh;
