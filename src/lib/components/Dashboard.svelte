@@ -5,12 +5,15 @@
   // ai/groqClient.js, so its ids must stay.
   import { onMount } from 'svelte';
   import StatCard from './StatCard.svelte';
+  import LevelCard from './LevelCard.svelte';
   import { session, startPractice } from '$lib/session.svelte.js';
   import { history, computeStats } from '$lib/history.svelte.js';
+  import { computeDailyGoal } from '$lib/gamification.svelte.js';
   import { get, KEYS } from '$lib/settings.js';
   import { shell } from '$lib/shell.svelte.js';
 
   const stats = $derived(computeStats(history.entries));
+  const daily = $derived(computeDailyGoal(history.entries));
   const recent = $derived(history.entries.slice(0, 5));
   const deckReady = $derived(session.qa.length > 0);
 
@@ -55,15 +58,17 @@
 </script>
 
 <div id="screen-start">
+  <LevelCard />
+
   <div class="dash-greeting">
     <div class="dash-greeting-jp">{hello.jp}</div>
     <div class="dash-greeting-en">{hello.en} — ready to practice?</div>
   </div>
 
   <div class="dash-stats">
-    <StatCard icon="🔥" value={stats.streakDays} label={stats.streakDays === 1 ? 'day streak' : 'days streak'} accent={stats.streakDays > 0} />
     <StatCard icon="🎯" value={stats.sessions ? stats.avgPct + '%' : '—'} label="avg score" />
     <StatCard icon="📚" value={stats.sessions} label="sessions" />
+    <StatCard icon="⭐" value={`${daily.done}/${daily.target}`} label="daily goal" tone="amber" />
   </div>
 
   <div class="dash-cta">
@@ -74,7 +79,7 @@
       disabled={!deckReady}
       onclick={startPractice}
     >
-      {deckReady ? '▶ Start Practice' : '⏳ Import a deck to begin'}
+      {deckReady ? 'はじめる — Start Practice' : '⏳ Import a deck to begin'}
     </button>
     <div class="dash-deck-summary">
       <span class="chip">
@@ -98,7 +103,7 @@
         <div class="dash-recent-row">
           <span class="dash-recent-day">{fmtDay(e.at)}</span>
           <span class="dash-recent-level">{e.jlpt || ''}</span>
-          <span class="dash-recent-score" class:good={pctOf(e) >= 75}>{e.score}/{e.total} · {pctOf(e)}%</span>
+          <span class="dash-recent-score" class:good={pctOf(e) >= 75} class:low={pctOf(e) < 75}>{e.score}/{e.total} · {pctOf(e)}%</span>
         </div>
       {/each}
     </div>
@@ -120,9 +125,9 @@
   }
 
   .dash-greeting-jp {
-    font-family: 'Noto Serif JP', serif;
-    font-size: 1.6rem;
-    font-weight: 700;
+    font-family: var(--font-jp);
+    font-size: 1.85rem;
+    font-weight: 800;
     color: var(--text);
   }
 
@@ -164,7 +169,7 @@
   }
 
   .dash-recent-title {
-    font-family: 'DM Mono', monospace;
+    font-family: var(--font-mono);
     font-size: 0.68rem;
     letter-spacing: 0.2em;
     text-transform: uppercase;
@@ -197,12 +202,16 @@
   }
 
   .dash-recent-score {
-    font-family: 'DM Mono', monospace;
+    font-family: var(--font-mono);
     color: var(--muted);
   }
 
   .dash-recent-score.good {
     color: var(--correct);
+  }
+
+  .dash-recent-score.low {
+    color: var(--amber-text);
   }
 
   .dash-empty {

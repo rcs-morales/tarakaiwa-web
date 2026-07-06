@@ -441,38 +441,45 @@ rt {
   padding: 13px 28px;
   border-radius: 10px;
   border: none;
-  font-family: 'Noto Sans JP', sans-serif;
+  font-family: var(--font-ui);
   font-size: 0.95rem;
-  font-weight: 500;
+  font-weight: 700;
   cursor: pointer;
-  transition: transform 0.15s, box-shadow 0.15s, background 0.2s;
-  letter-spacing: 0.03em;
+  transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.2s;
+  letter-spacing: 0.02em;
 }
-.btn:active { transform: scale(0.97); }
+/* Press-down buttons: a solid bottom "shadow" of a darker shade; on :active the
+   button drops by that offset and the shadow shrinks to 0 — a tactile press. */
+.btn:active { transform: translateY(1px); }
 .btn-primary {
-  background: var(--teal);
+  background: var(--primary);
   color: var(--on-accent);
-  box-shadow: 0 4px 14px rgba(13,115,119,0.30);
+  box-shadow: 0 4px 0 var(--primary-shadow);
 }
-.btn-primary:hover { background: var(--teal-lt); box-shadow: 0 6px 20px rgba(13,115,119,0.35); }
+.btn-primary:hover { background: var(--teal-lt); box-shadow: 0 4px 0 var(--primary-shadow); }
+.btn-primary:active { transform: translateY(4px); box-shadow: 0 0 0 var(--primary-shadow); }
 .btn-secondary {
-  background: var(--paper-2);
+  background: var(--surface);
   color: var(--ink);
   border: 1.5px solid var(--border);
+  box-shadow: 0 4px 0 var(--btn-shadow);
 }
-.btn-secondary:hover { background: var(--surface-hover); }
+.btn-secondary:hover { background: var(--surface-hover); box-shadow: 0 4px 0 var(--btn-shadow); }
+.btn-secondary:active { transform: translateY(4px); box-shadow: 0 0 0 var(--btn-shadow); }
 .btn-danger {
   background: var(--wrong);
   color: var(--on-accent);
-  box-shadow: 0 4px 14px rgba(192,57,43,0.25);
+  box-shadow: 0 4px 0 var(--err-hover);
 }
-.btn-danger:hover { background: var(--err-hover); }
+.btn-danger:hover { background: var(--err-hover); box-shadow: 0 4px 0 var(--err-hover); }
+.btn-danger:active { transform: translateY(4px); box-shadow: 0 0 0 var(--err-hover); }
 .btn-disabled {
   opacity: 0.45;
   cursor: not-allowed;
   pointer-events: none;
   box-shadow: none !important;
 }
+.btn-disabled:active { transform: none; }
 .btn-submit {
   background: linear-gradient(135deg, var(--teal), var(--teal-lt));
   color: var(--on-accent);
