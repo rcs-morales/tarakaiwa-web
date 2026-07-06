@@ -206,8 +206,15 @@
             Audio is generated instantly via the free community <strong>api.tts.quest</strong> service.
           </p>
           <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border);">
-            <span style="font-size: 0.82rem;">📦 Voice pack: <span id="voicepack-status">—</span></span>
-            <button id="btn-download-voicepack" class="btn btn-secondary btn-sm" style="margin-left: 8px; font-size: 0.75rem;">⬇ Download all</button>
+            <div class="voicepack-row">
+              <span style="font-size: 0.82rem;">📦 Voice pack: <span id="voicepack-status">—</span></span>
+              <button id="btn-download-voicepack" class="btn btn-secondary btn-sm" style="font-size: 0.75rem;">⬇ Download all</button>
+            </div>
+            <div id="voicepack-progress" class="voicepack-progress hidden">
+              <div class="voicepack-progress-track">
+                <div id="voicepack-progress-fill" class="voicepack-progress-fill"></div>
+              </div>
+            </div>
             <p style="font-size: 0.72rem; color: var(--muted); margin-top: 4px; line-height: 1.4;">
               Download once on good wifi to practice without waiting on cloud audio (audio also downloads quietly in the background during practice).
             </p>
@@ -327,5 +334,36 @@
     .tab-panel {
       padding: 10px 10px 8px;
     }
+  }
+
+  /* ── Voice pack download row ── */
+  .voicepack-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* Push the Download-all button to the right of the status label. */
+  .voicepack-row :global(#btn-download-voicepack) {
+    margin-left: auto;
+  }
+
+  .voicepack-progress {
+    margin-top: 8px;
+  }
+
+  .voicepack-progress-track {
+    height: 8px;
+    background: var(--faint);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+
+  .voicepack-progress-fill {
+    height: 100%;
+    width: 0%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--xp-grad-1), var(--xp-grad-2));
+    transition: width 0.3s ease;
   }
 </style>

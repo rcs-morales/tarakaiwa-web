@@ -62,17 +62,26 @@ async function refreshVoicePackStatus() {
 async function downloadVoicePack() {
   const btn = document.getElementById('btn-download-voicepack');
   const el = document.getElementById('voicepack-status');
+  const progress = document.getElementById('voicepack-progress');
+  const fill = document.getElementById('voicepack-progress-fill');
   if (!btn || !el) return;
-  btn.disabled = true;
+  // Swap the button out for the progress bar while the download runs.
+  btn.classList.add('hidden');
+  if (fill) fill.style.width = '0%';
+  if (progress) progress.classList.remove('hidden');
   cancelVoicevoxWarmup(); // don't race the background warmup for the same files
   try {
     await preloadAllVoicevoxAudio(
       voicePackTexts(),
-      (done, total, msg) => { el.textContent = msg || `downloading ${done}/${total}…`; },
+      (done, total, msg) => {
+        el.textContent = msg || `downloading ${done}/${total}…`;
+        if (fill && total) fill.style.width = `${Math.round((done / total) * 100)}%`;
+      },
       { cancelled: false }
     );
   } finally {
-    btn.disabled = false;
+    if (progress) progress.classList.add('hidden');
+    btn.classList.remove('hidden');
     refreshVoicePackStatus();
   }
 }
