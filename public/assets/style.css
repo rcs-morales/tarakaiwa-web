@@ -246,13 +246,18 @@ rt {
   margin-bottom: 12px;
 }
 .question-text {
-  font-family: 'Noto Serif JP', serif;
-  font-size: clamp(1.1rem, 3vw, 1.5rem);
-  font-weight: 400;
-  line-height: 1.7;
+  font-family: var(--font-jp);
+  font-size: clamp(1.1rem, 3vw, 1.4rem);
+  font-weight: 500;
+  line-height: 1.6;
   color: var(--ink);
   min-height: 56px;
   margin-bottom: 8px;
+  /* speech bubble: white card, asymmetric radius with a tail corner */
+  background: var(--surface);
+  border: 2px solid var(--card-border);
+  border-radius: 20px 20px 20px 6px;
+  padding: 14px 16px;
 }
 
 /* â”€â”€ Translate feature â”€â”€ */
@@ -415,22 +420,41 @@ rt {
   display: none;
   align-items: flex-start;
   gap: 10px;
-  padding: 12px 18px;
-  border-radius: 10px;
+  padding: 14px 18px;
+  border-radius: 16px;
   margin-bottom: 20px;
   font-size: 0.9rem;
 }
-.result-badge.correct  { display:flex; background: var(--ok-bg); border: 1.5px solid var(--correct); color: var(--correct); }
-.result-badge.wrong    { display:flex; background: var(--err-bg); border: 1.5px solid var(--wrong); color: var(--wrong); }
+.result-badge.correct  { display:flex; background: var(--success-tint); border: 2px solid var(--success-border); color: var(--correct); }
+.result-badge.wrong    { display:flex; background: var(--err-bg); border: 2px solid var(--wrong); color: var(--wrong); }
 .result-badge .icon    {
   flex: 0 0 28px;
   width: 28px;
   line-height: 1.2;
   margin-top: 1px;
-  font-size: 1.2rem;
+  font-size: 1.4rem;
   text-align: center;
 }
 .result-badge .answer-reveal { margin-top: 6px; font-size: 0.83rem; color: var(--ink-mid); }
+/* +XP reward pill — shown only on a correct answer, top-right of the badge */
+.result-xp-pill {
+  display: none;
+  float: right;
+  margin-left: 10px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--primary-tint);
+  color: var(--primary);
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 0.78rem;
+  animation: xpPop 0.25s ease;
+}
+.result-badge.correct .result-xp-pill { display: inline-block; }
+@keyframes xpPop {
+  from { transform: scale(0.6); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
+}
 
 /* ── Buttons ── */
 .btn {
@@ -473,6 +497,13 @@ rt {
 }
 .btn-danger:hover { background: var(--err-hover); box-shadow: 0 4px 0 var(--err-hover); }
 .btn-danger:active { transform: translateY(4px); box-shadow: 0 0 0 var(--err-hover); }
+.btn-success {
+  background: var(--success);
+  color: #fff;
+  box-shadow: 0 4px 0 var(--success-shadow);
+}
+.btn-success:hover { background: var(--success); box-shadow: 0 4px 0 var(--success-shadow); filter: brightness(1.06); }
+.btn-success:active { transform: translateY(4px); box-shadow: 0 0 0 var(--success-shadow); }
 .btn-disabled {
   opacity: 0.45;
   cursor: not-allowed;
@@ -485,13 +516,13 @@ rt {
   color: var(--on-accent);
   font-size: 1rem;
   padding: 14px 32px;
-  box-shadow: 0 4px 18px rgba(13,115,119,0.35);
+  box-shadow: 0 4px 18px rgba(244,86,42,0.35);
   animation: submitPulse 1.8s ease-in-out infinite;
 }
 .btn-submit:hover { filter: brightness(1.1); }
 @keyframes submitPulse {
-  0%,100% { box-shadow: 0 4px 18px rgba(13,115,119,0.30); }
-  50%      { box-shadow: 0 4px 28px rgba(13,115,119,0.65); }
+  0%,100% { box-shadow: 0 4px 18px rgba(244,86,42,0.30); }
+  50%      { box-shadow: 0 4px 28px rgba(244,86,42,0.65); }
 }
 .btn-row {
   display: flex;
@@ -551,13 +582,15 @@ rt {
   justify-content: center;
 }
 .btn-import {
-  background: var(--paper-2);
+  background: var(--surface);
   color: var(--ink);
   border: 1.5px solid var(--border);
   padding: 10px 18px;
   font-size: 0.85rem;
+  box-shadow: 0 4px 0 var(--btn-shadow);
 }
-.btn-import:hover { background: var(--surface-hover); }
+.btn-import:hover { background: var(--surface-hover); box-shadow: 0 4px 0 var(--btn-shadow); }
+.btn-import:active { transform: translateY(4px); box-shadow: 0 0 0 var(--btn-shadow); }
 .import-status {
   font-size: 0.8rem;
   margin-top: 8px;
@@ -590,15 +623,16 @@ rt {
   padding: 20px 0 28px;
 }
 .score-big {
-  font-family: 'Noto Serif JP', serif;
-  font-size: clamp(3.5rem, 10vw, 5rem);
-  font-weight: 700;
-  color: var(--teal);
+  font-family: var(--font-mono);
+  font-size: clamp(3.5rem, 10vw, 4.5rem);
+  font-weight: 500;
+  color: var(--correct);
   line-height: 1;
 }
-.score-label { color: var(--muted); font-size: 0.85rem; margin-top: 8px; }
-.score-bar-wrap { background: var(--paper-2); height: 10px; border-radius:99px; overflow:hidden; margin: 16px 0 24px; }
-.score-bar { height:100%; border-radius:99px; background: linear-gradient(90deg, var(--teal), var(--gold)); transition: width 1s ease; }
+.score-big.low { color: var(--amber-text); }
+.score-label { color: var(--muted-2); font-size: 0.72rem; letter-spacing: 0.14em; text-transform: uppercase; margin-top: 8px; }
+.score-bar-wrap { background: var(--faint); height: 12px; border-radius:99px; overflow:hidden; margin: 16px 0 8px; }
+.score-bar { height:100%; border-radius:99px; background: linear-gradient(90deg, var(--success-border), var(--success)); transition: width 1s ease; }
 .results-list { margin-top: 8px; display: flex; flex-direction: column; gap: 12px; }
 .result-row {
   border-radius: 10px;
@@ -608,7 +642,7 @@ rt {
 }
 .result-row.c { background: var(--ok-bg); border-color: var(--ok-border); }
 .result-row.w { background: var(--err-bg); border-color: var(--err-border); }
-.result-row .rq { font-family:'Noto Serif JP',serif; font-weight:500; color:var(--ink); margin-bottom:5px; font-size:0.95rem; }
+.result-row .rq { font-family:var(--font-jp); font-weight:500; color:var(--ink); margin-bottom:5px; font-size:0.95rem; }
 .result-row .rc { color: var(--correct); font-size:0.82rem; }
 .result-row .rw { color: var(--wrong); font-size:0.82rem; }
 .result-row .ra { color: var(--ink-mid); font-size:0.82rem; margin-top:3px; }
@@ -1526,12 +1560,12 @@ rt {
   color: var(--on-accent);
   font-size: 1rem;
   padding: 14px 32px;
-  box-shadow: 0 4px 18px rgba(13,115,119,0.35);
+  box-shadow: 0 4px 18px rgba(244,86,42,0.35);
   animation: submitPulse 1.8s ease-in-out infinite;
 }
 @keyframes submitPulse {
-  0%,100% { box-shadow: 0 4px 18px rgba(13,115,119,0.30); }
-  50%      { box-shadow: 0 4px 28px rgba(13,115,119,0.65); }
+  0%,100% { box-shadow: 0 4px 18px rgba(244,86,42,0.30); }
+  50%      { box-shadow: 0 4px 28px rgba(244,86,42,0.65); }
 }
 .vv-loading-overlay {
   position: fixed;
