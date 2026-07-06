@@ -130,6 +130,33 @@
           <button class="btn btn-secondary" id="btn-clear-api">Clear Key</button>
         </div>
         <div class="import-status" id="api-key-status"></div>
+
+        <!-- Shared daily quota — shown only when signed in without a BYO key;
+             populated by quota.js updateQuotaDisplay(). -->
+        <div id="quota-panel" class="quota-panel hidden">
+          <div class="quota-panel-head">
+            <span class="quota-panel-title">📊 Today's shared quota</span>
+            <span class="quota-panel-note">resets daily</span>
+          </div>
+          <div class="quota-meter">
+            <div class="quota-meter-label">
+              <span>💬 Chat requests</span>
+              <span id="quota-chat-count" class="quota-meter-count">—</span>
+            </div>
+            <div class="quota-bar-track"><div id="quota-chat-fill" class="quota-bar-fill"></div></div>
+          </div>
+          <div class="quota-meter">
+            <div class="quota-meter-label">
+              <span>🎤 Speech seconds</span>
+              <span id="quota-whisper-count" class="quota-meter-count">—</span>
+            </div>
+            <div class="quota-bar-track"><div id="quota-whisper-fill" class="quota-bar-fill"></div></div>
+          </div>
+          <p class="quota-panel-hint">
+            Shared allowance for signed-in users without a key. Add your own Groq key above to use your personal allowance instead.
+          </p>
+        </div>
+
         <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
           <label for="jlpt-level-select" style="font-size: 0.85rem; font-weight: bold; margin-right: 8px;">Grading Strictness:</label>
           <select id="jlpt-level-select"
@@ -365,5 +392,75 @@
     border-radius: 999px;
     background: linear-gradient(90deg, var(--xp-grad-1), var(--xp-grad-2));
     transition: width 0.3s ease;
+  }
+
+  /* ── Shared quota usage bars ── */
+  .quota-panel {
+    margin-top: 12px;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface-alt);
+  }
+
+  .quota-panel-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+
+  .quota-panel-title {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .quota-panel-note {
+    font-size: 0.66rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .quota-meter + .quota-meter {
+    margin-top: 10px;
+  }
+
+  .quota-meter-label {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    font-size: 0.76rem;
+    color: var(--ink-mid);
+    margin-bottom: 4px;
+  }
+
+  .quota-meter-count {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--muted);
+  }
+
+  .quota-bar-track {
+    height: 8px;
+    background: var(--faint);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+
+  .quota-bar-fill {
+    height: 100%;
+    width: 0%;
+    border-radius: 999px;
+    background: var(--success);
+    transition: width 0.3s ease, background-color 0.3s ease;
+  }
+
+  .quota-panel-hint {
+    font-size: 0.7rem;
+    color: var(--muted);
+    line-height: 1.4;
+    margin-top: 10px;
   }
 </style>
