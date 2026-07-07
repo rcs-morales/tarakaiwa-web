@@ -66,6 +66,8 @@
   --xp-grad-1:       #ffb03a;   /* XP bar gradient start */
   --xp-grad-2:       #f4562a;   /* XP bar gradient end */
   --btn-shadow:      #e8d8be;   /* secondary/white button press shadow */
+  --chart-bar:       #f3d9ae;   /* Progress XP chart — regular day bars */
+  --dashed-ring:     #e7d6bc;   /* Progress streak — future-day dashed circle */
 
   /* Status */
   --ok-bg: #e4f4e6;     --ok-border: #6cc183;     --ok-tag-bg: #2e7d4422;
@@ -145,6 +147,8 @@
   --xp-grad-1:       #e5a24c;
   --xp-grad-2:       #ff6b42;
   --btn-shadow:      #1a140f;
+  --chart-bar:       #4a3b28;
+  --dashed-ring:     #55462f;
 
   --ok-bg: #17301f;     --ok-border: #2e6042;     --ok-tag-bg: #5fbf7e2b;
   --err-bg: #331e18;    --err-border: #6e3a2c;    --err-tag-bg: #e38a722b;

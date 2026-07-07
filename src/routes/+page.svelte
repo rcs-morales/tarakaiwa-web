@@ -7,6 +7,7 @@
   import Practice from '$lib/components/Practice.svelte';
   import Results from '$lib/components/Results.svelte';
   import Decks from '$lib/components/Decks.svelte';
+  import Progress from '$lib/components/Progress.svelte';
   import { shell } from '$lib/shell.svelte.js';
 
   onMount(initApp);
@@ -36,14 +37,7 @@
   <!-- ══ PROGRESS TAB ══ -->
   <section class="tab-panel" class:hidden={shell.tab !== 'progress'}>
     <div class="card">
-      <div id="progress-placeholder" style="text-align: center; padding: 32px 8px;">
-        <div class="big-icon">📈</div>
-        <h2>Progress</h2>
-        <p style="color: var(--muted); font-size: 0.9rem; margin-top: 8px;">
-          Session history and score trends are coming soon.<br>
-          Finish a practice session and check back here.
-        </p>
-      </div>
+      <Progress />
     </div>
   </section>
 
