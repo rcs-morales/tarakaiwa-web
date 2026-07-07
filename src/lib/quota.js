@@ -5,8 +5,8 @@
 import { supabaseClient } from './supabase.js';
 import { hasAIAccess, hasGroqApiKey } from './ai/index.js';
 
-const CHAT_DAILY_LIMIT = 200;
-const WHISPER_DAILY_LIMIT = 600;
+export const CHAT_DAILY_LIMIT = 200;
+export const WHISPER_DAILY_LIMIT = 600;
 
 /**
  * Fetch the current user's API usage for today. Returns null if not logged in
@@ -66,25 +66,52 @@ export function isQuotaLow(usage) {
   return chatUsagePercent > 80 || whisperUsagePercent > 80;
 }
 
+/** Paint one usage bar (fill width + count + color state) by key. */
+function updateQuotaMeter(key, used, limit, unit) {
+  const fill = document.getElementById(`quota-${key}-fill`);
+  const count = document.getElementById(`quota-${key}-count`);
+  const pct = Math.min(100, Math.round((used / limit) * 100));
+  if (fill) {
+    fill.style.width = `${pct}%`;
+    // green normally, amber past 80%, red when spent
+    fill.style.background = pct >= 100 ? 'var(--wrong)'
+      : pct > 80 ? 'var(--warn)'
+      : 'var(--success)';
+  }
+  if (count) count.textContent = `${used}${unit} / ${limit}${unit}`;
+}
+
 /**
- * Refresh the quota display on the start screen.
+ * Refresh both quota indicators from a single usage fetch: the compact text
+ * chip in the account menu and the usage bars in Settings. Both are hidden
+ * when the shared quota doesn't apply (signed out, or a BYO key is saved).
  */
 export async function updateQuotaDisplay() {
   const quotaChip = document.getElementById('quota-chip');
   const quotaText = document.getElementById('quota-text');
-  if (!quotaChip || !quotaText) return;
+  const quotaPanel = document.getElementById('quota-panel');
 
   const usage = await fetchQuotaUsage();
-  if (!usage) {
-    quotaChip.classList.add('hidden');
-    return;
+
+  // Compact chip in the 👤 account menu
+  if (quotaChip && quotaText) {
+    if (!usage) {
+      quotaChip.classList.add('hidden');
+    } else {
+      quotaChip.classList.remove('hidden');
+      quotaText.textContent = formatQuotaDisplay(usage);
+      quotaChip.style.color = isQuotaLow(usage) ? 'var(--warn)' : 'var(--muted)';
+    }
   }
 
-  quotaChip.classList.remove('hidden');
-  quotaText.textContent = formatQuotaDisplay(usage);
-  if (isQuotaLow(usage)) {
-    quotaChip.style.color = 'var(--warn)';
-  } else {
-    quotaChip.style.color = 'var(--muted)';
+  // Usage bars in Settings → AI grading
+  if (quotaPanel) {
+    if (!usage) {
+      quotaPanel.classList.add('hidden');
+    } else {
+      quotaPanel.classList.remove('hidden');
+      updateQuotaMeter('chat', usage.chatRequests, CHAT_DAILY_LIMIT, '');
+      updateQuotaMeter('whisper', Math.ceil(usage.whisperSeconds), WHISPER_DAILY_LIMIT, 's');
+    }
   }
 }

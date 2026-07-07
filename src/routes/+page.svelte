@@ -6,6 +6,7 @@
   import Dashboard from '$lib/components/Dashboard.svelte';
   import Practice from '$lib/components/Practice.svelte';
   import Results from '$lib/components/Results.svelte';
+  import Decks from '$lib/components/Decks.svelte';
   import { shell } from '$lib/shell.svelte.js';
 
   onMount(initApp);
@@ -28,35 +29,7 @@
   <!-- ══ DECKS TAB ══ -->
   <section class="tab-panel" class:hidden={shell.tab !== 'decks'}>
     <div class="card">
-      <div class="settings-section" id="import-section">
-        <h3>📁 Your Q&amp;A Deck</h3>
-        <p>Load your custom questions and answers from Excel, JSON or CSV file:</p>
-        <p style="font-size: 0.75rem; color: var(--muted); margin-bottom: 6px;">
-          <strong>Excel format:</strong> .xlsx or .xls file with two columns (Question, Answer)<br>
-          <strong>JSON format:</strong> <code
-            style="background: var(--paper-2); padding: 2px 6px; border-radius: 3px;">[&#123;"q": "Question?", "a": "Answer"&#125;, ...]</code><br>
-          <strong>CSV format:</strong> Two columns (Question, Answer) — first row as header<br>
-        </p>
-        <input type="file" id="file-input" accept=".json,.csv,.txt,.xlsx,.xls" />
-        <div class="import-buttons">
-          <button class="btn btn-import" id="btn-choose-file">
-            Choose File
-          </button>
-          <button class="btn btn-secondary" id="btn-clear-db">
-            Clear
-          </button>
-        </div>
-        <div class="import-status" id="import-status"></div>
-        <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
-          <label style="font-size: 0.85rem; display: inline-flex; align-items: center; gap: 8px; cursor: pointer;">
-            <input type="checkbox" id="shuffle-questions-checkbox" checked />
-            🔀 Shuffle question order each session
-          </label>
-          <p style="font-size: 0.72rem; color: var(--muted); margin-top: 4px;">
-            Turn off to practice questions in the same order as your file.
-          </p>
-        </div>
-      </div>
+      <Decks />
     </div>
   </section>
 
@@ -130,6 +103,33 @@
           <button class="btn btn-secondary" id="btn-clear-api">Clear Key</button>
         </div>
         <div class="import-status" id="api-key-status"></div>
+
+        <!-- Shared daily quota — shown only when signed in without a BYO key;
+             populated by quota.js updateQuotaDisplay(). -->
+        <div id="quota-panel" class="quota-panel hidden">
+          <div class="quota-panel-head">
+            <span class="quota-panel-title">📊 Today's shared quota</span>
+            <span class="quota-panel-note">resets daily</span>
+          </div>
+          <div class="quota-meter">
+            <div class="quota-meter-label">
+              <span>💬 Chat requests</span>
+              <span id="quota-chat-count" class="quota-meter-count">—</span>
+            </div>
+            <div class="quota-bar-track"><div id="quota-chat-fill" class="quota-bar-fill"></div></div>
+          </div>
+          <div class="quota-meter">
+            <div class="quota-meter-label">
+              <span>🎤 Speech seconds</span>
+              <span id="quota-whisper-count" class="quota-meter-count">—</span>
+            </div>
+            <div class="quota-bar-track"><div id="quota-whisper-fill" class="quota-bar-fill"></div></div>
+          </div>
+          <p class="quota-panel-hint">
+            Shared allowance for signed-in users without a key. Add your own Groq key above to use your personal allowance instead.
+          </p>
+        </div>
+
         <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
           <label for="jlpt-level-select" style="font-size: 0.85rem; font-weight: bold; margin-right: 8px;">Grading Strictness:</label>
           <select id="jlpt-level-select"
@@ -175,8 +175,9 @@
           </select>
           <div style="margin-top: 10px;">
             <label for="tts-speed-slider" style="font-size: 0.85rem; font-weight: bold; margin-right: 8px;">
-              🐢 Speech speed: <span id="tts-speed-value">0.85×</span>
+              🐢 Speech speed: <span id="tts-speed-value" style="display: inline-block; min-width: 3ch; text-align: left; font-variant-numeric: tabular-nums;">0.85×</span>
             </label>
+            <br>
             <input type="range" id="tts-speed-slider" min="0.5" max="1.5" step="0.05" value="0.85"
               style="width: 180px; vertical-align: middle;" />
             <p style="font-size: 0.72rem; color: var(--muted); margin-top: 4px;">
@@ -206,8 +207,15 @@
             Audio is generated instantly via the free community <strong>api.tts.quest</strong> service.
           </p>
           <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border);">
-            <span style="font-size: 0.82rem;">📦 Voice pack: <span id="voicepack-status">—</span></span>
-            <button id="btn-download-voicepack" class="btn btn-secondary btn-sm" style="margin-left: 8px; font-size: 0.75rem;">⬇ Download all</button>
+            <div class="voicepack-row">
+              <span style="font-size: 0.82rem;">📦 Voice pack: <span id="voicepack-status">—</span></span>
+              <button id="btn-download-voicepack" class="btn btn-secondary btn-sm" style="font-size: 0.75rem;">⬇ Download all</button>
+            </div>
+            <div id="voicepack-progress" class="voicepack-progress hidden">
+              <div class="voicepack-progress-track">
+                <div id="voicepack-progress-fill" class="voicepack-progress-fill"></div>
+              </div>
+            </div>
             <p style="font-size: 0.72rem; color: var(--muted); margin-top: 4px; line-height: 1.4;">
               Download once on good wifi to practice without waiting on cloud audio (audio also downloads quietly in the background during practice).
             </p>
@@ -227,6 +235,17 @@
             Choose the Live2D avatar you want to use when practice starts.
           </p>
         </div>
+      </div>
+
+      <!-- Reset Progress (Danger Zone) -->
+      <div class="settings-section settings-danger-zone" id="setup-step-reset">
+        <h3>🔄 Reset Progress</h3>
+        <p style="font-size: 0.85rem; color: var(--muted);">
+          Erase all session history, XP, level, streak, daily goals, and score
+          stats. Your settings, deck, and account are <strong>not</strong> affected.
+        </p>
+        <button class="btn btn-danger" id="btn-reset-progress">Reset All Progress</button>
+        <div class="import-status" id="reset-progress-status"></div>
       </div>
 
     </div>
@@ -327,5 +346,106 @@
     .tab-panel {
       padding: 10px 10px 8px;
     }
+  }
+
+  /* ── Voice pack download row ── */
+  .voicepack-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* Push the Download-all button to the right of the status label. */
+  .voicepack-row :global(#btn-download-voicepack) {
+    margin-left: auto;
+  }
+
+  .voicepack-progress {
+    margin-top: 8px;
+  }
+
+  .voicepack-progress-track {
+    height: 8px;
+    background: var(--faint);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+
+  .voicepack-progress-fill {
+    height: 100%;
+    width: 0%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--xp-grad-1), var(--xp-grad-2));
+    transition: width 0.3s ease;
+  }
+
+  /* ── Shared quota usage bars ── */
+  .quota-panel {
+    margin-top: 12px;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface-alt);
+  }
+
+  .quota-panel-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+
+  .quota-panel-title {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .quota-panel-note {
+    font-size: 0.66rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .quota-meter + .quota-meter {
+    margin-top: 10px;
+  }
+
+  .quota-meter-label {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    font-size: 0.76rem;
+    color: var(--ink-mid);
+    margin-bottom: 4px;
+  }
+
+  .quota-meter-count {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--muted);
+  }
+
+  .quota-bar-track {
+    height: 8px;
+    background: var(--faint);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+
+  .quota-bar-fill {
+    height: 100%;
+    width: 0%;
+    border-radius: 999px;
+    background: var(--success);
+    transition: width 0.3s ease, background-color 0.3s ease;
+  }
+
+  .quota-panel-hint {
+    font-size: 0.7rem;
+    color: var(--muted);
+    line-height: 1.4;
+    margin-top: 10px;
   }
 </style>

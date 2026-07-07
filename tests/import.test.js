@@ -1,8 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { handleFileImport, clearDatabase } from '../src/lib/import.js';
+import { handleFileImport } from '../src/lib/import.js';
 import * as ui from '../src/lib/ui.js';
-import * as settings from '../src/lib/settings.js';
-import * as session from '../src/lib/session.svelte.js';
+import * as decksModule from '../src/lib/decks.svelte.js';
 import * as parser from '../src/lib/parser.js';
 
 vi.mock('../src/lib/ui.js', () => ({
@@ -13,15 +12,8 @@ vi.mock('../src/lib/ai/index.js', () => ({
   hasGroqApiKey: vi.fn(() => false),
 }));
 
-vi.mock('../src/lib/settings.js', () => ({
-  get: vi.fn(),
-  set: vi.fn(),
-  remove: vi.fn(),
-  KEYS: { QA_DATA: 'qa_data', SETUP_COMPLETE: 'setup_complete' }
-}));
-
-vi.mock('../src/lib/session.svelte.js', () => ({
-  setQA: vi.fn(),
+vi.mock('../src/lib/decks.svelte.js', () => ({
+  importDeck: vi.fn(async () => true),
 }));
 
 vi.mock('../src/lib/parser.js', () => ({
@@ -31,11 +23,10 @@ vi.mock('../src/lib/parser.js', () => ({
   ensureXLSXLoaded: vi.fn().mockResolvedValue(true),
 }));
 
-describe('Data Import/Export Tests', () => {
+describe('Data Import Tests', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     document.body.innerHTML = `
-      <div id="import-section"></div>
       <input id="file-input" type="file" />
     `;
   });
@@ -71,8 +62,7 @@ describe('Data Import/Export Tests', () => {
     await handleFileImport(event);
 
     expect(parser.parseJSON).toHaveBeenCalledWith(content);
-    expect(session.setQA).toHaveBeenCalledWith(JSON.parse(content));
-    expect(settings.set).toHaveBeenCalledWith(settings.KEYS.QA_DATA, JSON.stringify(JSON.parse(content)));
+    expect(decksModule.importDeck).toHaveBeenCalledWith(JSON.parse(content), 'test.json');
     expect(ui.showImportStatus).toHaveBeenCalledWith(expect.stringContaining('Successfully imported'), 'success');
   });
 
@@ -97,7 +87,7 @@ describe('Data Import/Export Tests', () => {
     await handleFileImport(event);
 
     expect(parser.parseCSV).toHaveBeenCalledWith(content);
-    expect(session.setQA).toHaveBeenCalledWith(mockQA);
+    expect(decksModule.importDeck).toHaveBeenCalledWith(mockQA, 'test.csv');
     expect(ui.showImportStatus).toHaveBeenCalledWith(expect.stringContaining('Successfully imported'), 'success');
   });
 
@@ -143,10 +133,26 @@ describe('Data Import/Export Tests', () => {
     expect(ui.showImportStatus).toHaveBeenCalledWith(expect.stringContaining('No valid Q&A data found'), 'error');
   });
 
-  it('should clear the database and update UI', () => {
-    clearDatabase();
-    expect(settings.remove).toHaveBeenCalledWith(settings.KEYS.QA_DATA);
-    expect(session.setQA).toHaveBeenCalledWith([]);
-    expect(ui.showImportStatus).toHaveBeenCalledWith(expect.stringContaining('Database cleared'), 'info');
+  it('should report an info status when the cloud push fails', async () => {
+    const content = '[{"q": "Hi", "a": "Konnichiwa"}]';
+    const event = createMockEvent('test.json', content);
+    parser.parseJSON.mockReturnValue(JSON.parse(content));
+    decksModule.importDeck.mockResolvedValueOnce(false);
+
+    vi.stubGlobal('FileReader', class {
+      constructor() {
+        this.onload = null;
+        this.onerror = null;
+      }
+      readAsText() {
+        if (this.onload) {
+          this.onload({ target: { result: content } });
+        }
+      }
+    });
+
+    await handleFileImport(event);
+
+    expect(ui.showImportStatus).toHaveBeenCalledWith(expect.stringContaining('cloud sync failed'), 'info');
   });
 });

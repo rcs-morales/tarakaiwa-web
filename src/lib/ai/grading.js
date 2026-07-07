@@ -197,6 +197,18 @@ async function finalizeAIGradingResult(text, question, expectedAnswer, transcrip
     const hasProhibitionProblem = grammarSignals.prohibitionMismatch;
     const breakdown = groundBreakdown(result.breakdown, transcript)
       .filter(item => !isScriptOrNumeralOnlyBreakdown(item));
+
+    // Surface the local tense safety net as an explicit breakdown item so the
+    // learner sees why the answer was marked wrong when the AI missed it.
+    if (tenseMismatch && !breakdown.some(b => (b.category || '').toLowerCase().includes('tense'))) {
+      breakdown.push({
+        original: transcript,
+        corrected: expectedAnswer,
+        category: 'Tense',
+        explanation: 'The verb tense does not match the expected answer.'
+      });
+    }
+
     const hasBreakdownError = hasMeaningfulBreakdownError(breakdown, isScriptOrNumeralOnlyBreakdown);
     const exactMatch = gradingTextsEquivalent(expectedAnswer, transcript);
     const hasCompletionProblem = !exactMatch && (completionSignals.incomplete || completionSignals.hasExtraTrailingChars);

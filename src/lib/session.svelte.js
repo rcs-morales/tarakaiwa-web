@@ -39,11 +39,16 @@ export const session = $state({
   // True only when qa is the built-in starter deck (tutorial mode +
   // sample-deck labeling key off this, not off the shape of the data).
   isDefaultDeck: false,
+  // The multi-deck list's active deck id (decks.svelte.js), or null for the
+  // built-in Sample deck. Tags recorded sessions so scores can be shown
+  // per-deck on the Decks screen.
+  activeDeckId: null,
 });
 
-export function setQA(newData, { isDefault = false } = {}) {
+export function setQA(newData, { isDefault = false, deckId = null } = {}) {
   session.qa = newData;
   session.isDefaultDeck = isDefault;
+  session.activeDeckId = deckId;
 }
 export function setCurrent(val) {
   session.current = val;
@@ -533,7 +538,7 @@ export function endSession() {
     const i = session.results.length;
     session.results.push({ q: session.qa[i].q, a: session.qa[i].a, transcript: '(not reached)', correct: false });
   }
-  showResults();
+  showResults(undefined, { skipProgression: true });
 }
 
 async function handleFinishPractice() {
@@ -565,10 +570,10 @@ async function handleFinishPractice() {
     await preloadVoicevoxAudio(choice.jp);
   }
 
-  showResults(choice);
+  showResults(choice, { skipProgression: false });
 }
 
-async function showResults(choice) {
+async function showResults(choice, { skipProgression = false } = {}) {
   const synth = window.speechSynthesis;
   if (synth.speaking) synth.cancel();
 
@@ -581,17 +586,21 @@ async function showResults(choice) {
 
   showFinalOverlay(pct, choice);
 
-  // Persist this run: always to the device-local history (dashboard stats),
-  // and to the cloud when signed in (no-op / fire-and-forget otherwise).
-  // Covers both the "finished all questions" and "End" paths since both
-  // funnel through here.
-  recordSession({ score: session.score, total, jlpt: get(KEYS.JLPT_LEVEL) });
-  saveSessionResult({
-    jlpt_level: get(KEYS.JLPT_LEVEL),
-    score: session.score,
-    total,
-    results: session.results,
-  });
+  // Only persist when the session was completed naturally (all questions
+  // answered / skipped). Manually ended sessions ("End" button) pass
+  // skipProgression=true so they don't inflate recent sessions, XP,
+  // daily goals, avg score, or the cloud session_results table.
+  if (!skipProgression) {
+    const deckId = session.isDefaultDeck ? null : session.activeDeckId;
+    recordSession({ score: session.score, total, jlpt: get(KEYS.JLPT_LEVEL), deckId });
+    saveSessionResult({
+      jlpt_level: get(KEYS.JLPT_LEVEL),
+      score: session.score,
+      total,
+      results: session.results,
+      deckId,
+    });
+  }
 }
 
 async function showFinalOverlay(pct, choice) {

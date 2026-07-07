@@ -16,6 +16,12 @@ coverage/
 *.log
 npm-debug.log*
 
+# Local design handoff / reference material (not versioned, like the planning docs above)
+design_handoff_kaiwa_quest/
+
+# Supabase CLI scratch state (regenerated per machine)
+supabase/.temp/
+
 # Editor and local tooling
 .vscode/
 .idea/

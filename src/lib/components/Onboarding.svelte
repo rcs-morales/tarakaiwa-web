@@ -96,8 +96,8 @@
         <h2>Sync across devices?</h2>
         <p class="sheet-text">
           Optional — sign in to sync your settings, deck and scores. You can
-          also add a Groq API key later under <strong>Settings</strong> for
-          unlimited AI grading.
+          also add a Groq API key later under <strong>Settings</strong>
+          to bypass daily quota sharing for AI grading.
         </p>
 
         {#if user}

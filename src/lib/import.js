@@ -1,11 +1,8 @@
-import { DEFAULT_QA } from './data.js';
 import {
   parseJSON, parseCSV, parseExcel, ensureXLSXLoaded
 } from './parser.js';
 import { showImportStatus } from './ui.js';
-import { set, remove, KEYS } from './settings.js';
-import { setQA } from './session.svelte.js';
-import { pushDeck } from './sync.js';
+import { importDeck } from './decks.svelte.js';
 
 /**
  * Handle the file import process.
@@ -41,22 +38,17 @@ export async function handleFileImport(event) {
         throw new Error('No valid Q&A data found in file');
       }
 
-      setQA(qa);
-      set(KEYS.QA_DATA, JSON.stringify(qa));
-      // Mark the local deck as changed NOW, so sync never lets an older remote
-      // deck overwrite this import even if the upload below is interrupted.
-      localStorage.setItem(KEYS.DECK_UPDATED_AT, new Date().toISOString());
       showImportStatus('✅ Successfully imported ' + qa.length + ' question' + (qa.length !== 1 ? 's' : '') + ' from ' + file.name, 'success');
       // Let app.js warm the Voicevox cache / refresh the voice-pack indicator
       // (dispatched as an event to avoid an import cycle with app.js).
       window.dispatchEvent(new CustomEvent('deck-imported'));
 
-      // Dual-write to the cloud when signed in (null = logged out, fine).
-      const pushed = await pushDeck(qa, file.name);
+      // Adds it as a new deck, makes it active, and dual-writes to the cloud
+      // when signed in (null = logged out, fine).
+      const pushed = await importDeck(qa, file.name);
       if (pushed === false) {
         showImportStatus('✅ Imported ' + qa.length + ' questions (⚠️ cloud sync failed — the deck is saved on this device and will sync on your next sign-in)', 'info');
       }
-
 
     } catch (error) {
       showImportStatus('❌ Import failed: ' + error.message, 'error');
@@ -74,15 +66,4 @@ export async function handleFileImport(event) {
   }
 
   event.target.value = '';
-}
-
-/**
- * Clear the imported Q&A database from localStorage and state.
- */
-export function clearDatabase() {
-  remove(KEYS.QA_DATA);
-  setQA([]);
-  showImportStatus('🗑 Database cleared. Import a Q&A file to begin practice.', 'info');
-  const fileInput = document.getElementById('file-input');
-  if (fileInput) fileInput.value = '';
 }

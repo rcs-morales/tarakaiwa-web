@@ -1,18 +1,24 @@
 <script>
-  // In-session practice screen (Phase 5c). This component owns the LAYOUT
-  // only — every element keeps its id because session.svelte.js, ui.js,
+  // In-session practice screen (Phase 5c, restyled 5d). This component owns the
+  // LAYOUT only — every element keeps its id because session.svelte.js, ui.js,
   // stt.js and avatar.js drive the content imperatively. The Live2D canvas
   // mounts into #avatar-container and must never be unmounted.
+  import { XP_PER_CORRECT } from '$lib/gamification.svelte.js';
 </script>
 
 <div id="screen-practice" class="hidden">
-  <div class="practice-stage">
-    <div id="avatar-container"></div>
+  <div class="session-header">
+    <button class="session-end-btn" id="btn-end-session" title="End session" aria-label="End session">✕</button>
+    <div class="progress-bar-wrap session-progress">
+      <div class="progress-bar-fill" id="progress-bar"></div>
+    </div>
+    <div class="progress-label session-count" id="progress-label">1 / 16</div>
   </div>
 
-  <div class="progress-label" id="progress-label">Question 1 / 16</div>
-  <div class="progress-bar-wrap">
-    <div class="progress-bar-fill" id="progress-bar"></div>
+  <div class="practice-stage">
+    <div class="avatar-frame">
+      <div id="avatar-container"></div>
+    </div>
   </div>
 
   <div class="question-label practice-question-row">
@@ -50,6 +56,7 @@
   <div class="result-badge" id="result-badge">
     <span class="icon" id="result-icon"></span>
     <div class="result-badge-content">
+      <span class="result-xp-pill">+{XP_PER_CORRECT} XP</span>
       <div id="result-msg"></div>
       <div class="answer-reveal" id="answer-reveal"></div>
       <div id="answer-translation" class="ai-feedback-text practice-answer-translation"></div>
@@ -61,15 +68,60 @@
     <div class="btn-group-record">
       <button class="btn btn-submit hidden" id="btn-submit">■ Finish Recording</button>
       <button class="btn btn-primary hidden" id="btn-check">✔ Check Answer</button>
-      <button class="btn btn-secondary hidden" id="btn-rerecord">🎤 Re-record</button>
+      <button class="btn btn-secondary hidden" id="btn-rerecord">🎤 Try again</button>
     </div>
-    <button class="btn btn-primary hidden" id="btn-next">Next →</button>
+    <button class="btn btn-success hidden" id="btn-next">Next →</button>
     <button class="btn btn-secondary" id="btn-skip">Skip ▷</button>
-    <button class="btn btn-danger" id="btn-end-session">✕ End</button>
   </div>
 </div>
 
 <style>
+  /* ── Session header: round ✕ · progress bar · mono count ── */
+  .session-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .session-end-btn {
+    flex: 0 0 auto;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 1.5px solid var(--border);
+    background: var(--surface);
+    color: var(--muted);
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+  }
+
+  .session-end-btn:hover {
+    background: var(--err-bg);
+    color: var(--wrong);
+    border-color: var(--wrong);
+  }
+
+  .session-progress {
+    flex: 1;
+    margin: 0;
+  }
+
+  .session-count {
+    flex: 0 0 auto;
+    margin: 0;
+  }
+
+  /* ── Avatar frame: rounded, masked stage for the Live2D canvas ── */
+  .avatar-frame {
+    border-radius: 22px;
+    overflow: hidden;
+    background: var(--primary-tint);
+    border: 2px solid var(--card-border);
+  }
+
   .practice-question-row {
     display: flex;
     justify-content: space-between;
@@ -122,8 +174,7 @@
       flex: 1 1 60%;
     }
 
-    .practice-controls #btn-skip,
-    .practice-controls #btn-end-session {
+    .practice-controls #btn-skip {
       flex: 1;
     }
   }

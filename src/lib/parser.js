@@ -430,17 +430,18 @@ function buildPlainTextMarkup(baseText) {
 export function toFuriganaHtml(text, readingHint = '') {
   let s = String(text || '');
 
-  if (readingHint && /[一-龯]/u.test(s)) {
-    return buildPlainTextMarkup(s);
+  // AI-generated furigana format: Kanji{reading} → <ruby>Kanji<rt>reading</rt></ruby>.
+  // Handled first and regardless of readingHint: the translate prompt guarantees
+  // these markers, and the reading belongs inside the ruby, not stripped away.
+  if (s.includes('{')) {
+    return s.replace(/([^{}]+)\{([^}]*)\}/g, (_match, baseText, reading) =>
+      `<ruby>${escapeHtml(baseText)}<rt>${escapeHtml(reading)}</rt></ruby>`);
   }
 
-  // First, handle AI-generated furigana format: Text{reading}
-  if (s.includes('{')) {
-    s = s.replace(/([^{}]+)\{([^\}]*)\}/g, (_match, baseText) => {
-      return buildPlainTextMarkup(baseText);
-    });
-
-    return s;
+  // With an explicit reading hint (romaji shown separately) and kanji present,
+  // skip dictionary furigana and render plain text.
+  if (readingHint && /[一-龯]/u.test(s)) {
+    return buildPlainTextMarkup(s);
   }
 
   const phrasePairs = [...KANJI_MAP, ...LESSON_KANJI_MAP]

@@ -132,7 +132,7 @@ describe('Translate Tool UI', () => {
     vi.mocked(speakQuestion).mockClear();
 
     await replayJapaneseAudio();
-    expect(speakQuestion).toHaveBeenCalledWith('ありがとう', expect.any(Function));
+    expect(speakQuestion).toHaveBeenCalledWith('ありがとう', expect.any(Function), 'tool');
   });
 });
 
@@ -144,6 +144,11 @@ describe('Translate Tool Mic', () => {
       <div id="translate-status"></div>
     `;
     vi.clearAllMocks();
+    // Browser speech recognition is now gated behind a mic-permission request.
+    Object.defineProperty(navigator, 'mediaDevices', {
+      configurable: true,
+      value: { getUserMedia: vi.fn(async () => ({ getTracks: () => [] })) },
+    });
   });
 
   it('uses browser speech recognition when available', async () => {

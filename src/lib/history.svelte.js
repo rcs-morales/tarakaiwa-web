@@ -24,12 +24,12 @@ function loadLocal() {
   }
 }
 
-/** Reactive history view, newest first: [{ at, score, total, jlpt }] */
+/** Reactive history view, newest first: [{ at, score, total, jlpt, deckId }] */
 export const history = $state({ entries: loadLocal() });
 
 /** Record a finished run (always local; cloud insert is sync.js's job). */
-export function recordSession({ score, total, jlpt }) {
-  const entry = { at: new Date().toISOString(), score, total, jlpt };
+export function recordSession({ score, total, jlpt, deckId = null }) {
+  const entry = { at: new Date().toISOString(), score, total, jlpt, deckId };
   const local = [entry, ...loadLocal()].slice(0, MAX_ENTRIES);
   set(KEYS.SESSION_HISTORY, JSON.stringify(local));
   // The in-memory view may be showing remote entries — prepend there too so
@@ -49,6 +49,12 @@ export async function syncFromRemote() {
 /** Reset the view to this device's local record (call on sign-out). */
 export function resetToLocal() {
   history.entries = loadLocal();
+}
+
+/** Wipe all local session history (call from "Reset Progress" in settings). */
+export function resetProgress() {
+  set(KEYS.SESSION_HISTORY, JSON.stringify([]));
+  history.entries = [];
 }
 
 /** yyyy-mm-dd in local time — streaks are calendar days where the user lives. */
@@ -81,4 +87,19 @@ export function computeStats(entries) {
     cursor.setDate(cursor.getDate() - 1);
   }
   return { sessions, avgPct, streakDays };
+}
+
+/**
+ * Best score percentage for one deck across recorded history, or null when
+ * that deck has never been played. `deckId` matches the null-for-Sample-deck
+ * convention used throughout (session.activeDeckId, decks.svelte.js).
+ */
+export function bestScoreForDeck(entries, deckId) {
+  let best = null;
+  for (const e of entries) {
+    if (e.deckId !== deckId || !e.total) continue;
+    const pct = Math.round((e.score / e.total) * 100);
+    if (best === null || pct > best) best = pct;
+  }
+  return best;
 }

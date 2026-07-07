@@ -1,8 +1,10 @@
 <script>
-  let { icon, value, label, accent = false } = $props();
+  // tone: 'default' | 'accent' (vermillion tint) | 'amber' (daily-goal)
+  let { icon, value, label, accent = false, tone = 'default' } = $props();
+  const resolvedTone = $derived(accent ? 'accent' : tone);
 </script>
 
-<div class="stat-card" class:accent>
+<div class="stat-card" class:accent={resolvedTone === 'accent'} class:amber={resolvedTone === 'amber'}>
   <span class="stat-icon" aria-hidden="true">{icon}</span>
   <span class="stat-value">{value}</span>
   <span class="stat-label">{label}</span>
@@ -27,13 +29,22 @@
     background: var(--tint-teal);
   }
 
+  .stat-card.amber {
+    border-color: var(--amber-border);
+    background: var(--amber-bg);
+  }
+
+  .stat-card.amber .stat-value {
+    color: var(--amber-text);
+  }
+
   .stat-icon {
     font-size: 1.15rem;
     line-height: 1;
   }
 
   .stat-value {
-    font-family: 'DM Mono', monospace;
+    font-family: var(--font-mono);
     font-size: 1.35rem;
     font-weight: 700;
     color: var(--text);
