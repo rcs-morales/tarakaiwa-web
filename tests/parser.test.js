@@ -104,27 +104,21 @@ describe('transcriptToFurigana', () => {
 });
 
 describe('toFuriganaHtml', () => {
-  it('renders mixed tokens as plain text without hover-reveal markup', () => {
-    const html = toFuriganaHtml('1日{いちにち}');
-    expect(html).toContain('1日');
-    expect(html).not.toContain('class="kanji-reading"');
+  it('renders AI furigana markers as ruby tags', () => {
+    expect(toFuriganaHtml('1日{いちにち}')).toBe('<ruby>1日<rt>いちにち</rt></ruby>');
+  });
+
+  it('renders romaji reading hints as plain text (romaji is shown separately)', () => {
+    const html = toFuriganaHtml('電車', 'densha');
+    expect(html).toContain('電車');
     expect(html).not.toContain('<ruby');
   });
 
-  it('renders romaji reading hints as plain text', () => {
-    const html = toFuriganaHtml('電車', 'densha');
-    expect(html).toContain('電車');
-    expect(html).not.toContain('class="kanji-reading"');
+  it('wraps purely Japanese furigana tokens in ruby', () => {
+    expect(toFuriganaHtml('今日{きょう}')).toBe('<ruby>今日<rt>きょう</rt></ruby>');
   });
 
-  it('renders purely Japanese tokens as plain text', () => {
-    expect(toFuriganaHtml('今日{きょう}')).toContain('今日');
-    expect(toFuriganaHtml('今日{きょう}')).not.toContain('class="kanji-reading"');
-  });
-
-  it('keeps particles plain without any reveal markup', () => {
-    const html = toFuriganaHtml('日本語を{にほんごを}');
-    expect(html).toContain('日本語を');
-    expect(html).not.toContain('class="kanji-reading"');
+  it('keeps trailing particles inside the ruby base with their reading', () => {
+    expect(toFuriganaHtml('日本語を{にほんごを}')).toBe('<ruby>日本語を<rt>にほんごを</rt></ruby>');
   });
 });
