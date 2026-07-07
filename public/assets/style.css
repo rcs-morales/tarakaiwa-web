@@ -68,6 +68,7 @@
   --btn-shadow:      #e8d8be;   /* secondary/white button press shadow */
   --chart-bar:       #f3d9ae;   /* Progress XP chart — regular day bars */
   --dashed-ring:     #e7d6bc;   /* Progress streak — future-day dashed circle */
+  --toggle-off:      #eaddc6;   /* Settings toggle — off-state track */
 
   /* Status */
   --ok-bg: #e4f4e6;     --ok-border: #6cc183;     --ok-tag-bg: #2e7d4422;
@@ -149,6 +150,7 @@
   --btn-shadow:      #1a140f;
   --chart-bar:       #4a3b28;
   --dashed-ring:     #55462f;
+  --toggle-off:      #453729;
 
   --ok-bg: #17301f;     --ok-border: #2e6042;     --ok-tag-bg: #5fbf7e2b;
   --err-bg: #331e18;    --err-border: #6e3a2c;    --err-tag-bg: #e38a722b;
@@ -1850,3 +1852,25 @@ rt {
   line-height: 1.5;
 }
 
+
+/* ─────────────────────────────────────────────
+   LEARNING AIDS (Phase 5f) — Settings toggles
+   ─────────────────────────────────────────────
+   prefs.svelte.js mirrors the three aid toggles onto <body> as
+   aids-hide-* classes; these rules hide the imperatively rendered
+   furigana ruby, romaji line, and English-hint affordances without
+   touching the modules that write them. */
+
+body.aids-hide-furigana #screen-practice rt {
+  display: none;
+}
+
+body.aids-hide-romaji #target-romaji-text {
+  display: none !important;
+}
+
+/* !important — session.svelte.js shows/hides #translate-row with inline style */
+body.aids-hide-en #translate-row,
+body.aids-hide-en #answer-translation {
+  display: none !important;
+}
