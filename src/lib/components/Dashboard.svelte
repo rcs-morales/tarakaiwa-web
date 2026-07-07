@@ -99,11 +99,15 @@
   {#if recent.length > 0}
     <div class="dash-recent">
       <div class="dash-recent-title">Recent sessions</div>
-      {#each recent as e (e.at)}
+      {#each recent as e, i (i)}
         <div class="dash-recent-row">
           <span class="dash-recent-day">{fmtDay(e.at)}</span>
           <span class="dash-recent-level">{e.jlpt || ''}</span>
-          <span class="dash-recent-score" class:good={pctOf(e) >= 75} class:low={pctOf(e) < 75}>{e.score}/{e.total} · {pctOf(e)}%</span>
+          <span class="dash-recent-score" class:good={pctOf(e) >= 75} class:low={pctOf(e) < 75}>
+            <span class="dash-recent-frac">{e.score}/{e.total}</span>
+            <span class="dash-recent-sep">·</span>
+            <span class="dash-recent-pct">{pctOf(e)}%</span>
+          </span>
         </div>
       {/each}
     </div>
@@ -204,6 +208,27 @@
   .dash-recent-score {
     font-family: var(--font-mono);
     color: var(--muted);
+    font-variant-numeric: tabular-nums;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+    white-space: nowrap;
+  }
+
+  /* Right-align each part into its own fixed column so the fractions and
+     percentages line up vertically across rows regardless of digit count. */
+  .dash-recent-frac {
+    min-width: 5ch;
+    text-align: right;
+  }
+
+  .dash-recent-sep {
+    color: var(--muted);
+  }
+
+  .dash-recent-pct {
+    min-width: 4ch;
+    text-align: right;
   }
 
   .dash-recent-score.good {

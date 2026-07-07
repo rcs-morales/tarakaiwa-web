@@ -1,4 +1,3 @@
-import { DEFAULT_QA } from './data.js';
 import {
   showApiKeyStatus, toggleKeyVisibility,
   showStartScreen
@@ -20,21 +19,22 @@ import { get, set, remove, KEYS } from './settings.js';
 import {
   toggleQuestionText, translateQuestion,
   finishRecording, checkAnswer, rerecordAnswer, nextQuestion,
-  skipQuestion, endSession, setQA, session
+  skipQuestion, endSession, session
 } from './session.svelte.js';
 import {
   handleAssistantQuery, initAiPanelInteractivity, initAssistantFloatButton,
   assistantHistory
 } from './assistant-ui.js';
 import { initTranslateTool } from './translate-ui.js';
-import { handleFileImport, clearDatabase } from './import.js';
+import { handleFileImport } from './import.js';
 import { clearAudioCache } from './db.js';
 import {
   initAuth, onAuthChange,
   signInWithEmail, signInWithGoogle, signOut
 } from './auth.js';
-import { registerSettingsSync, onLogin, onLogout } from './sync.js';
-import { syncFromRemote, resetToLocal } from './history.svelte.js';
+import { registerSettingsSync, onLogin, onLogout, deleteAllSessionResults } from './sync.js';
+import { syncFromRemote, resetToLocal, resetProgress } from './history.svelte.js';
+import { decks, loadActiveDeckIntoSession, adoptSyncedDecks } from './decks.svelte.js';
 import { updateQuotaDisplay } from './quota.js';
 import { initTheme, toggleTheme, applyTheme } from './theme.js';
 
@@ -122,6 +122,43 @@ function restartApp() {
   updateQuotaDisplay();
 }
 
+async function handleResetProgress() {
+  const confirmed = confirm(
+    'Are you sure you want to reset all progress?\n\n'
+    + 'This will permanently erase:\n'
+    + '• All session history & recent sessions\n'
+    + '• Your XP, level, and streak\n'
+    + '• Daily goal progress\n'
+    + '• Average score stats\n\n'
+    + 'Your settings, deck, and account will NOT be affected.\n\n'
+    + 'This cannot be undone.'
+  );
+  if (!confirmed) return;
+
+  console.log('[reset] User confirmed progress reset');
+  const statusEl = document.getElementById('reset-progress-status');
+  if (statusEl) { statusEl.textContent = '⏳ Resetting…'; statusEl.className = 'import-status info'; }
+
+  // 1. Clear local history (localStorage + reactive state)
+  resetProgress();
+  console.log('[reset] Local history cleared');
+
+  // 2. Clear cloud session results (if signed in)
+  const cloudOk = await deleteAllSessionResults();
+  console.log('[reset] Cloud delete result:', cloudOk);
+
+  // 3. Ensure reactive state stays empty (in case something re-populated it)
+  resetProgress();
+
+  if (statusEl) {
+    if (cloudOk || cloudOk === false) {
+      // false = logged out (no-op), true = deleted
+      statusEl.textContent = '✅ All progress has been reset.';
+      statusEl.className = 'import-status success';
+    }
+  }
+}
+
 // Reflect the current stored settings into the wizard controls. Safe to call
 // repeatedly — used on boot and after a login pull ('settings-synced').
 function applySettingsToUI() {
@@ -202,19 +239,7 @@ export function initApp() {
   // start following OS preference changes.
   initTheme();
 
-  const savedQA = get(KEYS.QA_DATA);
-  if (savedQA) {
-    try {
-      const parsed = JSON.parse(savedQA);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        setQA(parsed);
-      }
-    } catch (e) {
-      console.error('Error loading saved QA data:', e);
-    }
-  } else {
-    setQA(DEFAULT_QA.slice(0, 10), { isDefault: true });
-  }
+  loadActiveDeckIntoSession();
 
   const savedProvider = get(KEYS.API_PROVIDER);
   if (savedProvider && savedProvider !== 'groq') {
@@ -242,8 +267,6 @@ export function initApp() {
   bind('btn-theme-toggle', toggleTheme);
   bind('btn-restart-app', restartApp);
   bind('btn-end-session', endSession);
-  bind('btn-choose-file', () => document.getElementById('file-input')?.click());
-  bind('btn-clear-db', clearDatabase);
   bind('btn-save-api', saveApiKeyFromInput);
   bind('btn-test-api', testApiConnection);
   bind('btn-clear-api', clearApiKey);
@@ -265,6 +288,7 @@ export function initApp() {
     alert('Voicevox audio cache cleared successfully.');
   });
   bind('btn-download-voicepack', downloadVoicePack);
+  bind('btn-reset-progress', handleResetProgress);
   bind('btn-close-final-overlay', () => {
     document.getElementById('final-score-overlay').style.display = 'none';
   });
@@ -399,12 +423,13 @@ export function initApp() {
     refreshVoicePackStatus();
   });
 
-  // A synced deck arrived from the cloud — load it into the session + storage.
-  window.addEventListener('deck-synced', (e) => {
-    const qa = e.detail?.qa;
-    if (!Array.isArray(qa) || qa.length === 0) return;
-    setQA(qa);
-    set(KEYS.QA_DATA, JSON.stringify(qa));
+  // The deck list was merged with the cloud on login — adopt it and reload
+  // whichever deck is active (its qa may have changed on another device).
+  window.addEventListener('deck-list-synced', (e) => {
+    const list = e.detail?.list;
+    if (!Array.isArray(list)) return;
+    adoptSyncedDecks(list);
+    loadActiveDeckIntoSession();
     warmVoicesIfNeeded();
     refreshVoicePackStatus();
   });
@@ -419,8 +444,7 @@ export function initApp() {
     if (uid && uid !== lastUserId) {
       // Transitioned into a signed-in state → pull settings + decks, and show
       // the cross-device practice history on the dashboard.
-      const hasLocalCustomDeck = !session.isDefaultDeck && session.qa.length > 0;
-      onLogin(hasLocalCustomDeck);
+      onLogin(decks.list);
       syncFromRemote();
     } else if (!uid && lastUserId) {
       // Signed out — fall back to this device's own history.

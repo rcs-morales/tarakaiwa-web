@@ -6,6 +6,7 @@
   import Dashboard from '$lib/components/Dashboard.svelte';
   import Practice from '$lib/components/Practice.svelte';
   import Results from '$lib/components/Results.svelte';
+  import Decks from '$lib/components/Decks.svelte';
   import { shell } from '$lib/shell.svelte.js';
 
   onMount(initApp);
@@ -28,35 +29,7 @@
   <!-- ══ DECKS TAB ══ -->
   <section class="tab-panel" class:hidden={shell.tab !== 'decks'}>
     <div class="card">
-      <div class="settings-section" id="import-section">
-        <h3>📁 Your Q&amp;A Deck</h3>
-        <p>Load your custom questions and answers from Excel, JSON or CSV file:</p>
-        <p style="font-size: 0.75rem; color: var(--muted); margin-bottom: 6px;">
-          <strong>Excel format:</strong> .xlsx or .xls file with two columns (Question, Answer)<br>
-          <strong>JSON format:</strong> <code
-            style="background: var(--paper-2); padding: 2px 6px; border-radius: 3px;">[&#123;"q": "Question?", "a": "Answer"&#125;, ...]</code><br>
-          <strong>CSV format:</strong> Two columns (Question, Answer) — first row as header<br>
-        </p>
-        <input type="file" id="file-input" accept=".json,.csv,.txt,.xlsx,.xls" />
-        <div class="import-buttons">
-          <button class="btn btn-import" id="btn-choose-file">
-            Choose File
-          </button>
-          <button class="btn btn-secondary" id="btn-clear-db">
-            Clear
-          </button>
-        </div>
-        <div class="import-status" id="import-status"></div>
-        <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
-          <label style="font-size: 0.85rem; display: inline-flex; align-items: center; gap: 8px; cursor: pointer;">
-            <input type="checkbox" id="shuffle-questions-checkbox" checked />
-            🔀 Shuffle question order each session
-          </label>
-          <p style="font-size: 0.72rem; color: var(--muted); margin-top: 4px;">
-            Turn off to practice questions in the same order as your file.
-          </p>
-        </div>
-      </div>
+      <Decks />
     </div>
   </section>
 
@@ -202,8 +175,9 @@
           </select>
           <div style="margin-top: 10px;">
             <label for="tts-speed-slider" style="font-size: 0.85rem; font-weight: bold; margin-right: 8px;">
-              🐢 Speech speed: <span id="tts-speed-value">0.85×</span>
+              🐢 Speech speed: <span id="tts-speed-value" style="display: inline-block; min-width: 3ch; text-align: left; font-variant-numeric: tabular-nums;">0.85×</span>
             </label>
+            <br>
             <input type="range" id="tts-speed-slider" min="0.5" max="1.5" step="0.05" value="0.85"
               style="width: 180px; vertical-align: middle;" />
             <p style="font-size: 0.72rem; color: var(--muted); margin-top: 4px;">
@@ -261,6 +235,17 @@
             Choose the Live2D avatar you want to use when practice starts.
           </p>
         </div>
+      </div>
+
+      <!-- Reset Progress (Danger Zone) -->
+      <div class="settings-section settings-danger-zone" id="setup-step-reset">
+        <h3>🔄 Reset Progress</h3>
+        <p style="font-size: 0.85rem; color: var(--muted);">
+          Erase all session history, XP, level, streak, daily goals, and score
+          stats. Your settings, deck, and account are <strong>not</strong> affected.
+        </p>
+        <button class="btn btn-danger" id="btn-reset-progress">Reset All Progress</button>
+        <div class="import-status" id="reset-progress-status"></div>
       </div>
 
     </div>

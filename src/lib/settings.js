@@ -30,10 +30,18 @@ export const KEYS = {
   // the session_results table instead; this key never syncs.
   SESSION_HISTORY: 'session_history',
   // Device-local id of the synced deck row (never synced itself).
+  // Legacy (pre multi-deck) — read once for migration, no longer written.
   DECK_ID: 'synced_deck_id',
-  // Device-local timestamp of the last local deck change — used by sync.js so
-  // an older remote deck never overwrites a newer local import.
+  // Legacy (pre multi-deck) — read once for migration, no longer written.
   DECK_UPDATED_AT: 'deck_updated_at',
+  // Multi-deck list: JSON array of { id, name, jlptLevel, qa, updatedAt }.
+  // `id` is a client-generated uuid, reused as-is for the Supabase `decks.id`
+  // primary key. Never synced itself — decks.js pushes/pulls each deck row
+  // individually via the `decks` table instead.
+  DECKS: 'decks_list',
+  // Device-local pointer: which deck id is currently loaded into the
+  // session. `null` (absent) means the built-in Sample deck.
+  ACTIVE_DECK_ID: 'active_deck_id',
 };
 
 /**

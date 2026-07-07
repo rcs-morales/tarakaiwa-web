@@ -713,6 +713,16 @@ rt {
   margin-bottom: 12px;
   line-height: 1.5;
 }
+
+/* Danger zone — re-themes .settings-section with the error palette so
+   destructive actions (Reset Progress) read as distinct from AI settings. */
+.settings-danger-zone {
+  border-color: var(--err-border);
+  background: linear-gradient(135deg, var(--err-bg) 0%, var(--surface-alt) 100%);
+}
+.settings-danger-zone h3 {
+  color: var(--err-hover);
+}
 .api-key-row {
   display: flex;
   gap: 8px;

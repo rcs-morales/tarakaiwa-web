@@ -11,19 +11,20 @@ let channels = {
 const prefetchCache = {};
 const inFlightVoicevoxRequests = new Map();
 
-/**
- * Must be called synchronously from within a user-gesture handler (tap/click)
- * BEFORE any await. This "unlocks" audio playback on mobile browsers (iOS Safari,
- * Chrome Android) so that later, async-initiated .play() / .speak() calls work.
- */
 export function unlockAudioForMobile() {
-  // 1. Unlock HTML5 Audio by playing a tiny silent WAV
+  // 1. Unlock HTML5 Audio by playing a tiny silent WAV on our persistent players
   try {
     // Minimal valid WAV: 44-byte header + 1 sample of silence
     const silentWav = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
-    const a = new Audio(silentWav);
-    a.volume = 0;
-    a.play().catch(() => {});
+    
+    if (!channels.practice.audio) channels.practice.audio = new Audio();
+    if (!channels.tool.audio) channels.tool.audio = new Audio();
+
+    [channels.practice.audio, channels.tool.audio].forEach(a => {
+      a.src = silentWav;
+      a.volume = 0;
+      a.play().catch(() => {});
+    });
   } catch (_) { /* ignore */ }
 
   // 2. Unlock Web Speech API by speaking an empty utterance
@@ -276,8 +277,10 @@ async function speakWithVoicevox(text, onEnd, context, rate = 1) {
 
     if (chan.url) URL.revokeObjectURL(chan.url);
     chan.url = URL.createObjectURL(blob);
-    chan.audio = new Audio(chan.url);
-
+    
+    if (!chan.audio) chan.audio = new Audio();
+    chan.audio.src = chan.url;
+    chan.audio.volume = 1; // restore volume in case it was muted by unlockAudioForMobile
     chan.audio.playbackRate = rate;
 
     chan.audio.onplay = () => {
@@ -290,21 +293,17 @@ async function speakWithVoicevox(text, onEnd, context, rate = 1) {
     chan.audio.onended = () => {
       if (chan.url) URL.revokeObjectURL(chan.url);
       chan.url = null;
-      chan.audio = null;
       if (onEnd) onEnd();
     };
     chan.audio.onerror = () => {
       if (chan.url) URL.revokeObjectURL(chan.url);
       chan.url = null;
-      chan.audio = null;
       if (onEnd) onEnd();
     };
     chan.audio.play().catch(err => {
       console.warn(`[${context}] Audio play caught error:`, err);
-      // onerror usually fires too, but just in case:
       if (chan.url) URL.revokeObjectURL(chan.url);
       chan.url = null;
-      chan.audio = null;
       if (onEnd) onEnd();
     });
   } catch (err) {
@@ -365,7 +364,6 @@ export function cancelSpeech(context = 'practice') {
     chan.audio.currentTime = 0;
     chan.audio.onended = null;
     chan.audio.onerror = null;
-    chan.audio = null;
   }
 
   if (chan.url) {

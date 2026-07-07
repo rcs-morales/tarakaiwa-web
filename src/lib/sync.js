@@ -19,8 +19,10 @@ import { KEYS, get, onChange } from './settings.js';
 // Keys that must NOT leave the device / go into user_settings:
 //  - API_KEY / API_PROVIDER: secret, per-device BYO key
 //  - TTS_DEFAULT_FLAG: one-time device migration flag
-//  - QA_DATA: large; lives in the `decks` table instead
-//  - DECK_ID: device-local pointer to the synced deck row
+//  - QA_DATA / DECK_ID / DECK_UPDATED_AT: legacy single-deck keys, read once
+//    for migration only (see decks.svelte.js)
+//  - DECKS: large; each deck lives in the `decks` table instead (syncDecks)
+//  - ACTIVE_DECK_ID: device-local pointer, not meaningful cross-device
 const SYNC_EXCLUDE = new Set([
   KEYS.API_KEY,
   KEYS.API_PROVIDER,
@@ -28,6 +30,8 @@ const SYNC_EXCLUDE = new Set([
   KEYS.QA_DATA,
   KEYS.DECK_ID,
   KEYS.DECK_UPDATED_AT,
+  KEYS.DECKS,
+  KEYS.ACTIVE_DECK_ID,
   KEYS.SESSION_HISTORY, // device-local; the cloud record is session_results
 ]);
 
@@ -111,52 +115,36 @@ async function pullMergeSettings() {
 // ─────────────────────────────────────────────
 // Deck sync
 // ─────────────────────────────────────────────
+//
+// Each deck is its own row (id = client-generated uuid, reused as-is for the
+// `decks.id` primary key), so — unlike settings — there is no single-pointer
+// reconciliation to do: pushing a deck is always an upsert keyed by its own
+// id, and pulling merges the remote list into the local list by id.
 
 /**
- * Create or update the user's synced deck row from a freshly imported deck.
- * Called by import.js after a successful local import (dual-write). Reuses the
- * device-local DECK_ID when present, otherwise inserts a new row.
+ * Create or update one deck's row in Supabase. Called by decks.svelte.js
+ * after a fresh import and (via syncDecks below) for any local-only deck
+ * discovered on login.
  *
+ * @param {{ id: string, name: string, jlptLevel: string, qa: any[] }} deck
  * @returns {Promise<boolean|null>} true = pushed, false = failed, null = logged out
  */
-export async function pushDeck(qa, name) {
+export async function pushDeck(deck) {
   const user = getCurrentUser();
   if (!user) return null;
 
   const row = {
+    id: deck.id,
     user_id: user.id,
-    name: name || 'My Deck',
-    jlpt_level: get(KEYS.JLPT_LEVEL),
-    qa,
-    updated_at: new Date().toISOString(),
+    name: deck.name || 'My Deck',
+    jlpt_level: deck.jlptLevel,
+    qa: deck.qa,
+    updated_at: deck.updatedAt || new Date().toISOString(),
   };
 
-  const deckId = localStorage.getItem(KEYS.DECK_ID);
   try {
-    if (deckId) {
-      const { data, error } = await supabaseClient
-        .from('decks')
-        .update(row)
-        .eq('id', deckId)
-        .eq('user_id', user.id)
-        .select('id');
-      if (error) throw error;
-      if (!data || data.length === 0) {
-        // Stale pointer — the row no longer exists (0 rows matched, which
-        // Supabase does not treat as an error). Drop it and insert fresh.
-        localStorage.removeItem(KEYS.DECK_ID);
-        return pushDeck(qa, name);
-      }
-    } else {
-      const { data, error } = await supabaseClient
-        .from('decks')
-        .insert(row)
-        .select('id')
-        .single();
-      if (error) throw error;
-      if (data?.id) localStorage.setItem(KEYS.DECK_ID, data.id);
-    }
-    localStorage.setItem(KEYS.DECK_UPDATED_AT, row.updated_at);
+    const { error } = await supabaseClient.from('decks').upsert(row, { onConflict: 'id' });
+    if (error) throw error;
     return true;
   } catch (e) {
     console.error('deck push failed:', e.message || e);
@@ -165,64 +153,57 @@ export async function pushDeck(qa, name) {
 }
 
 /**
- * On login: pull the most-recently-updated remote deck (if any) and hand it to
- * the app via a 'deck-synced' event. If the user has no remote decks but has a
- * non-default local deck, push that up as their first deck (migration).
+ * On login: pull every remote deck, merge with the local list by id (remote
+ * wins unless the local copy is newer), push up any local-only decks, then
+ * hand the merged list to the app via a 'deck-list-synced' event —
+ * decoupled the same way settings-synced always has been, so this module
+ * never imports decks.svelte.js.
  *
- * @param {boolean} hasLocalCustomDeck — QA_DATA is set to a user-imported deck
+ * @param {Array<{id, name, jlptLevel, qa, updatedAt}>} localList
  */
-async function syncDecks(hasLocalCustomDeck) {
+async function syncDecks(localList = []) {
   const user = getCurrentUser();
   if (!user) return;
 
   const { data, error } = await supabaseClient
     .from('decks')
-    .select('id, name, qa, updated_at')
-    .eq('user_id', user.id)
-    .order('updated_at', { ascending: false })
-    .limit(1);
+    .select('id, name, jlpt_level, qa, updated_at')
+    .eq('user_id', user.id);
 
   if (error) {
     console.error('deck pull failed:', error.message);
     return;
   }
 
-  const remote = data && data[0];
-  if (remote && Array.isArray(remote.qa) && remote.qa.length > 0) {
-    // Last-write-wins: only let the remote deck replace the local one when it
-    // is actually newer. A local import whose upload was interrupted (page
-    // reload, OAuth redirect, network drop) must not be reverted on login.
-    const localTs = localStorage.getItem(KEYS.DECK_UPDATED_AT);
-    const remoteNewer = !hasLocalCustomDeck || !localTs
-      || Date.parse(remote.updated_at) > Date.parse(localTs);
+  const remoteById = new Map((data || []).map((r) => [r.id, {
+    id: r.id, name: r.name, jlptLevel: r.jlpt_level, qa: r.qa, updatedAt: r.updated_at,
+  }]));
 
-    localStorage.setItem(KEYS.DECK_ID, remote.id);
-    if (remoteNewer) {
-      localStorage.setItem(KEYS.DECK_UPDATED_AT, remote.updated_at);
-      window.dispatchEvent(new CustomEvent('deck-synced', {
-        detail: { qa: remote.qa, name: remote.name },
-      }));
+  const merged = [];
+  const toPush = [];
+
+  for (const [id, remote] of remoteById) {
+    const local = localList.find((d) => d.id === id);
+    // A local edit made while offline (or whose upload was interrupted)
+    // must not be reverted by an older remote copy.
+    if (local?.updatedAt && Date.parse(local.updatedAt) > Date.parse(remote.updatedAt)) {
+      merged.push(local);
+      toPush.push(local);
     } else {
-      // Local deck is newer — push it up (re-uses the remote row via DECK_ID).
-      await pushLocalDeck();
+      merged.push(remote);
     }
-    return;
   }
 
-  // No usable remote deck — migrate the local custom deck up, if there is one.
-  if (hasLocalCustomDeck) await pushLocalDeck();
-}
-
-/** Push the deck currently in localStorage up to Supabase. */
-async function pushLocalDeck() {
-  const raw = localStorage.getItem(KEYS.QA_DATA);
-  if (!raw) return;
-  try {
-    const qa = JSON.parse(raw);
-    if (Array.isArray(qa) && qa.length > 0) await pushDeck(qa, 'My Deck');
-  } catch (e) {
-    console.error('deck migration parse failed:', e.message || e);
+  for (const local of localList) {
+    if (!remoteById.has(local.id)) {
+      merged.push(local);
+      toPush.push(local);
+    }
   }
+
+  await Promise.all(toPush.map((d) => pushDeck(d)));
+
+  window.dispatchEvent(new CustomEvent('deck-list-synced', { detail: { list: merged } }));
 }
 
 // ─────────────────────────────────────────────
@@ -231,17 +212,16 @@ async function pushLocalDeck() {
 
 /**
  * Fire-and-forget insert of a completed practice run. Never throws.
- * @param {{ jlpt_level?: string, score: number, total: number, results: any[] }} payload
+ * @param {{ jlpt_level?: string, score: number, total: number, results: any[], deckId?: string|null }} payload
  */
 export async function saveSessionResult(payload) {
   const user = getCurrentUser();
   if (!user) return;
 
-  const deckId = localStorage.getItem(KEYS.DECK_ID) || null;
   try {
     const { error } = await supabaseClient.from('session_results').insert({
       user_id: user.id,
-      deck_id: deckId,
+      deck_id: payload.deckId ?? null,
       jlpt_level: payload.jlpt_level ?? get(KEYS.JLPT_LEVEL),
       score: payload.score,
       total: payload.total,
@@ -250,6 +230,27 @@ export async function saveSessionResult(payload) {
     if (error) throw error;
   } catch (e) {
     console.error('session result save failed:', e.message || e);
+  }
+}
+
+/**
+ * Delete all session_results rows for the signed-in user (progress reset).
+ * No-op when logged out. Returns true on success, false on error.
+ */
+export async function deleteAllSessionResults() {
+  const user = getCurrentUser();
+  if (!user) return false;
+
+  try {
+    const { error } = await supabaseClient
+      .from('session_results')
+      .delete()
+      .eq('user_id', user.id);
+    if (error) throw error;
+    return true;
+  } catch (e) {
+    console.error('session results delete failed:', e.message || e);
+    return false;
   }
 }
 
@@ -263,7 +264,7 @@ export async function fetchSessionHistory(limit = 100) {
 
   const { data, error } = await supabaseClient
     .from('session_results')
-    .select('created_at, score, total, jlpt_level')
+    .select('created_at, score, total, jlpt_level, deck_id')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
     .limit(limit);
@@ -277,6 +278,7 @@ export async function fetchSessionHistory(limit = 100) {
     score: r.score,
     total: r.total,
     jlpt: r.jlpt_level,
+    deckId: r.deck_id,
   }));
 }
 
@@ -286,15 +288,13 @@ export async function fetchSessionHistory(limit = 100) {
 
 /**
  * Run the full pull/merge on login. Safe to call more than once.
- * @param {boolean} hasLocalCustomDeck
+ * @param {Array<{id, name, jlptLevel, qa, updatedAt}>} localDecksList
  */
-export async function onLogin(hasLocalCustomDeck) {
+export async function onLogin(localDecksList) {
   if (!isLoggedIn()) return;
   await pullMergeSettings();
-  await syncDecks(hasLocalCustomDeck);
+  await syncDecks(localDecksList);
 }
 
-/** Clear device-local sync pointers on sign-out (keeps synced data on server). */
-export function onLogout() {
-  localStorage.removeItem(KEYS.DECK_ID);
-}
+/** No device-local sync pointers to clear anymore — decks keep their own ids. */
+export function onLogout() {}
