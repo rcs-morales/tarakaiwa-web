@@ -5,9 +5,12 @@
   // and #btn-restart-app is bound in app.js.
   import { session } from '$lib/session.svelte.js';
   import { history } from '$lib/history.svelte.js';
-  import { computeDailyGoal, XP_PER_CORRECT } from '$lib/gamification.svelte.js';
+  import { computeDailyGoal, XP_PER_CORRECT, newlyEarnedBadges } from '$lib/gamification.svelte.js';
 
   const total = $derived(session.results.length);
+  // Badges that this session's history entry just unlocked (recordSession
+  // prepends the run before this screen shows, so entries[0] is this run).
+  const newBadges = $derived(newlyEarnedBadges(history.entries));
   const pct = $derived(total ? Math.round((session.score / total) * 100) : 0);
   const xpEarned = $derived(session.score * XP_PER_CORRECT);
   const daily = $derived(computeDailyGoal(history.entries));
@@ -61,6 +64,16 @@
     </div>
   </div>
 
+  {#each newBadges as b (b.id)}
+    <div class="badge-banner">
+      <div class="badge-banner-icon">{b.emoji}</div>
+      <div>
+        <div class="badge-banner-title">New badge unlocked!</div>
+        <div class="badge-banner-desc">「{b.caption}」 — {b.label}</div>
+      </div>
+    </div>
+  {/each}
+
   <hr class="divider">
 
   <div class="results-list" id="results-list">
@@ -109,6 +122,42 @@
 </div>
 
 <style>
+  /* ── New-badge banner ── */
+  .badge-banner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--success-tint);
+    border: 2px solid var(--success-border);
+    border-radius: 18px;
+    padding: 12px 14px;
+    margin-top: 12px;
+  }
+
+  .badge-banner-icon {
+    width: 42px;
+    height: 42px;
+    flex: none;
+    border-radius: 50%;
+    background: var(--success);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+  }
+
+  .badge-banner-title {
+    font-weight: 800;
+    font-size: 0.9rem;
+    color: var(--success-text);
+  }
+
+  .badge-banner-desc {
+    font-size: 0.78rem;
+    color: var(--muted-2);
+    margin-top: 2px;
+  }
+
   /* ── Header ── */
   .results-header {
     display: flex;
