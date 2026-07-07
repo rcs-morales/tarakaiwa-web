@@ -15,5 +15,10 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: true,
+    setupFiles: ['./tests/setup.js'],
+    // Svelte compilation under this toolchain has very slow cold-transform times;
+    // the first module import in a file can exceed the 5s default when the suite
+    // runs together. Give it headroom so passing tests don't flake on a timeout.
+    testTimeout: 20000,
   },
 })

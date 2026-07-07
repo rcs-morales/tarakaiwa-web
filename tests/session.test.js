@@ -57,6 +57,8 @@ vi.mock('../src/lib/tts.js', () => ({
   cancelSpeech: vi.fn(),
   preloadVoicevoxAudio: vi.fn(),
   preloadAllVoicevoxAudio: vi.fn().mockResolvedValue(undefined),
+  startVoicevoxWarmup: vi.fn(),
+  VOICEVOX_STOCK_PHRASES: [],
   unlockAudioForMobile: vi.fn(),
 }));
 
@@ -144,7 +146,9 @@ describe('Session Flow Integration Tests', () => {
       order.push('mic');
       return true;
     });
-    tts.preloadAllVoicevoxAudio.mockImplementation(async () => {
+    // Startup warms the Voicevox cache in the background via startVoicevoxWarmup
+    // (formerly preloadAllVoicevoxAudio); it must run after mic access is requested.
+    tts.startVoicevoxWarmup.mockImplementation(() => {
       order.push('preload');
     });
 
@@ -152,6 +156,7 @@ describe('Session Flow Integration Tests', () => {
 
     expect(order).toContain('mic');
     expect(order).toContain('preload');
+    expect(order.indexOf('mic')).toBeLessThan(order.indexOf('preload'));
   });
 
   it('still requests microphone access when speech recognition is unavailable', async () => {
