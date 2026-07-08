@@ -59,6 +59,22 @@ export const VOICEVOX_STOCK_PHRASES = [
 // new speaker, session start) cancels the previous.
 let warmupSignal = null;
 
+// ── Shared 429 cooldown ──
+// api.tts.quest rate-limits aggressively. Any 429 (from the warmup, the
+// voice-pack download, or live playback) freezes the batch loops for a full
+// cooldown window instead of hammering the API with per-item retries. Live
+// playback is never gated — the user is waiting on that audio.
+const RATE_LIMIT_COOLDOWN_MS = 60_000;
+let rateLimitedUntil = 0;
+
+function noteRateLimited() {
+  rateLimitedUntil = Date.now() + RATE_LIMIT_COOLDOWN_MS;
+}
+
+export function isVoicevoxRateLimited() {
+  return Date.now() < rateLimitedUntil;
+}
+
 /**
  * Fire-and-forget cache warmup. Downloads whatever isn't cached yet, in the
  * given order, at the API-polite pace of preloadAllVoicevoxAudio. Never
@@ -129,7 +145,8 @@ export async function preloadVoicevoxAudio(text) {
       let res;
       res = await fetch(apiUrl);
       if (res.status === 429) {
-        console.warn('TTS Quest API Rate Limited (429).');
+        noteRateLimited();
+        console.warn(`TTS Quest API rate limited (429) — pausing background downloads for ${RATE_LIMIT_COOLDOWN_MS / 1000}s.`);
         throw new Error('429 Too Many Requests');
       }
       if (!res.ok) throw new Error(`TTS Quest API failed: ${res.status}`);
@@ -141,8 +158,15 @@ export async function preloadVoicevoxAudio(text) {
 
       if (!statusUrl || !audioUrl) throw new Error("No download URL in response");
 
-      while (true) {
+      // Poll for readiness, but never forever — a stuck job would otherwise
+      // pin the (deduped) in-flight slot for this phrase permanently.
+      for (let poll = 0; ; poll++) {
+        if (poll >= 60) throw new Error('Audio generation timed out');
         const statusRes = await fetch(statusUrl);
+        if (statusRes.status === 429) {
+          noteRateLimited();
+          throw new Error('429 Too Many Requests');
+        }
         const statusData = await statusRes.json();
         if (statusData.isAudioReady) break;
         if (statusData.isAudioError) throw new Error('Audio generation failed on server');
@@ -165,7 +189,11 @@ export async function preloadVoicevoxAudio(text) {
       
       return audioResBlob;
     } catch (err) {
-      console.error("Voicevox Prefetch failed:", err);
+      // 429s already logged a single concise warning above — a full
+      // console.error per phrase turns a rate-limited warmup into log spam.
+      if (!String(err?.message).includes('429')) {
+        console.error("Voicevox Prefetch failed:", err);
+      }
       delete prefetchCache[cacheKey];
       return null;
     }
@@ -190,14 +218,32 @@ export async function preloadVoicevoxAudio(text) {
  */
 export async function preloadAllVoicevoxAudio(texts, onProgress, signal) {
   const CONCURRENCY = 1; // Strict limit to avoid 429s on tts.quest
+  const MAX_RATE_LIMIT_STRIKES = 3; // give up after this many cooldown cycles
+  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
   let completed = 0;
   const total = texts.length;
   let index = 0;
 
   async function worker() {
     let retryCount = 0;
+    let rateLimitStrikes = 0;
     while (index < total) {
       if (signal && signal.cancelled) return;
+
+      // Hold while the tab is backgrounded — downloading (and erroring) in a
+      // hidden tab burns the shared API quota with nobody watching.
+      if (typeof document !== 'undefined' && document.hidden) {
+        await sleep(1000);
+        continue;
+      }
+
+      // Hold while a 429 cooldown is active instead of hammering the API.
+      if (isVoicevoxRateLimited()) {
+        if (onProgress) onProgress(completed, total, `API rate limit hit — waiting to resume (${completed}/${total})…`);
+        await sleep(5000);
+        continue;
+      }
+
       const i = index; // Do not increment yet
       try {
         const startTime = Date.now();
@@ -205,6 +251,18 @@ export async function preloadAllVoicevoxAudio(texts, onProgress, signal) {
         const elapsed = Date.now() - startTime;
 
         if (!result) {
+          if (isVoicevoxRateLimited()) {
+            // The fetch just tripped a 429. Wait out the cooldown (loop top);
+            // after a few full cycles the API clearly wants us gone — stop
+            // the batch entirely (the next warmup trigger starts it fresh).
+            rateLimitStrikes++;
+            if (rateLimitStrikes >= MAX_RATE_LIMIT_STRIKES) {
+              console.warn(`Voicevox batch stopped after ${rateLimitStrikes} rate-limit cooldowns (${completed}/${total} cached).`);
+              if (onProgress) onProgress(completed, total, `API is rate limiting — stopped at ${completed}/${total}. Try again later.`);
+              return;
+            }
+            continue;
+          }
           retryCount++;
           if (retryCount >= 2) {
             console.warn(`Fetch failed twice for item ${i}. Skipping item to prevent hang...`);
@@ -215,14 +273,13 @@ export async function preloadAllVoicevoxAudio(texts, onProgress, signal) {
             continue;
           }
           console.warn(`Fetch failed for item ${i}. Retrying in 5 seconds...`);
-          if (onProgress) onProgress(completed, total, `API rate limit hit. Pausing 5s before retrying (${completed}/${total})…`);
-          await new Promise(r => setTimeout(r, 5000));
-          if (onProgress) onProgress(completed, total); // Restore normal text
+          await sleep(5000);
           continue; // Retry the same item
         }
-        
+
         // Success
         retryCount = 0;
+        rateLimitStrikes = 0;
         index++;
         completed++;
         if (onProgress) onProgress(completed, total);
@@ -230,7 +287,7 @@ export async function preloadAllVoicevoxAudio(texts, onProgress, signal) {
         // Wait 1 second between successful requests to be polite to the API
         // Only if it actually hit the network (takes time)
         if (elapsed > 100) {
-          await new Promise(r => setTimeout(r, 1000));
+          await sleep(1000);
         }
       } catch (_) {
         // Individual failures
