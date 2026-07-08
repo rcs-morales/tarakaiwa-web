@@ -41,9 +41,29 @@ import { initTheme, toggleTheme, applyTheme } from './theme.js';
 
 // ── Voicevox voice pack ──
 
-/** All phrases a full session can speak: deck questions + stock phrases. */
+// The first two stock phrases are the pass/fail feedback lines spoken after
+// every single answer — everything past that is end-of-session praise, only
+// needed once. See checkAnswer() in session.svelte.js.
+const FEEDBACK_PHRASE_COUNT = 2;
+
+/**
+ * All phrases a full session can speak: deck questions + stock phrases,
+ * ordered so whatever the learner is about to hear next is warmed first.
+ * Voice can be swapped mid-session (Settings is its own always-mounted tab),
+ * so this starts from session.current rather than the deck's original
+ * order — otherwise the background warmup wastes its one-at-a-time queue
+ * re-caching already-answered questions before ever reaching upcoming ones.
+ * The pass/fail feedback lines are pulled to right after the current
+ * question (instead of after the whole remaining deck) since they're needed
+ * on the very next "Check Answer" — leaving them queued behind a long deck
+ * is what causes a cold, delayed feedback line right after a voice swap.
+ */
 function voicePackTexts() {
-  return [...session.qa.map(q => q.q), ...VOICEVOX_STOCK_PHRASES];
+  const upcoming = session.qa.slice(session.current).map(q => q.q);
+  const answered = session.qa.slice(0, session.current).map(q => q.q);
+  const feedback = VOICEVOX_STOCK_PHRASES.slice(0, FEEDBACK_PHRASE_COUNT);
+  const praise = VOICEVOX_STOCK_PHRASES.slice(FEEDBACK_PHRASE_COUNT);
+  return [...upcoming.slice(0, 1), ...feedback, ...upcoming.slice(1), ...praise, ...answered];
 }
 
 /** Kick off a quiet background download of any uncached audio (voicevox only). */
