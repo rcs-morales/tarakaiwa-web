@@ -784,7 +784,6 @@ rt {
 .ai-feedback-text {
   color: var(--ink-mid);
   margin-bottom: 8px;
-  font-style: italic;
   overflow-wrap: anywhere;
 }
 .ai-feedback-notes {
@@ -963,141 +962,99 @@ rt {
   width: 90%;
 }
 
-/* ── Rich AI Feedback Styling (Unique Custom Aesthetic) ── */
+/* ── AI feedback breakdown — shared by the in-session result badge
+   (ui.js showResult) and the Results screen breakdown list. One
+   definition so both places always look identical; Kaiwa Quest tokens
+   throughout (flat --card-border cards, system font, no italics). ── */
 .rich-feedback-section {
-  margin-top: 16px;
+  margin-top: 12px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 10px;
 }
 .rich-feedback-header {
-  font-family: 'DM Mono', monospace;
-  font-size: 0.75rem;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  letter-spacing: 0.15em;
-  color: var(--teal);
+  color: var(--muted-2);
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 .rich-feedback-header::before,
 .rich-feedback-header::after {
   content: '';
   flex: 1;
   height: 1px;
-  background: var(--teal);
-  opacity: 0.2;
+  background: var(--card-border);
 }
 
+/* Both call sites (ui.js's .rich-feedback-section and Results.svelte's
+   .ai-breakdown-container) are flex columns with their own gap — no
+   between-card margin needed here. */
 .rich-breakdown-card {
-  background: linear-gradient(145deg, var(--surface), var(--surface-alt));
-  border: 1px solid var(--border-faint);
-  border-radius: 12px;
-  padding: 16px;
-  box-shadow: 
-    0 4px 12px rgba(0, 0, 0, 0.03),
-    inset 0 2px 0 var(--inset-highlight);
-  position: relative;
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-}
-
-.rich-breakdown-card:hover {
-  transform: translateY(-3px) scale(1.01);
-  box-shadow: 
-    0 12px 24px rgba(13, 115, 119, 0.08),
-    inset 0 2px 0 var(--inset-highlight);
-  border-color: rgba(13, 115, 119, 0.15);
+  background: var(--surface);
+  border: 2px solid var(--card-border);
+  border-radius: 14px;
+  padding: 12px 14px;
 }
 
 .rich-breakdown-top {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
-  gap: 12px;
+  margin-bottom: 8px;
+  gap: 10px;
   flex-wrap: wrap;
 }
 
 .rich-breakdown-changes {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  background: var(--surface-alt);
-  padding: 6px 14px;
-  border-radius: 8px;
-  font-family: 'Noto Serif JP', serif;
-  font-size: 1.1rem;
-  box-shadow: inset 0 1px 3px rgba(0,0,0,0.04);
+  gap: 8px;
+  font-family: var(--font-jp);
+  font-size: 1rem;
 }
 
 .rich-breakdown-old {
   color: var(--wrong);
   text-decoration: line-through;
-  text-decoration-color: rgba(192, 57, 43, 0.5);
-  text-decoration-thickness: 2px;
-  opacity: 0.7;
+  opacity: 0.75;
 }
 
 .rich-breakdown-arrow {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  background: var(--surface);
-  border-radius: 50%;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.06);
-  color: var(--teal);
+  color: var(--muted);
   font-size: 0.8rem;
-  font-weight: bold;
 }
 
 .rich-breakdown-new {
   color: var(--correct);
   font-weight: 700;
-  position: relative;
-}
-.rich-breakdown-new::after {
-  content: '';
-  position: absolute;
-  bottom: -2px;
-  left: 0;
-  width: 100%;
-  height: 2px;
-  background: var(--correct);
-  border-radius: 2px;
-  opacity: 0.3;
 }
 
 .rich-breakdown-tag {
-  font-family: 'DM Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.65rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  padding: 5px 12px;
-  border-radius: 99px;
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 3px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
   display: inline-block;
-  border: 1px solid transparent;
 }
 
-/* Tag borders (background/color are overridden by the themed rules at the
-   end of this file; only the border-color from this block survives). */
-.rich-tag-default { border-color: var(--tag-gray-border); }
-.rich-tag-sentence-structure { border-color: var(--tag-blue-border); }
-.rich-tag-word-choice { border-color: var(--tag-purple-border); }
-.rich-tag-particle { border-color: var(--tag-pink-border); }
-.rich-tag-conjugation { border-color: var(--tag-orange-border); }
+.rich-tag-sentence-structure { background: var(--tag-yellow-bg); color: var(--tag-yellow-text); }
+.rich-tag-word-choice        { background: var(--tag-green-bg);  color: var(--tag-green-text); }
+.rich-tag-particle           { background: var(--tag-blue-bg);   color: var(--tag-blue-text); }
+.rich-tag-conjugation        { background: var(--tag-red-bg);    color: var(--tag-red-text); }
+.rich-tag-default            { background: var(--tag-gray-bg);   color: var(--tag-gray-text); }
 
 .rich-breakdown-desc {
-  font-size: 0.88rem;
-  line-height: 1.6;
+  font-size: 0.85rem;
+  line-height: 1.55;
   color: var(--ink-mid);
-  padding: 10px 14px;
-  background: rgba(13, 115, 119, 0.03);
-  border-left: 3px solid var(--teal-lt);
-  border-radius: 0 8px 8px 0;
-  margin-top: 10px;
 }
 
 /* ── Utility ── */
@@ -1762,96 +1719,6 @@ rt {
   color: var(--ink);
   border-color: var(--border);
 }
-
-/* ── Rich Feedback Format ── */
-.rich-feedback-section {
-  margin-top: 16px;
-  background: var(--surface);
-  border-radius: 8px;
-  padding: 16px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-}
-.rich-feedback-header {
-  font-family: 'Noto Sans JP', sans-serif;
-  font-size: 1.1rem;
-  font-weight: bold;
-  color: var(--ink);
-  margin-bottom: 12px;
-}
-.rich-feedback-subheader {
-  font-family: 'Noto Sans JP', sans-serif;
-  font-size: 0.95rem;
-  font-weight: bold;
-  color: var(--ink);
-  margin-bottom: 8px;
-  margin-top: 16px;
-}
-.rich-corrected-box {
-  background: var(--surface-alt);
-  border: 1px solid var(--border-light);
-  border-radius: 8px;
-  padding: 12px 16px;
-  font-family: 'Noto Serif JP', serif;
-  font-size: 1.05rem;
-  color: var(--ink);
-  line-height: 1.6;
-}
-.rich-breakdown-card {
-  background: var(--surface);
-  border: 1px solid var(--border-light);
-  border-radius: 8px;
-  padding: 12px 16px;
-  margin-bottom: 10px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.02);
-}
-.rich-breakdown-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 8px;
-  gap: 12px;
-}
-.rich-breakdown-changes {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  font-size: 0.95rem;
-  font-family: 'Noto Sans JP', sans-serif;
-}
-.rich-breakdown-old {
-  color: var(--red);
-  text-decoration: line-through;
-  opacity: 0.9;
-}
-.rich-breakdown-arrow {
-  color: var(--muted);
-  font-size: 0.8rem;
-}
-.rich-breakdown-new {
-  color: var(--correct);
-  font-weight: 500;
-}
-.rich-breakdown-tag {
-  font-size: 0.65rem;
-  font-weight: 600;
-  padding: 4px 8px;
-  border-radius: 4px;
-  text-transform: capitalize;
-  white-space: nowrap;
-}
-.rich-tag-sentence-structure { background: var(--tag-yellow-bg); color: var(--tag-yellow-text); }
-.rich-tag-word-choice { background: var(--tag-green-bg); color: var(--tag-green-text); }
-.rich-tag-particle { background: var(--tag-blue-bg); color: var(--tag-blue-text); }
-.rich-tag-conjugation { background: var(--tag-red-bg); color: var(--tag-red-text); }
-.rich-tag-default { background: var(--tag-gray-bg); color: var(--tag-gray-text); }
-
-.rich-breakdown-desc {
-  font-size: 0.85rem;
-  color: var(--ink-mid);
-  line-height: 1.5;
-}
-
 
 /* ─────────────────────────────────────────────
    LEARNING AIDS (Phase 5f) — Settings toggles
