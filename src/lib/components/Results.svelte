@@ -6,6 +6,7 @@
   import { session } from '$lib/session.svelte.js';
   import { history } from '$lib/history.svelte.js';
   import { computeDailyGoal, XP_PER_CORRECT, newlyEarnedBadges } from '$lib/gamification.svelte.js';
+  import { prefs } from '$lib/prefs.svelte.js';
 
   const total = $derived(session.results.length);
   // Badges that this session's history entry just unlocked (recordSession
@@ -13,7 +14,7 @@
   const newBadges = $derived(newlyEarnedBadges(history.entries));
   const pct = $derived(total ? Math.round((session.score / total) * 100) : 0);
   const xpEarned = $derived(session.score * XP_PER_CORRECT);
-  const daily = $derived(computeDailyGoal(history.entries));
+  const daily = $derived(computeDailyGoal(history.entries, prefs.dailyGoal));
 
   // Re-use the wired restart handler (bound to #btn-restart-app in app.js) for
   // the header ✕ so there's a single source of truth for "leave results".

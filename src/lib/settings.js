@@ -42,6 +42,12 @@ export const KEYS = {
   // Device-local pointer: which deck id is currently loaded into the
   // session. `null` (absent) means the built-in Sample deck.
   ACTIVE_DECK_ID: 'active_deck_id',
+  // Learning aids (Phase 5f) — '1' shows the aid, '0' hides it. Synced.
+  SHOW_FURIGANA: 'show_furigana',
+  SHOW_ROMAJI: 'show_romaji',
+  SHOW_EN_HINTS: 'show_en_hints',
+  // Sessions-per-day goal target ('1'..'10'). Synced.
+  DAILY_GOAL: 'daily_goal_target',
 };
 
 /**
@@ -56,6 +62,10 @@ const DEFAULTS = {
   [KEYS.TTS_SPEED]: '0.85',
   [KEYS.SOURCE_LANGUAGE]: 'English',
   [KEYS.SHUFFLE_QUESTIONS]: '1',
+  [KEYS.SHOW_FURIGANA]: '1',
+  [KEYS.SHOW_ROMAJI]: '1',
+  [KEYS.SHOW_EN_HINTS]: '1',
+  [KEYS.DAILY_GOAL]: '3',
 };
 
 /**

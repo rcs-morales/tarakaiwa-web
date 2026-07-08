@@ -16,6 +16,7 @@ import {
 } from './tts.js';
 import { abortRecognition, releaseMic } from './stt.js';
 import { get, set, remove, KEYS } from './settings.js';
+import { initPrefs } from './prefs.svelte.js';
 import {
   toggleQuestionText, translateQuestion,
   finishRecording, checkAnswer, rerecordAnswer, nextQuestion,
@@ -257,6 +258,7 @@ export function initApp() {
   }
 
   applySettingsToUI();
+  initPrefs();
   refreshVoicePackStatus();
 
   const bind = (id, fn) => {

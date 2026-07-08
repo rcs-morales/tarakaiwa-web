@@ -9,11 +9,12 @@
   import { session, startPractice } from '$lib/session.svelte.js';
   import { history, computeStats } from '$lib/history.svelte.js';
   import { computeDailyGoal } from '$lib/gamification.svelte.js';
+  import { prefs } from '$lib/prefs.svelte.js';
   import { get, KEYS } from '$lib/settings.js';
   import { shell } from '$lib/shell.svelte.js';
 
   const stats = $derived(computeStats(history.entries));
-  const daily = $derived(computeDailyGoal(history.entries));
+  const daily = $derived(computeDailyGoal(history.entries, prefs.dailyGoal));
   const recent = $derived(history.entries.slice(0, 5));
   const deckReady = $derived(session.qa.length > 0);
 
