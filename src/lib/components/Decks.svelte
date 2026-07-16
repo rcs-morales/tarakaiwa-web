@@ -6,7 +6,14 @@
   import { allDecks, decks, setActiveDeck, bestScoreForDeck } from '$lib/decks.svelte.js';
   import DeckFormModal from './DeckFormModal.svelte';
 
+  const LEVEL_ORDER = ['N5', 'N4', 'N3'];
   const list = $derived(allDecks());
+  const grouped = $derived(
+    LEVEL_ORDER.map((lvl) => ({
+      level: lvl,
+      decks: decks.list.filter((d) => d.jlptLevel === lvl),
+    })).filter((g) => g.decks.length > 0)
+  );
   let showCreate = $state(false);
   let editingDeck = $state(null);
 
@@ -38,14 +45,14 @@
     <DeckFormModal deck={editingDeck} onclose={() => (editingDeck = null)} />
   {/if}
 
-  {#each list as d (d.id ?? 'default')}
-    {@const best = bestScoreForDeck(d.id ?? null)}
+  {#each list.filter((d) => d.id === null) as d (d.id ?? 'default')}
+    {@const best = bestScoreForDeck(null)}
     <div class="deck-card-wrap">
       <button
         type="button"
         class="deck-card"
-        class:active={(d.id ?? null) === decks.activeId}
-        onclick={() => setActiveDeck(d.id ?? null)}
+        class:active={decks.activeId === null}
+        onclick={() => setActiveDeck(null)}
       >
         <div class="deck-name">{d.name}</div>
         {#if d.subtitle}
@@ -64,19 +71,53 @@
         </div>
       </button>
       <div class="deck-card-actions">
-        {#if (d.id ?? null) === decks.activeId}
+        {#if decks.activeId === null}
           <span class="deck-inuse-pill">◉ In use</span>
         {/if}
-        {#if d.id !== null}
+      </div>
+    </div>
+  {/each}
+
+  {#each grouped as g (g.level)}
+    <h3 class="decks-level-heading">{g.level}</h3>
+    {#each g.decks as d (d.id)}
+      {@const best = bestScoreForDeck(d.id)}
+      <div class="deck-card-wrap">
+        <button
+          type="button"
+          class="deck-card"
+          class:active={d.id === decks.activeId}
+          onclick={() => setActiveDeck(d.id)}
+        >
+          <div class="deck-name">{d.name}</div>
+          {#if d.subtitle}
+            <div class="deck-subtitle">{d.subtitle}</div>
+          {/if}
+          <div class="deck-chips">
+            <span class="deck-chip">{d.qa.length} question{d.qa.length === 1 ? '' : 's'}</span>
+            <span class="deck-chip">JLPT {d.jlptLevel}</span>
+            {#if best === null}
+              <span class="deck-chip deck-chip-neutral">Not started</span>
+            {:else if best >= 75}
+              <span class="deck-chip deck-chip-good">Best {best}%</span>
+            {:else}
+              <span class="deck-chip deck-chip-low">Best {best}%</span>
+            {/if}
+          </div>
+        </button>
+        <div class="deck-card-actions">
+          {#if d.id === decks.activeId}
+            <span class="deck-inuse-pill">◉ In use</span>
+          {/if}
           <button
             type="button"
             class="deck-edit-btn"
             onclick={() => (editingDeck = d)}
             aria-label="Edit {d.name}"
           >✏️</button>
-        {/if}
+        </div>
       </div>
-    </div>
+    {/each}
   {/each}
 
   <div class="decks-shuffle-row">
@@ -137,6 +178,20 @@
 
   .decks-import-card:hover {
     background: var(--surface-hover);
+  }
+
+  .decks-level-heading {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--primary);
+    margin: 18px 0 8px;
+  }
+
+  .decks-level-heading:first-of-type {
+    margin-top: 20px;
   }
 
   .deck-card-wrap {
