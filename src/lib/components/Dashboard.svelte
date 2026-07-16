@@ -3,38 +3,21 @@
   // Practice panel. Renders from reactive state (session deck, history
   // stats); the #ai-status-chip text is still written imperatively by
   // ai/groqClient.js, so its ids must stay.
-  import { onMount } from 'svelte';
   import StatCard from './StatCard.svelte';
   import LevelCard from './LevelCard.svelte';
   import { session, startPractice } from '$lib/session.svelte.js';
   import { history, computeStats } from '$lib/history.svelte.js';
   import { computeDailyGoal } from '$lib/gamification.svelte.js';
   import { prefs } from '$lib/prefs.svelte.js';
-  import { get, KEYS } from '$lib/settings.js';
-  import { shell } from '$lib/shell.svelte.js';
 
   const stats = $derived(computeStats(history.entries));
   const daily = $derived(computeDailyGoal(history.entries, prefs.dailyGoal));
   const recent = $derived(history.entries.slice(0, 5));
   const deckReady = $derived(session.qa.length > 0);
 
-  // JLPT level lives in localStorage (not reactive) — re-read it when the
-  // user returns to this tab and after a settings sync from another device.
-  let jlptLevel = $state('N5');
-  $effect(() => {
-    if (shell.tab === 'practice') jlptLevel = get(KEYS.JLPT_LEVEL) || 'N5';
-  });
-
-  onMount(() => {
-    const refresh = () => { jlptLevel = get(KEYS.JLPT_LEVEL) || 'N5'; };
-    refresh();
-    window.addEventListener('settings-synced', refresh);
-    window.addEventListener('app-ready', refresh);
-    return () => {
-      window.removeEventListener('settings-synced', refresh);
-      window.removeEventListener('app-ready', refresh);
-    };
-  });
+  // The active deck's own level (session.svelte.js) — reactive by construction,
+  // no localStorage re-read/event plumbing needed.
+  const jlptLevel = $derived(session.jlptLevel || 'N5');
 
   function greeting() {
     const h = new Date().getHours();

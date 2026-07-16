@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/svelte';
 
 const { mockSession, startPractice } = vi.hoisted(() => ({
-  mockSession: { qa: [], current: 0, score: 0, results: [], isDefaultDeck: false },
+  mockSession: { qa: [], current: 0, score: 0, results: [], isDefaultDeck: false, jlptLevel: 'N5' },
   startPractice: vi.fn(),
 }));
 
@@ -41,6 +41,14 @@ describe('Practice dashboard', () => {
 
     btn.click();
     expect(startPractice).toHaveBeenCalledOnce();
+  });
+
+  it('shows the active deck level in the summary chip, not the global default', () => {
+    mockSession.qa = [{ q: 'q', a: 'a' }];
+    mockSession.jlptLevel = 'N4';
+    const { container } = render(Dashboard);
+
+    expect(container.textContent).toContain('📈 N4');
   });
 
   it('shows zeroed stats and the empty hint before any session', () => {
