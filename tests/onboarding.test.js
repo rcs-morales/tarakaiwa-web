@@ -62,7 +62,7 @@ describe('Onboarding sheet', () => {
     expect(container.querySelector('.onboarding-sheet')).toBeNull();
   });
 
-  it('persists the picked JLPT level as grading strictness', async () => {
+  it('persists the picked JLPT level as the default for new decks', async () => {
     const { container } = render(Onboarding);
 
     await fireEvent.click(screen.getByRole('button', { name: /N4/ }));

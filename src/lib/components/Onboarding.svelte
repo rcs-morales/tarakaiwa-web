@@ -121,7 +121,7 @@
         </div>
 
         <button class="btn btn-primary sheet-wide-btn" onclick={applyLevelAndContinue}>はじめよう · Get started</button>
-        <p class="sheet-reassure">Takes 5 min a day · No account needed to try</p>
+        <p class="sheet-reassure">Sets the default for decks you create — the built-in Sample deck is always N5.</p>
       {:else if step === 2}
         <div class="sheet-icon">🗂️</div>
         <h2 class="sheet-heading sheet-heading-sm">Pick your deck</h2>

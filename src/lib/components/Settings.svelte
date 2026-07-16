@@ -200,13 +200,17 @@
       </div>
 
       <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
-        <label for="jlpt-level-select" style="font-size: 0.85rem; font-weight: bold; margin-right: 8px;">Grading Strictness:</label>
+        <label for="jlpt-level-select" style="font-size: 0.85rem; font-weight: bold; margin-right: 8px;">Default Level for New Decks:</label>
         <select id="jlpt-level-select"
           style="padding: 4px; border-radius: 4px; border: 1px solid var(--border); background: var(--paper-2); color: var(--text);">
-          <option value="N5">N5 (Very Lenient, ignores STT homophones)</option>
-          <option value="N4">N4 (Moderate, minor vocabulary flexibility)</option>
-          <option value="N3">N3 (Strict, expects precise vocabulary & grammar)</option>
+          <option value="N5">N5 (Beginner)</option>
+          <option value="N4">N4 (Upper beginner)</option>
+          <option value="N3">N3 (Intermediate)</option>
         </select>
+        <p style="font-size: 0.72rem; color: var(--muted); margin-top: 6px;">
+          Pre-fills the level when you create a new deck. Grading strictness always follows
+          each deck's own level instead — change it per-deck from the Decks tab.
+        </p>
       </div>
       <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
         <label for="grading-model-select" style="font-size: 0.85rem; font-weight: bold; margin-right: 8px;">Grading Speed:</label>
