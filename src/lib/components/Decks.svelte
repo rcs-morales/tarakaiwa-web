@@ -8,6 +8,7 @@
 
   const list = $derived(allDecks());
   let showCreate = $state(false);
+  let editingDeck = $state(null);
 
   function triggerImport() {
     document.getElementById('file-input')?.click();
@@ -33,33 +34,49 @@
     <DeckFormModal onclose={() => (showCreate = false)} />
   {/if}
 
+  {#if editingDeck}
+    <DeckFormModal deck={editingDeck} onclose={() => (editingDeck = null)} />
+  {/if}
+
   {#each list as d (d.id ?? 'default')}
     {@const best = bestScoreForDeck(d.id ?? null)}
-    <button
-      type="button"
-      class="deck-card"
-      class:active={(d.id ?? null) === decks.activeId}
-      onclick={() => setActiveDeck(d.id ?? null)}
-    >
-      {#if (d.id ?? null) === decks.activeId}
-        <span class="deck-inuse-pill">◉ In use</span>
-      {/if}
-      <div class="deck-name">{d.name}</div>
-      {#if d.subtitle}
-        <div class="deck-subtitle">{d.subtitle}</div>
-      {/if}
-      <div class="deck-chips">
-        <span class="deck-chip">{d.qa.length} question{d.qa.length === 1 ? '' : 's'}</span>
-        <span class="deck-chip">JLPT {d.jlptLevel}</span>
-        {#if best === null}
-          <span class="deck-chip deck-chip-neutral">Not started</span>
-        {:else if best >= 75}
-          <span class="deck-chip deck-chip-good">Best {best}%</span>
-        {:else}
-          <span class="deck-chip deck-chip-low">Best {best}%</span>
+    <div class="deck-card-wrap">
+      <button
+        type="button"
+        class="deck-card"
+        class:active={(d.id ?? null) === decks.activeId}
+        onclick={() => setActiveDeck(d.id ?? null)}
+      >
+        <div class="deck-name">{d.name}</div>
+        {#if d.subtitle}
+          <div class="deck-subtitle">{d.subtitle}</div>
+        {/if}
+        <div class="deck-chips">
+          <span class="deck-chip">{d.qa.length} question{d.qa.length === 1 ? '' : 's'}</span>
+          <span class="deck-chip">JLPT {d.jlptLevel}</span>
+          {#if best === null}
+            <span class="deck-chip deck-chip-neutral">Not started</span>
+          {:else if best >= 75}
+            <span class="deck-chip deck-chip-good">Best {best}%</span>
+          {:else}
+            <span class="deck-chip deck-chip-low">Best {best}%</span>
+          {/if}
+        </div>
+      </button>
+      <div class="deck-card-actions">
+        {#if (d.id ?? null) === decks.activeId}
+          <span class="deck-inuse-pill">◉ In use</span>
+        {/if}
+        {#if d.id !== null}
+          <button
+            type="button"
+            class="deck-edit-btn"
+            onclick={() => (editingDeck = d)}
+            aria-label="Edit {d.name}"
+          >✏️</button>
         {/if}
       </div>
-    </button>
+    </div>
   {/each}
 
   <div class="decks-shuffle-row">
@@ -122,6 +139,11 @@
     background: var(--surface-hover);
   }
 
+  .deck-card-wrap {
+    position: relative;
+    margin-bottom: 12px;
+  }
+
   .deck-card {
     display: block;
     width: 100%;
@@ -130,8 +152,6 @@
     border: 2px solid var(--card-border);
     border-radius: 20px;
     padding: 15px 16px;
-    margin-bottom: 12px;
-    position: relative;
     cursor: pointer;
   }
 
@@ -139,10 +159,16 @@
     border-color: var(--primary);
   }
 
-  .deck-inuse-pill {
+  .deck-card-actions {
     position: absolute;
     top: 12px;
     right: 14px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .deck-inuse-pill {
     background: var(--primary-tint);
     color: var(--primary);
     border-radius: 999px;
@@ -151,11 +177,32 @@
     font-weight: 800;
   }
 
+  .deck-edit-btn {
+    background: var(--surface);
+    border: 1.5px solid var(--card-border);
+    border-radius: 999px;
+    width: 26px;
+    height: 26px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.72rem;
+    line-height: 1;
+    cursor: pointer;
+    color: var(--muted);
+    padding: 0;
+  }
+
+  .deck-edit-btn:hover {
+    color: var(--primary);
+    border-color: var(--primary);
+  }
+
   .deck-name {
     font-weight: 800;
     font-size: 1rem;
     color: var(--text);
-    padding-right: 70px;
+    padding-right: 100px;
   }
 
   .deck-subtitle {
