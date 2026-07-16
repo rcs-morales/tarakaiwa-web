@@ -43,12 +43,17 @@ export const session = $state({
   // built-in Sample deck. Tags recorded sessions so scores can be shown
   // per-deck on the Decks screen.
   activeDeckId: null,
+  // The active deck's own jlptLevel (decks.svelte.js) — drives grading
+  // strictness and recorded-history labeling. Not the global Settings
+  // default; that only seeds new decks (see decks.svelte.js).
+  jlptLevel: 'N5',
 });
 
-export function setQA(newData, { isDefault = false, deckId = null } = {}) {
+export function setQA(newData, { isDefault = false, deckId = null, jlptLevel = 'N5' } = {}) {
   session.qa = newData;
   session.isDefaultDeck = isDefault;
   session.activeDeckId = deckId;
+  session.jlptLevel = jlptLevel;
 }
 export function setCurrent(val) {
   session.current = val;
@@ -401,15 +406,14 @@ export async function checkAnswer() {
   const item = session.qa[session.current];
   const raw = getLiveTranscript().trim();
 
-  const level = get(KEYS.JLPT_LEVEL) || 'N5';
   const furiganaReading = await import('./parser.js').then(m =>
-    level === 'N5' ? m.transcriptToFurigana(raw) : m.transcriptToFuriganaForGrading(raw, item.a)
+    session.jlptLevel === 'N5' ? m.transcriptToFurigana(raw) : m.transcriptToFuriganaForGrading(raw, item.a)
   );
   showCheckedTranscript(raw, furiganaReading, formatLiveTranscript);
 
   setStatus('checking', '🤖 AI is checking your answer…');
 
-  let gradeResult = await gradeWithAI(item.q, item.a, raw);
+  let gradeResult = await gradeWithAI(item.q, item.a, raw, session.jlptLevel);
   if (!gradeResult) {
     const rateLimited = getLastGradingErrorReason() === 'RATE_LIMIT';
     setStatus('checking', rateLimited
@@ -592,9 +596,9 @@ async function showResults(choice, { skipProgression = false } = {}) {
   // daily goals, avg score, or the cloud session_results table.
   if (!skipProgression) {
     const deckId = session.isDefaultDeck ? null : session.activeDeckId;
-    recordSession({ score: session.score, total, jlpt: get(KEYS.JLPT_LEVEL), deckId });
+    recordSession({ score: session.score, total, jlpt: session.jlptLevel, deckId });
     saveSessionResult({
-      jlpt_level: get(KEYS.JLPT_LEVEL),
+      jlpt_level: session.jlptLevel,
       score: session.score,
       total,
       results: session.results,

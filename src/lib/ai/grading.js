@@ -5,7 +5,6 @@
 import { getGradingModel, resolveAIRoute } from './groqClient.js';
 import { getGradingPrompt, GRADING_SYSTEM_PROMPT } from './prompts.js';
 import { createGrammarRuleHelper, analyzeAnswerCompleteness, isCorrectLocal, normalizeForGradingComparison, hasMeaningfulBreakdownError, groundBreakdown, gradingTextsEquivalent } from './localGrading.js';
-import { get, KEYS } from '../settings.js';
 
 // Set when the most recent gradeWithAI() call failed due to a 429 (BYO key
 // rate limit, or shared-proxy daily quota) so the UI can show a clearer
@@ -242,13 +241,12 @@ async function finalizeAIGradingResult(text, question, expectedAnswer, transcrip
 /**
  * Grade a student's spoken answer using the Groq AI, with local safety-net post-processing.
  */
-export async function gradeWithAI(question, expectedAnswer, transcript) {
+export async function gradeWithAI(question, expectedAnswer, transcript, level = 'N5') {
   lastGradingErrorReason = null;
   const route = await resolveAIRoute();
   if (!route) return null;
 
   try {
-    const level = get(KEYS.JLPT_LEVEL);
     const prompt = getGradingPrompt(level, question, expectedAnswer, transcript);
     const requestBody = {
       model: getGradingModel(),

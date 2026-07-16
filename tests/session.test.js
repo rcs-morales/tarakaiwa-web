@@ -193,6 +193,26 @@ describe('Session Flow Integration Tests', () => {
     expect(ui.showResult).toHaveBeenCalled();
   });
 
+  it('passes the active deck level to gradeWithAI and records it on finish', async () => {
+    setQA([{ q: 'Q1', a: 'A1', r: 'R1' }], { isDefault: false, deckId: 'deck-1', jlptLevel: 'N4' });
+    setCurrent(0);
+    setScore(0);
+    setResults([]);
+
+    ai.gradeWithAI.mockResolvedValue({
+      correct: true,
+      score: 100,
+      general_feedback: 'Perfect!',
+      suggested_answer: 'A1',
+      breakdown: [],
+      source: 'groq'
+    });
+
+    await checkAnswer();
+
+    expect(ai.gradeWithAI).toHaveBeenCalledWith('Q1', 'A1', expect.any(String), 'N4');
+  });
+
   it('should progress to next question and finish when reaching the end', async () => {
     setQA([{ q: 'Q1', a: 'A1', r: 'R1' }]);
     setCurrent(0);
@@ -233,5 +253,10 @@ describe('Session Flow Integration Tests', () => {
     expect(session.results[1].transcript).toBe('(not reached)');
     expect(session.results[2].transcript).toBe('(not reached)');
     expect(ui.showResultsScreen).toHaveBeenCalled();
+  });
+
+  it('setQA defaults jlptLevel to N5 when not provided', () => {
+    setQA([{ q: 'Q1', a: 'A1' }]);
+    expect(session.jlptLevel).toBe('N5');
   });
 });
