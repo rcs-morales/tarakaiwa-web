@@ -4,8 +4,10 @@
   // #file-input stays wired imperatively (app.js binds its 'change' handler
   // by id, same as before).
   import { allDecks, decks, setActiveDeck, bestScoreForDeck } from '$lib/decks.svelte.js';
+  import CreateDeckModal from './CreateDeckModal.svelte';
 
   const list = $derived(allDecks());
+  let showCreate = $state(false);
 
   function triggerImport() {
     document.getElementById('file-input')?.click();
@@ -16,11 +18,20 @@
   <h2 class="decks-title">デッキ <span class="decks-title-en">· Decks</span></h2>
   <p class="decks-subtitle">Pick a deck to practice, or add your own.</p>
 
-  <button type="button" class="decks-import-card" onclick={triggerImport}>
-    ＋ デッキを追加 · Import a deck
-  </button>
+  <div class="decks-add-row">
+    <button type="button" class="decks-import-card" onclick={triggerImport}>
+      ＋ Import a deck
+    </button>
+    <button type="button" class="decks-import-card" onclick={() => (showCreate = true)}>
+      ＋ Create a deck
+    </button>
+  </div>
   <input type="file" id="file-input" accept=".json,.csv,.txt,.xlsx,.xls" class="hidden" />
   <div class="import-status" id="import-status"></div>
+
+  {#if showCreate}
+    <CreateDeckModal onclose={() => (showCreate = false)} />
+  {/if}
 
   {#each list as d (d.id ?? 'default')}
     {@const best = bestScoreForDeck(d.id ?? null)}
@@ -86,19 +97,25 @@
     margin-bottom: 16px;
   }
 
+  .decks-add-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
   .decks-import-card {
     display: block;
+    flex: 1;
     width: 100%;
     background: var(--surface);
     border: 2px dashed #e7c7a0;
     border-radius: 20px;
-    padding: 15px;
+    padding: 15px 10px;
     text-align: center;
     color: var(--primary);
     font-weight: 800;
-    font-size: 0.92rem;
+    font-size: 0.88rem;
     cursor: pointer;
-    margin-bottom: 12px;
   }
 
   .decks-import-card:hover {

@@ -2,7 +2,7 @@ import {
   parseJSON, parseCSV, parseExcel, ensureXLSXLoaded
 } from './parser.js';
 import { showImportStatus } from './ui.js';
-import { importDeck } from './decks.svelte.js';
+import { importDeck, MAX_DECK_QUESTIONS } from './decks.svelte.js';
 
 /**
  * Handle the file import process.
@@ -36,6 +36,9 @@ export async function handleFileImport(event) {
 
       if (!Array.isArray(qa) || qa.length === 0) {
         throw new Error('No valid Q&A data found in file');
+      }
+      if (qa.length > MAX_DECK_QUESTIONS) {
+        throw new Error('Decks are limited to ' + MAX_DECK_QUESTIONS + ' questions — this file has ' + qa.length + '. Please split it into smaller decks.');
       }
 
       showImportStatus('✅ Successfully imported ' + qa.length + ' question' + (qa.length !== 1 ? 's' : '') + ' from ' + file.name, 'success');

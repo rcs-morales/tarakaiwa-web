@@ -14,6 +14,7 @@ vi.mock('../src/lib/ai/index.js', () => ({
 
 vi.mock('../src/lib/decks.svelte.js', () => ({
   importDeck: vi.fn(async () => true),
+  MAX_DECK_QUESTIONS: 23,
 }));
 
 vi.mock('../src/lib/parser.js', () => ({
@@ -131,6 +132,30 @@ describe('Data Import Tests', () => {
     await handleFileImport(event);
 
     expect(ui.showImportStatus).toHaveBeenCalledWith(expect.stringContaining('No valid Q&A data found'), 'error');
+  });
+
+  it('should reject a file with more than the 23-question cap', async () => {
+    const qa = Array.from({ length: 24 }, (_, i) => ({ q: `q${i}`, a: `a${i}` }));
+    const content = JSON.stringify(qa);
+    const event = createMockEvent('big.json', content);
+    parser.parseJSON.mockReturnValue(qa);
+
+    vi.stubGlobal('FileReader', class {
+      constructor() {
+        this.onload = null;
+        this.onerror = null;
+      }
+      readAsText() {
+        if (this.onload) {
+          this.onload({ target: { result: content } });
+        }
+      }
+    });
+
+    await handleFileImport(event);
+
+    expect(decksModule.importDeck).not.toHaveBeenCalled();
+    expect(ui.showImportStatus).toHaveBeenCalledWith(expect.stringContaining('limited to 23 questions'), 'error');
   });
 
   it('should report an info status when the cloud push fails', async () => {

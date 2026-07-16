@@ -59,6 +59,21 @@ describe('decks.svelte.js', () => {
     expect(sync.pushDeck).toHaveBeenCalledWith(expect.objectContaining({ id: deck.id, qa, name: 'my-file.json' }));
   });
 
+  it('createDeck is a thin wrapper over importDeck (manual entry uses the same path)', async () => {
+    const { decksModule, session, sync } = await load();
+    const qa = [{ q: 'hand-typed q', a: 'hand-typed a' }];
+
+    await decksModule.createDeck('Hand Typed', qa);
+
+    expect(decksModule.decks.list).toHaveLength(1);
+    const deck = decksModule.decks.list[0];
+    expect(deck.qa).toEqual(qa);
+    expect(deck.name).toBe('Hand Typed');
+    expect(decksModule.decks.activeId).toBe(deck.id);
+    expect(session.setQA).toHaveBeenCalledWith(qa, { isDefault: false, deckId: deck.id });
+    expect(sync.pushDeck).toHaveBeenCalledWith(expect.objectContaining({ id: deck.id, qa, name: 'Hand Typed' }));
+  });
+
   it('setActiveDeck switches back to the built-in Sample deck', async () => {
     const { decksModule, session } = await load();
     await decksModule.importDeck([{ q: 'q', a: 'a' }], 'deck1.json');

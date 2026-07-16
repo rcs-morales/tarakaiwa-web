@@ -20,6 +20,9 @@ import { bestScoreForDeck as bestScoreFromHistory } from './history.svelte.js';
 import { history } from './history.svelte.js';
 import { pushDeck } from './sync.js';
 
+/** Shared cap on questions per deck — applies to manual entry and file import alike. */
+export const MAX_DECK_QUESTIONS = 23;
+
 const SAMPLE_DECK = Object.freeze({
   id: null,
   name: 'Sample deck',
@@ -103,6 +106,11 @@ export function importDeck(qa, name) {
   persistList(decks.list);
   setActiveDeck(deck.id);
   return pushDeck(deck);
+}
+
+/** Create a deck from hand-typed questions. Same path as file import — see importDeck. */
+export function createDeck(name, qa) {
+  return importDeck(qa, name);
 }
 
 /** Switch the active deck and load its qa into the practice session. */
