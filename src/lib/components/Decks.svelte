@@ -4,7 +4,7 @@
   // #file-input stays wired imperatively (app.js binds its 'change' handler
   // by id, same as before).
   import { allDecks, decks, setActiveDeck, bestScoreForDeck } from '$lib/decks.svelte.js';
-  import CreateDeckModal from './CreateDeckModal.svelte';
+  import DeckFormModal from './DeckFormModal.svelte';
 
   const list = $derived(allDecks());
   let showCreate = $state(false);
@@ -30,7 +30,7 @@
   <div class="import-status" id="import-status"></div>
 
   {#if showCreate}
-    <CreateDeckModal onclose={() => (showCreate = false)} />
+    <DeckFormModal onclose={() => (showCreate = false)} />
   {/if}
 
   {#each list as d (d.id ?? 'default')}

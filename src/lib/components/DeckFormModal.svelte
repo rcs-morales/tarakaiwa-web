@@ -1,19 +1,23 @@
 <script>
-  // Create-a-deck modal — the manual-entry sibling to file import (Decks tab).
-  // Reuses the global .modal / .modal-card chrome (see the bug-report modal in
-  // +page.svelte) and funnels the save straight through decks.svelte.js's
-  // createDeck(), which is just importDeck() under a clearer name: it already
-  // handles add/persist/activate/cloud-sync, so this component only builds
-  // the { q, a } array and hands it off.
+  // Deck form modal — shared by "Create a deck" and per-card "Edit deck" on
+  // the Decks tab. No `deck` prop = create mode (funnels through
+  // decks.svelte.js's createDeck/importDeck). A `deck` prop = edit mode,
+  // pre-filled from that deck and funneling through updateDeck/deleteDeck
+  // instead. Reuses the global .modal / .modal-card chrome (see the
+  // bug-report modal in +page.svelte).
   import { get, KEYS } from '$lib/settings.js';
-  import { createDeck, MAX_DECK_QUESTIONS } from '$lib/decks.svelte.js';
+  import { createDeck, updateDeck, deleteDeck, MAX_DECK_QUESTIONS } from '$lib/decks.svelte.js';
   import { showImportStatus } from '$lib/ui.js';
 
-  let { onclose } = $props();
+  let { deck, onclose } = $props();
+  const isEdit = !!deck;
 
-  let name = $state('');
-  let rows = $state([{ q: '', a: '' }, { q: '', a: '' }]);
+  let name = $state(deck?.name ?? '');
+  let rows = $state(
+    deck ? deck.qa.map((r) => ({ q: r.q, a: r.a })) : [{ q: '', a: '' }, { q: '', a: '' }]
+  );
   let saving = $state(false);
+  let deleting = $state(false);
 
   const level = get(KEYS.JLPT_LEVEL);
 
@@ -26,7 +30,7 @@
       .filter((r) => r.q && r.a)
   );
   const canAddRow = $derived(rows.length < MAX_DECK_QUESTIONS);
-  const canSave = $derived(validPairs.length > 0 && !saving);
+  const canSave = $derived(validPairs.length > 0 && !saving && !deleting);
 
   function addRow() {
     if (canAddRow) rows.push({ q: '', a: '' });
@@ -40,25 +44,56 @@
     if (!canSave) return;
     saving = true;
     try {
-      const pushed = await createDeck(name.trim() || undefined, validPairs);
-      if (pushed === false) {
-        showImportStatus('✅ Created ' + validPairs.length + ' question' + (validPairs.length === 1 ? '' : 's') + ' (⚠️ cloud sync failed — the deck is saved on this device and will sync on your next sign-in)', 'info');
+      if (isEdit) {
+        const pushed = await updateDeck(deck.id, { name: name.trim(), qa: validPairs });
+        showImportStatus(
+          pushed === false
+            ? '✅ Saved changes (⚠️ cloud sync failed — the deck is saved on this device and will sync on your next sign-in)'
+            : '✅ Deck updated',
+          pushed === false ? 'info' : 'success'
+        );
       } else {
-        showImportStatus('✅ Created a deck with ' + validPairs.length + ' question' + (validPairs.length === 1 ? '' : 's'), 'success');
+        const pushed = await createDeck(name.trim() || undefined, validPairs);
+        const count = validPairs.length;
+        showImportStatus(
+          pushed === false
+            ? '✅ Created ' + count + ' question' + (count === 1 ? '' : 's') + ' (⚠️ cloud sync failed — the deck is saved on this device and will sync on your next sign-in)'
+            : '✅ Created a deck with ' + count + ' question' + (count === 1 ? '' : 's'),
+          pushed === false ? 'info' : 'success'
+        );
       }
       onclose();
     } finally {
       saving = false;
     }
   }
+
+  async function remove() {
+    if (!isEdit || deleting) return;
+    if (!confirm('Delete "' + deck.name + '"? This cannot be undone.')) return;
+    deleting = true;
+    try {
+      await deleteDeck(deck.id);
+      showImportStatus('🗑️ Deck deleted', 'info');
+      onclose();
+    } finally {
+      deleting = false;
+    }
+  }
 </script>
 
 <div class="modal" role="presentation" onclick={(e) => { if (e.target === e.currentTarget) onclose(); }}>
-  <div class="modal-card cdm-card" role="dialog" aria-modal="true" aria-label="Create a deck">
-    <h3 class="cdm-title">✏️ Create a deck</h3>
-    <p class="cdm-level-hint">
-      New decks use your current level: <strong>JLPT {level}</strong> — change it in Settings.
-    </p>
+  <div class="modal-card cdm-card" role="dialog" aria-modal="true" aria-label={isEdit ? 'Edit deck' : 'Create a deck'}>
+    <h3 class="cdm-title">{isEdit ? '✏️ Edit deck' : '✏️ Create a deck'}</h3>
+    {#if isEdit}
+      <p class="cdm-level-hint">
+        Deck level: <strong>JLPT {deck.jlptLevel}</strong> (set when created — practice always uses your current Settings level).
+      </p>
+    {:else}
+      <p class="cdm-level-hint">
+        New decks use your current level: <strong>JLPT {level}</strong> — change it in Settings.
+      </p>
+    {/if}
 
     <label class="cdm-name-label" for="cdm-name">Deck name (optional)</label>
     <input id="cdm-name" class="api-key-input cdm-name-input" type="text" placeholder="My Deck" bind:value={name} />
@@ -89,11 +124,18 @@
       <span class="cdm-counter">{rows.length}/{MAX_DECK_QUESTIONS}</span>
     </div>
 
-    <div class="modal-btn-row cdm-footer">
-      <button type="button" class="btn btn-secondary" onclick={onclose}>Cancel</button>
-      <button type="button" class="btn btn-primary" onclick={save} disabled={!canSave}>
-        {saving ? 'Saving…' : 'Save deck'}
-      </button>
+    <div class="modal-btn-row cdm-footer" class:cdm-footer-split={isEdit}>
+      {#if isEdit}
+        <button type="button" class="btn btn-danger btn-sm" onclick={remove} disabled={deleting || saving}>
+          {deleting ? 'Deleting…' : 'Delete deck'}
+        </button>
+      {/if}
+      <div class="cdm-footer-actions">
+        <button type="button" class="btn btn-secondary" onclick={onclose}>Cancel</button>
+        <button type="button" class="btn btn-primary" onclick={save} disabled={!canSave}>
+          {saving ? 'Saving…' : (isEdit ? 'Save changes' : 'Save deck')}
+        </button>
+      </div>
     </div>
   </div>
 </div>
@@ -193,5 +235,14 @@
 
   .cdm-footer {
     margin-top: 20px;
+  }
+
+  .cdm-footer-split {
+    justify-content: space-between;
+  }
+
+  .cdm-footer-actions {
+    display: flex;
+    gap: 12px;
   }
 </style>
