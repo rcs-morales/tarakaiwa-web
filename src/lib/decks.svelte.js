@@ -121,7 +121,7 @@ export function updateDeck(id, { name, qa }) {
     ...decks.list[idx],
     name: name || decks.list[idx].name,
     qa,
-    updatedAt: new Date(Date.now() + 1).toISOString(),
+    updatedAt: new Date().toISOString(),
   };
   decks.list = decks.list.map((d, i) => (i === idx ? updated : d));
   persistList(decks.list);

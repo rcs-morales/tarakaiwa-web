@@ -85,8 +85,13 @@ describe('decks.svelte.js', () => {
     session.setQA.mockClear();
     sync.pushDeck.mockClear();
 
+    vi.useFakeTimers();
+    vi.advanceTimersByTime(1);
+
     const newQA = [{ q: 'q2', a: 'a2' }];
     await decksModule.updateDeck(id, { name: 'Renamed', qa: newQA });
+
+    vi.useRealTimers();
 
     const deck = decksModule.decks.list[0];
     expect(deck.name).toBe('Renamed');
