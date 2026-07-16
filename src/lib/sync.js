@@ -153,6 +153,32 @@ export async function pushDeck(deck) {
 }
 
 /**
+ * Delete one deck's row in Supabase. Called by decks.svelte.js's deleteDeck
+ * so a locally-deleted deck doesn't get resurrected by syncDecks' pull-merge
+ * on next login.
+ *
+ * @param {string} id
+ * @returns {Promise<boolean|null>} true = deleted, false = failed, null = logged out
+ */
+export async function deleteDeckRemote(id) {
+  const user = getCurrentUser();
+  if (!user) return null;
+
+  try {
+    const { error } = await supabaseClient
+      .from('decks')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', user.id);
+    if (error) throw error;
+    return true;
+  } catch (e) {
+    console.error('deck delete failed:', e.message || e);
+    return false;
+  }
+}
+
+/**
  * On login: pull every remote deck, merge with the local list by id (remote
  * wins unless the local copy is newer), push up any local-only decks, then
  * hand the merged list to the app via a 'deck-list-synced' event —

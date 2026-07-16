@@ -18,7 +18,7 @@ import { get, set, KEYS } from './settings.js';
 import { setQA } from './session.svelte.js';
 import { bestScoreForDeck as bestScoreFromHistory } from './history.svelte.js';
 import { history } from './history.svelte.js';
-import { pushDeck } from './sync.js';
+import { pushDeck, deleteDeckRemote } from './sync.js';
 
 /** Shared cap on questions per deck — applies to manual entry and file import alike. */
 export const MAX_DECK_QUESTIONS = 23;
@@ -111,6 +111,34 @@ export function importDeck(qa, name) {
 /** Create a deck from hand-typed questions. Same path as file import — see importDeck. */
 export function createDeck(name, qa) {
   return importDeck(qa, name);
+}
+
+/** Update an existing deck's name/questions; reload the session if it's active, and re-sync. */
+export function updateDeck(id, { name, qa }) {
+  const idx = decks.list.findIndex((d) => d.id === id);
+  if (idx === -1) return null;
+  const updated = {
+    ...decks.list[idx],
+    name: name || decks.list[idx].name,
+    qa,
+    updatedAt: new Date(Date.now() + 1).toISOString(),
+  };
+  decks.list = decks.list.map((d, i) => (i === idx ? updated : d));
+  persistList(decks.list);
+  if (decks.activeId === id) {
+    setQA(updated.qa, { isDefault: false, deckId: id });
+  }
+  return pushDeck(updated);
+}
+
+/** Delete a deck, falling back to the Sample deck if it was active, and remove it from the cloud. */
+export function deleteDeck(id) {
+  decks.list = decks.list.filter((d) => d.id !== id);
+  persistList(decks.list);
+  if (decks.activeId === id) {
+    setActiveDeck(null);
+  }
+  return deleteDeckRemote(id);
 }
 
 /** Switch the active deck and load its qa into the practice session. */

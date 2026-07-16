@@ -2,7 +2,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { KEYS } from '../src/lib/settings.js';
 
 vi.mock('../src/lib/session.svelte.js', () => ({ setQA: vi.fn() }));
-vi.mock('../src/lib/sync.js', () => ({ pushDeck: vi.fn(async () => true) }));
+vi.mock('../src/lib/sync.js', () => ({
+  pushDeck: vi.fn(async () => true),
+  deleteDeckRemote: vi.fn(async () => true),
+}));
 
 // decks.svelte.js computes its reactive `decks` state once at module load
 // time (from localStorage), so each test needs a fresh module instance —
@@ -72,6 +75,78 @@ describe('decks.svelte.js', () => {
     expect(decksModule.decks.activeId).toBe(deck.id);
     expect(session.setQA).toHaveBeenCalledWith(qa, { isDefault: false, deckId: deck.id });
     expect(sync.pushDeck).toHaveBeenCalledWith(expect.objectContaining({ id: deck.id, qa, name: 'Hand Typed' }));
+  });
+
+  it('updateDeck edits a deck in place, bumps updatedAt, reloads the session (it is active), and pushes to the cloud', async () => {
+    const { decksModule, session, sync } = await load();
+    await decksModule.importDeck([{ q: 'q1', a: 'a1' }], 'Original');
+    const id = decksModule.decks.list[0].id;
+    const originalUpdatedAt = decksModule.decks.list[0].updatedAt;
+    session.setQA.mockClear();
+    sync.pushDeck.mockClear();
+
+    const newQA = [{ q: 'q2', a: 'a2' }];
+    await decksModule.updateDeck(id, { name: 'Renamed', qa: newQA });
+
+    const deck = decksModule.decks.list[0];
+    expect(deck.name).toBe('Renamed');
+    expect(deck.qa).toEqual(newQA);
+    expect(deck.updatedAt).not.toBe(originalUpdatedAt);
+    expect(session.setQA).toHaveBeenCalledWith(newQA, { isDefault: false, deckId: id });
+    expect(sync.pushDeck).toHaveBeenCalledWith(expect.objectContaining({ id, name: 'Renamed', qa: newQA }));
+  });
+
+  it('updateDeck falls back to the existing name when a blank name is passed', async () => {
+    const { decksModule } = await load();
+    await decksModule.importDeck([{ q: 'q1', a: 'a1' }], 'Keep Me');
+    const id = decksModule.decks.list[0].id;
+
+    await decksModule.updateDeck(id, { name: '', qa: [{ q: 'q2', a: 'a2' }] });
+
+    expect(decksModule.decks.list[0].name).toBe('Keep Me');
+  });
+
+  it('updateDeck does not reload the session when editing a deck that is not active', async () => {
+    const { decksModule, session } = await load();
+    await decksModule.importDeck([{ q: 'q1', a: 'a1' }], 'Deck A');
+    await decksModule.importDeck([{ q: 'q2', a: 'a2' }], 'Deck B'); // becomes active
+    const deckAId = decksModule.decks.list[0].id;
+    session.setQA.mockClear();
+
+    await decksModule.updateDeck(deckAId, { name: 'Deck A edited', qa: [{ q: 'x', a: 'y' }] });
+
+    expect(session.setQA).not.toHaveBeenCalled();
+    expect(decksModule.decks.list[0].name).toBe('Deck A edited');
+  });
+
+  it('deleteDeck removes a deck, falls back to the Sample deck when it was active, and deletes it from the cloud', async () => {
+    const { decksModule, session, sync } = await load();
+    await decksModule.importDeck([{ q: 'q1', a: 'a1' }], 'Deck A');
+    const id = decksModule.decks.list[0].id;
+    session.setQA.mockClear();
+
+    await decksModule.deleteDeck(id);
+
+    expect(decksModule.decks.list).toHaveLength(0);
+    expect(decksModule.decks.activeId).toBeNull();
+    expect(session.setQA).toHaveBeenCalledWith(expect.any(Array), { isDefault: true, deckId: null });
+    expect(sync.deleteDeckRemote).toHaveBeenCalledWith(id);
+  });
+
+  it('deleteDeck removes a non-active deck without touching the session', async () => {
+    const { decksModule, session } = await load();
+    await decksModule.importDeck([{ q: 'q1', a: 'a1' }], 'Deck A');
+    await decksModule.importDeck([{ q: 'q2', a: 'a2' }], 'Deck B'); // becomes active
+    const deckAId = decksModule.decks.list[0].id;
+    const activeId = decksModule.decks.activeId;
+    session.setQA.mockClear();
+
+    await decksModule.deleteDeck(deckAId);
+
+    expect(decksModule.decks.list).toHaveLength(1);
+    expect(decksModule.decks.list[0].name).toBe('Deck B');
+    expect(decksModule.decks.activeId).toBe(activeId);
+    expect(session.setQA).not.toHaveBeenCalled();
   });
 
   it('setActiveDeck switches back to the built-in Sample deck', async () => {
