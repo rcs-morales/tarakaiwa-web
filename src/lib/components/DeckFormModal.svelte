@@ -73,8 +73,13 @@
     if (!confirm('Delete "' + deck.name + '"? This cannot be undone.')) return;
     deleting = true;
     try {
-      await deleteDeck(deck.id);
-      showImportStatus('🗑️ Deck deleted', 'info');
+      const pushed = await deleteDeck(deck.id);
+      showImportStatus(
+        pushed === false
+          ? '🗑️ Deleted on this device (⚠️ cloud sync failed — it may reappear on your next sign-in)'
+          : '🗑️ Deck deleted',
+        'info'
+      );
       onclose();
     } finally {
       deleting = false;

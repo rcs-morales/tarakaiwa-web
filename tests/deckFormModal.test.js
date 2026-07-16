@@ -146,6 +146,22 @@ describe('DeckFormModal', () => {
       await waitFor(() => expect(onclose).toHaveBeenCalled());
     });
 
+    it('Delete deck warns about cloud sync failure but still closes when deleteDeck resolves false', async () => {
+      vi.stubGlobal('confirm', vi.fn(() => true));
+      deleteDeck.mockResolvedValueOnce(false);
+      const onclose = vi.fn();
+      render(DeckFormModal, { deck: sampleDeck, onclose });
+
+      await fireEvent.click(screen.getByRole('button', { name: /Delete deck/ }));
+
+      expect(deleteDeck).toHaveBeenCalledWith('deck-1');
+      await waitFor(() => expect(onclose).toHaveBeenCalled());
+      expect(showImportStatus).toHaveBeenCalledWith(
+        expect.stringContaining('cloud sync failed'),
+        'info'
+      );
+    });
+
     it('Delete deck does nothing when the confirmation is dismissed', async () => {
       vi.stubGlobal('confirm', vi.fn(() => false));
       const onclose = vi.fn();
