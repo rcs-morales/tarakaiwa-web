@@ -2,11 +2,15 @@
 
 TaraKaiwa (from the Filipino word “Tara = let’s” and the Japanese word “Kaiwa = talk”) is a browser-based JLPT speaking practice app. It helps learners practice speaking, listening, translation, and grammar feedback with AI-powered tools that run entirely in the client.
 
-**🌍 Live Demo**: Vercel (https://tarakaiwa-web.vercel.app/)  
+**🌍 Live Demo**: Cloudflare Pages (https://tarakaiwa-web.pages.dev/)  
 Add a Groq API key in Settings for speech recognition and AI grading. Voicevox remains optional for cloud text-to-speech.
 
 ## ✨ What’s New
 
+- **Kaiwa Quest Settings screen and onboarding restyle** for a clearer first-run and settings experience.
+- **Progress badges and gamification** to track streaks and milestones across practice sessions.
+- **Unified grading-feedback card styling** shared between in-session and Results views.
+- **Faster cloud voice swap** via reordered TTS warmup to cut mid-session delay.
 - **AI Study Assistant** for grammar explanations, vocabulary help, and follow-up study guidance.
 - **Translation Tool** for quick English-to-Japanese phrase practice with voice input and playback.
 - **Cleaner Japanese rendering** in the translation panel for more readable phrase display.
@@ -85,11 +89,21 @@ npm test
 | public/assets/style.css | Layout, theme, and UI styling |
 | src/lib/app.js | Main entry point and app orchestration (`initApp()`) |
 | src/lib/ai/ | AI modules for grading, Groq requests, Whisper, and study assistance |
-| src/lib/session.js | Practice-session flow and state |
+| src/lib/components/ | Svelte components: Shell, Dashboard, Practice, Results, Progress, Decks, Settings, Onboarding |
+| src/lib/session.svelte.js | Practice-session flow and state |
+| src/lib/shell.svelte.js | App-shell tab state (single-route, CSS-toggled panels) |
+| src/lib/history.svelte.js | Local session-history record and dashboard stats |
+| src/lib/gamification.svelte.js | Derived XP / level / daily-goal state over session history |
+| src/lib/decks.svelte.js | Multi-deck list and active-deck pointer |
+| src/lib/prefs.svelte.js | Learning-aid toggles (furigana / romaji / English hints) and daily goal |
 | src/lib/settings.js | Persistent configuration management |
+| src/lib/theme.js | Light/dark theme token switching |
+| src/lib/sessionFlags.js | Shared practice-session flags (avoids circular imports with stt.js) |
 | src/lib/auth.js | Supabase auth (magic link / Google) session handling |
 | src/lib/sync.js | localStorage ⇄ Supabase sync for settings, decks, and results |
 | src/lib/supabase.js | Supabase client initialization |
+| src/lib/quota.js | Client-side daily quota indicator for signed-in, no-BYO-key users |
+| src/lib/bugReporter.js | In-app bug report modal |
 | supabase/migrations/ | SQL migrations for accounts, sync, and quota tables |
 | src/lib/db.js | IndexedDB wrapper for cached audio and local data |
 | src/lib/import.js | Parsing and import of external Q&A datasets |
@@ -118,9 +132,10 @@ devices. Logged-out behaviour is unchanged.
 
 ### One-time Supabase setup (dashboard)
 
-1. **Apply the migration** in `supabase/migrations/0001_phase2_accounts_sync.sql`
-   (SQL Editor → paste & run, or `supabase db push` with the CLI). It's additive and
-   leaves the existing `bug_reports` table / `bug-screenshots` bucket untouched.
+1. **Apply the migrations** in order: `supabase/migrations/0001_phase2_accounts_sync.sql`,
+   `0002_api_usage_quota.sql`, and `0003_allow_delete_session_results.sql`
+   (SQL Editor → paste & run, or `supabase db push` with the CLI). They're additive and
+   leave the existing `bug_reports` table / `bug-screenshots` bucket untouched.
 2. **Enable email auth**: Authentication → Providers → Email (magic link / OTP is on by default).
 3. **Add redirect URLs**: Authentication → URL Configuration → add your site origin(s)
    (e.g. `http://localhost:5173` for `npm run dev`, and your Cloudflare Pages / Vercel URL).
@@ -163,9 +178,9 @@ Cloudflare Pages project (Settings → Environment variables):
 | `SUPABASE_URL` | Your Supabase project URL |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase **service-role** key (Settings → API) — server-only, never ship to the client |
 
-Then apply migration `supabase/migrations/0002_api_usage_quota.sql` (adds the
-atomic `increment_api_usage()` quota function). Daily limits live in
-`src/lib/server/quota.js` (defaults: 200 chat requests, 600 Whisper-seconds).
+Migration `0002_api_usage_quota.sql` (see Supabase setup above) adds the
+atomic `increment_api_usage()` quota function it relies on. Daily limits live
+in `src/lib/server/quota.js` (defaults: 200 chat requests, 600 Whisper-seconds).
 
 ### Testing the proxy locally
 
