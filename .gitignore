@@ -19,6 +19,9 @@ npm-debug.log*
 # Local design handoff / reference material (not versioned, like the planning docs above)
 design_handoff_kaiwa_quest/
 
+# Live2D Cubism authoring sources (90MB+, not needed at build/runtime — see public/models/*/runtime/)
+model-sources/
+
 # Supabase CLI scratch state (regenerated per machine)
 supabase/.temp/
 
