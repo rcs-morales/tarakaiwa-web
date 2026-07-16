@@ -58,7 +58,7 @@ describe('decks.svelte.js', () => {
     expect(deck.qa).toEqual(qa);
     expect(deck.name).toBe('my-file.json');
     expect(decksModule.decks.activeId).toBe(deck.id);
-    expect(session.setQA).toHaveBeenCalledWith(qa, { isDefault: false, deckId: deck.id });
+    expect(session.setQA).toHaveBeenCalledWith(qa, { isDefault: false, deckId: deck.id, jlptLevel: 'N5' });
     expect(sync.pushDeck).toHaveBeenCalledWith(expect.objectContaining({ id: deck.id, qa, name: 'my-file.json' }));
   });
 
@@ -73,8 +73,16 @@ describe('decks.svelte.js', () => {
     expect(deck.qa).toEqual(qa);
     expect(deck.name).toBe('Hand Typed');
     expect(decksModule.decks.activeId).toBe(deck.id);
-    expect(session.setQA).toHaveBeenCalledWith(qa, { isDefault: false, deckId: deck.id });
+    expect(session.setQA).toHaveBeenCalledWith(qa, { isDefault: false, deckId: deck.id, jlptLevel: 'N5' });
     expect(sync.pushDeck).toHaveBeenCalledWith(expect.objectContaining({ id: deck.id, qa, name: 'Hand Typed' }));
+  });
+
+  it('importDeck/createDeck accept an explicit jlptLevel, defaulting to the global setting', async () => {
+    const { decksModule } = await load();
+
+    await decksModule.importDeck([{ q: 'q', a: 'a' }], 'Leveled Deck', 'N3');
+
+    expect(decksModule.decks.list[0].jlptLevel).toBe('N3');
   });
 
   it('updateDeck edits a deck in place, bumps updatedAt, reloads the session (it is active), and pushes to the cloud', async () => {
@@ -97,7 +105,7 @@ describe('decks.svelte.js', () => {
     expect(deck.name).toBe('Renamed');
     expect(deck.qa).toEqual(newQA);
     expect(deck.updatedAt).not.toBe(originalUpdatedAt);
-    expect(session.setQA).toHaveBeenCalledWith(newQA, { isDefault: false, deckId: id });
+    expect(session.setQA).toHaveBeenCalledWith(newQA, { isDefault: false, deckId: id, jlptLevel: 'N5' });
     expect(sync.pushDeck).toHaveBeenCalledWith(expect.objectContaining({ id, name: 'Renamed', qa: newQA }));
   });
 
@@ -109,6 +117,21 @@ describe('decks.svelte.js', () => {
     await decksModule.updateDeck(id, { name: '', qa: [{ q: 'q2', a: 'a2' }] });
 
     expect(decksModule.decks.list[0].name).toBe('Keep Me');
+  });
+
+  it('updateDeck overwrites jlptLevel and reloads the session with the new level when active', async () => {
+    const { decksModule, session } = await load();
+    await decksModule.importDeck([{ q: 'q1', a: 'a1' }], 'Original', 'N5');
+    const id = decksModule.decks.list[0].id;
+    session.setQA.mockClear();
+
+    await decksModule.updateDeck(id, { name: 'Original', qa: [{ q: 'q1', a: 'a1' }], jlptLevel: 'N4' });
+
+    expect(decksModule.decks.list[0].jlptLevel).toBe('N4');
+    expect(session.setQA).toHaveBeenCalledWith(
+      [{ q: 'q1', a: 'a1' }],
+      { isDefault: false, deckId: id, jlptLevel: 'N4' }
+    );
   });
 
   it('updateDeck does not reload the session when editing a deck that is not active', async () => {
@@ -134,7 +157,7 @@ describe('decks.svelte.js', () => {
 
     expect(decksModule.decks.list).toHaveLength(0);
     expect(decksModule.decks.activeId).toBeNull();
-    expect(session.setQA).toHaveBeenCalledWith(expect.any(Array), { isDefault: true, deckId: null });
+    expect(session.setQA).toHaveBeenCalledWith(expect.any(Array), { isDefault: true, deckId: null, jlptLevel: 'N5' });
     expect(sync.deleteDeckRemote).toHaveBeenCalledWith(id);
   });
 
@@ -162,7 +185,7 @@ describe('decks.svelte.js', () => {
     decksModule.setActiveDeck(null);
 
     expect(decksModule.decks.activeId).toBeNull();
-    expect(session.setQA).toHaveBeenCalledWith(expect.any(Array), { isDefault: true, deckId: null });
+    expect(session.setQA).toHaveBeenCalledWith(expect.any(Array), { isDefault: true, deckId: null, jlptLevel: 'N5' });
   });
 
   it('bestScoreForDeck reflects recorded history scoped to that deck', async () => {

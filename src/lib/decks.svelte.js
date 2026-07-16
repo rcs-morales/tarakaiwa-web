@@ -90,15 +90,15 @@ function findDeck(id) {
 export function loadActiveDeckIntoSession() {
   const deck = findDeck(decks.activeId) || SAMPLE_DECK;
   if (deck.builtin) decks.activeId = null;
-  setQA(deck.qa, { isDefault: !!deck.builtin, deckId: deck.builtin ? null : deck.id });
+  setQA(deck.qa, { isDefault: !!deck.builtin, deckId: deck.builtin ? null : deck.id, jlptLevel: deck.jlptLevel });
 }
 
 /** Import a freshly parsed Q&A file as a new deck, make it active, and sync it up. */
-export function importDeck(qa, name) {
+export function importDeck(qa, name, jlptLevel) {
   const deck = {
     id: crypto.randomUUID(),
     name: name || 'My Deck',
-    jlptLevel: get(KEYS.JLPT_LEVEL),
+    jlptLevel: jlptLevel || get(KEYS.JLPT_LEVEL),
     qa,
     updatedAt: new Date().toISOString(),
   };
@@ -109,24 +109,25 @@ export function importDeck(qa, name) {
 }
 
 /** Create a deck from hand-typed questions. Same path as file import — see importDeck. */
-export function createDeck(name, qa) {
-  return importDeck(qa, name);
+export function createDeck(name, qa, jlptLevel) {
+  return importDeck(qa, name, jlptLevel);
 }
 
-/** Update an existing deck's name/questions; reload the session if it's active, and re-sync. */
-export function updateDeck(id, { name, qa }) {
+/** Update an existing deck's name/questions/level; reload the session if it's active, and re-sync. */
+export function updateDeck(id, { name, qa, jlptLevel }) {
   const idx = decks.list.findIndex((d) => d.id === id);
   if (idx === -1) return null;
   const updated = {
     ...decks.list[idx],
     name: name || decks.list[idx].name,
     qa,
+    jlptLevel: jlptLevel || decks.list[idx].jlptLevel,
     updatedAt: new Date().toISOString(),
   };
   decks.list = decks.list.map((d, i) => (i === idx ? updated : d));
   persistList(decks.list);
   if (decks.activeId === id) {
-    setQA(updated.qa, { isDefault: false, deckId: id });
+    setQA(updated.qa, { isDefault: false, deckId: id, jlptLevel: updated.jlptLevel });
   }
   return pushDeck(updated);
 }
@@ -147,7 +148,7 @@ export function setActiveDeck(id) {
   if (!deck) return;
   decks.activeId = deck.builtin ? null : deck.id;
   set(KEYS.ACTIVE_DECK_ID, decks.activeId || '');
-  setQA(deck.qa, { isDefault: !!deck.builtin, deckId: deck.builtin ? null : deck.id });
+  setQA(deck.qa, { isDefault: !!deck.builtin, deckId: deck.builtin ? null : deck.id, jlptLevel: deck.jlptLevel });
 }
 
 /** Best score percentage recorded for this deck, or null if never played. */
