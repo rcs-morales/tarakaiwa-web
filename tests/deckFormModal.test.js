@@ -46,10 +46,11 @@ describe('DeckFormModal', () => {
   }
 
   describe('create mode', () => {
-    it('shows the currently inherited JLPT level', () => {
+    it('create mode defaults the level picker to the current Settings level', () => {
       set(KEYS.JLPT_LEVEL, 'N3');
       render(DeckFormModal, { onclose: vi.fn() });
-      expect(screen.getByText(/JLPT N3/)).toBeTruthy();
+      const n3Btn = screen.getByRole('button', { name: 'N3' });
+      expect(n3Btn.classList.contains('selected')).toBe(true);
     });
 
     it('starts with two empty rows and adds rows up to the 23 cap', async () => {
@@ -84,9 +85,20 @@ describe('DeckFormModal', () => {
       const saveBtn = screen.getByRole('button', { name: /Save deck/ });
       await fireEvent.click(saveBtn);
 
-      expect(createDeck).toHaveBeenCalledWith(undefined, [{ q: 'こんにちは', a: 'Hello' }]);
+      expect(createDeck).toHaveBeenCalledWith(undefined, [{ q: 'こんにちは', a: 'Hello' }], 'N5');
       await waitFor(() => expect(onclose).toHaveBeenCalled());
       expect(showImportStatus).toHaveBeenCalledWith(expect.stringContaining('Created'), 'success');
+    });
+
+    it('saving with a different level picked passes it to createDeck', async () => {
+      const onclose = vi.fn();
+      const { container } = render(DeckFormModal, { onclose });
+
+      await fillRow(container, 0, 'こんにちは', 'Hello');
+      await fireEvent.click(screen.getByRole('button', { name: 'N4' }));
+      await fireEvent.click(screen.getByRole('button', { name: /Save deck/ }));
+
+      expect(createDeck).toHaveBeenCalledWith(undefined, [{ q: 'こんにちは', a: 'Hello' }], 'N4');
     });
 
     it('does not show a Delete button', () => {
@@ -111,10 +123,10 @@ describe('DeckFormModal', () => {
       expect(screen.getByRole('button', { name: /Delete deck/ })).toBeTruthy();
     });
 
-    it("shows the deck's creation-time level, not the create-mode reminder", () => {
+    it("edit mode pre-fills the level picker from the deck's current level", () => {
       render(DeckFormModal, { deck: sampleDeck, onclose: vi.fn() });
-      expect(screen.getByText(/JLPT N4/)).toBeTruthy();
-      expect(screen.queryByText(/New decks use your current level/)).toBeNull();
+      const n4Btn = screen.getByRole('button', { name: 'N4' });
+      expect(n4Btn.classList.contains('selected')).toBe(true);
     });
 
     it('save calls updateDeck with the deck id and the edited rows', async () => {
@@ -130,9 +142,24 @@ describe('DeckFormModal', () => {
       expect(updateDeck).toHaveBeenCalledWith('deck-1', {
         name: 'My Deck',
         qa: [{ q: 'q1', a: 'edited answer' }, { q: 'q2', a: 'a2' }],
+        jlptLevel: 'N4',
       });
       await waitFor(() => expect(onclose).toHaveBeenCalled());
       expect(showImportStatus).toHaveBeenCalledWith(expect.stringContaining('updated'), 'success');
+    });
+
+    it('changing the level picker in edit mode passes the new level to updateDeck', async () => {
+      const onclose = vi.fn();
+      render(DeckFormModal, { deck: sampleDeck, onclose });
+
+      await fireEvent.click(screen.getByRole('button', { name: 'N3' }));
+      await fireEvent.click(screen.getByRole('button', { name: /Save changes/ }));
+
+      expect(updateDeck).toHaveBeenCalledWith('deck-1', {
+        name: 'My Deck',
+        qa: [{ q: 'q1', a: 'a1' }, { q: 'q2', a: 'a2' }],
+        jlptLevel: 'N3',
+      });
     });
 
     it('Delete deck asks for confirmation and calls deleteDeck when confirmed', async () => {

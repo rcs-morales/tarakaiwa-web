@@ -12,14 +12,15 @@
   let { deck, onclose } = $props();
   const isEdit = !!deck;
 
+  const LEVELS = ['N5', 'N4', 'N3'];
+
   let name = $state(deck?.name ?? '');
   let rows = $state(
     deck ? deck.qa.map((r) => ({ q: r.q, a: r.a })) : [{ q: '', a: '' }, { q: '', a: '' }]
   );
+  let level = $state(deck?.jlptLevel ?? get(KEYS.JLPT_LEVEL));
   let saving = $state(false);
   let deleting = $state(false);
-
-  const level = get(KEYS.JLPT_LEVEL);
 
   // Rows with both fields filled in — what actually gets saved. Blank rows
   // (e.g. a spare row the user never filled) are dropped silently rather
@@ -45,7 +46,7 @@
     saving = true;
     try {
       if (isEdit) {
-        const pushed = await updateDeck(deck.id, { name: name.trim(), qa: validPairs });
+        const pushed = await updateDeck(deck.id, { name: name.trim(), qa: validPairs, jlptLevel: level });
         showImportStatus(
           pushed === false
             ? '✅ Saved changes (⚠️ cloud sync failed — the deck is saved on this device and will sync on your next sign-in)'
@@ -53,7 +54,7 @@
           pushed === false ? 'info' : 'success'
         );
       } else {
-        const pushed = await createDeck(name.trim() || undefined, validPairs);
+        const pushed = await createDeck(name.trim() || undefined, validPairs, level);
         const count = validPairs.length;
         showImportStatus(
           pushed === false
@@ -90,15 +91,20 @@
 <div class="modal" role="presentation" onclick={(e) => { if (e.target === e.currentTarget) onclose(); }}>
   <div class="modal-card cdm-card" role="dialog" aria-modal="true" aria-label={isEdit ? 'Edit deck' : 'Create a deck'}>
     <h3 class="cdm-title">{isEdit ? '✏️ Edit deck' : '✏️ Create a deck'}</h3>
-    {#if isEdit}
-      <p class="cdm-level-hint">
-        Deck level: <strong>JLPT {deck.jlptLevel}</strong> (set when created — practice always uses your current Settings level).
-      </p>
-    {:else}
-      <p class="cdm-level-hint">
-        New decks use your current level: <strong>JLPT {level}</strong> — change it in Settings.
-      </p>
-    {/if}
+
+    <div class="cdm-level-row">
+      <span class="cdm-level-label">Deck level</span>
+      <div class="cdm-level-picker">
+        {#each LEVELS as lvl (lvl)}
+          <button
+            type="button"
+            class="cdm-level-pill"
+            class:selected={level === lvl}
+            onclick={() => (level = lvl)}
+          >{lvl}</button>
+        {/each}
+      </div>
+    </div>
 
     <label class="cdm-name-label" for="cdm-name">Deck name (optional)</label>
     <input id="cdm-name" class="api-key-input cdm-name-input" type="text" placeholder="My Deck" bind:value={name} />
@@ -152,14 +158,47 @@
 
   .cdm-title {
     font-family: 'Noto Serif JP', serif;
-    margin-bottom: 6px;
+    margin-bottom: 16px;
   }
 
-  .cdm-level-hint {
-    font-size: 0.8rem;
-    color: var(--muted);
+  .cdm-level-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     margin-bottom: 18px;
-    line-height: 1.5;
+  }
+
+  .cdm-level-label {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--ink-mid);
+  }
+
+  .cdm-level-picker {
+    display: flex;
+    gap: 6px;
+  }
+
+  .cdm-level-pill {
+    padding: 6px 14px;
+    border-radius: 999px;
+    border: 1.5px solid var(--border);
+    background: var(--surface);
+    color: var(--muted);
+    font-size: 0.8rem;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    cursor: pointer;
+  }
+
+  .cdm-level-pill:hover {
+    border-color: var(--primary);
+  }
+
+  .cdm-level-pill.selected {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: var(--on-accent);
   }
 
   .cdm-name-label {
