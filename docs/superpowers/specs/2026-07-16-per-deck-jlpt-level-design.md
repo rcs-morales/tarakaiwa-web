@@ -86,8 +86,18 @@ which already threads it.
 
 ### 3. `ai/grading.js` — grading strictness
 
-`gradeWithAI` (around line 251) switches from `get(KEYS.JLPT_LEVEL)` to importing
-`session` from `session.svelte.js` and reading `session.jlptLevel`.
+`gradeWithAI`'s only real caller is `session.svelte.js:412`'s `checkAnswer()` (a second
+hit, `src/lib/test_ai.js`, is an unrelated standalone manual debug script, not part of the
+app or the test suite). `ai/grading.js` importing `session` from `session.svelte.js`
+directly would create a circular import: `session.svelte.js` imports `gradeWithAI` from
+`./ai/index.js`, which re-exports `./ai/grading.js` — so `session.svelte.js` →
+`ai/index.js` → `ai/grading.js` → `session.svelte.js` would cycle.
+
+Instead, `gradeWithAI` gains an explicit parameter:
+`gradeWithAI(question, expectedAnswer, transcript, level = 'N5')` (around line 245),
+replacing its internal `get(KEYS.JLPT_LEVEL)` read (line 251) with the parameter. Its sole
+caller, `checkAnswer()`, passes `session.jlptLevel`. The default keeps
+`test_ai.js`'s 3-arg calls working unchanged.
 
 ### 4. `parser.js` — live transcript formatting (no change; out of scope)
 
