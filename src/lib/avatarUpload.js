@@ -12,19 +12,38 @@ import { getCurrentUser } from './auth.js';
 
 const BUCKET = 'avatars';
 export const MAX_UPLOAD_BYTES = 8 * 1024 * 1024; // reject > 8 MB originals
-export const AVATAR_SIZE = 256;
+export const AVATAR_SIZE = 125;
+
+const ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/gif']);
 
 /** Throws an Error with a user-facing message if the file is unusable. */
 export function validateImageFile(file) {
   if (!file) throw new Error('No file selected.');
-  if (!file.type.startsWith('image/')) throw new Error('Please choose an image file.');
+  if (!ALLOWED_TYPES.has(file.type)) throw new Error('Please choose a JPG, PNG, or GIF image.');
   if (file.size > MAX_UPLOAD_BYTES) throw new Error('Image is too large (max 8 MB).');
+}
+
+export const MAX_OUTPUT_BYTES = 32 * 1024; // 32kb cap on the stored/uploaded blob
+
+const QUALITY_STEPS = [0.82, 0.65, 0.5, 0.35, 0.2];
+
+function encodeAtQuality(canvas, quality) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => (blob ? resolve(blob) : reject(new Error('Image processing failed.'))),
+      'image/jpeg',
+      quality
+    );
+  });
 }
 
 /**
  * Draw `file` to a canvas, center-cropped to a square and downscaled to
  * size×size, returning a JPEG Blob. No interactive cropping — just an
- * automatic center crop of the shorter side.
+ * automatic center crop of the shorter side. Re-encodes at progressively
+ * lower quality until the blob is under MAX_OUTPUT_BYTES; if even the
+ * lowest quality step is still over, returns that last attempt rather
+ * than failing the upload.
  * @returns {Promise<Blob>}
  */
 export async function cropResizeToSquare(file, size = AVATAR_SIZE) {
@@ -41,13 +60,12 @@ export async function cropResizeToSquare(file, size = AVATAR_SIZE) {
   ctx.drawImage(bitmap, sx, sy, side, side, 0, 0, size, size);
   bitmap.close?.();
 
-  return await new Promise((resolve, reject) => {
-    canvas.toBlob(
-      (blob) => (blob ? resolve(blob) : reject(new Error('Image processing failed.'))),
-      'image/jpeg',
-      0.82
-    );
-  });
+  let blob;
+  for (const quality of QUALITY_STEPS) {
+    blob = await encodeAtQuality(canvas, quality);
+    if (blob.size <= MAX_OUTPUT_BYTES) return blob;
+  }
+  return blob;
 }
 
 /** Fetch the signed-in user's stored avatar URL, or null. No-op when logged out. */

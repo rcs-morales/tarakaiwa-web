@@ -18,6 +18,7 @@ import {
   uploadAvatar,
   removeAvatar,
   MAX_UPLOAD_BYTES,
+  MAX_OUTPUT_BYTES,
   AVATAR_SIZE,
 } from '../src/lib/avatarUpload.js';
 import { getCurrentUser } from '../src/lib/auth.js';
@@ -33,16 +34,25 @@ describe('validateImageFile', () => {
     expect(() => validateImageFile(null)).toThrow('No file selected.');
   });
 
-  it('throws for a non-image MIME type', () => {
-    expect(() => validateImageFile(makeFile({ type: 'text/plain' }))).toThrow('Please choose an image file.');
+  it('throws for a MIME type outside the jpg/png/gif allow-list', () => {
+    expect(() => validateImageFile(makeFile({ type: 'text/plain' }))).toThrow('Please choose a JPG, PNG, or GIF image.');
+  });
+
+  it('throws for an unsupported image type like webp', () => {
+    expect(() => validateImageFile(makeFile({ type: 'image/webp' }))).toThrow('Please choose a JPG, PNG, or GIF image.');
   });
 
   it('throws for a file over the max size', () => {
     expect(() => validateImageFile(makeFile({ size: MAX_UPLOAD_BYTES + 1 }))).toThrow('too large');
   });
 
-  it('accepts a small, valid image file', () => {
+  it('accepts a small, valid jpeg file', () => {
     expect(() => validateImageFile(makeFile({ type: 'image/jpeg', size: 2048 }))).not.toThrow();
+  });
+
+  it('accepts png and gif', () => {
+    expect(() => validateImageFile(makeFile({ type: 'image/png', size: 2048 }))).not.toThrow();
+    expect(() => validateImageFile(makeFile({ type: 'image/gif', size: 2048 }))).not.toThrow();
   });
 });
 
@@ -90,6 +100,35 @@ describe('cropResizeToSquare / uploadAvatar (canvas-stubbed)', () => {
     await expect(cropResizeToSquare(makeFile())).rejects.toThrow('Image processing failed.');
   });
 
+  it('re-encodes at a lower quality when the first pass exceeds the 32KB cap, and stops at the first pass that fits', async () => {
+    const bigBlob = { size: MAX_OUTPUT_BYTES + 1, type: 'image/jpeg' };
+    const smallBlob = { size: MAX_OUTPUT_BYTES - 1, type: 'image/jpeg' };
+    const qualityCalls = [];
+    HTMLCanvasElement.prototype.toBlob = vi.fn(function (cb, type, quality) {
+      qualityCalls.push(quality);
+      cb(qualityCalls.length === 1 ? bigBlob : smallBlob);
+    });
+
+    const blob = await cropResizeToSquare(makeFile());
+
+    expect(blob).toBe(smallBlob);
+    expect(qualityCalls).toEqual([0.82, 0.65]);
+  });
+
+  it('returns the last (lowest-quality) attempt instead of throwing when nothing fits under 32KB', async () => {
+    const oversizedBlob = { size: MAX_OUTPUT_BYTES + 1, type: 'image/jpeg' };
+    const qualityCalls = [];
+    HTMLCanvasElement.prototype.toBlob = vi.fn(function (cb, type, quality) {
+      qualityCalls.push(quality);
+      cb(oversizedBlob);
+    });
+
+    const blob = await cropResizeToSquare(makeFile());
+
+    expect(blob).toBe(oversizedBlob);
+    expect(qualityCalls).toEqual([0.82, 0.65, 0.5, 0.35, 0.2]);
+  });
+
   describe('uploadAvatar', () => {
     it('throws when logged out', async () => {
       getCurrentUser.mockReturnValue(null);
@@ -98,7 +137,7 @@ describe('cropResizeToSquare / uploadAvatar (canvas-stubbed)', () => {
 
     it('validates before touching the network', async () => {
       getCurrentUser.mockReturnValue({ id: 'u1', email: 'me@example.com' });
-      await expect(uploadAvatar(makeFile({ type: 'text/plain' }))).rejects.toThrow('Please choose an image file.');
+      await expect(uploadAvatar(makeFile({ type: 'text/plain' }))).rejects.toThrow('Please choose a JPG, PNG, or GIF image.');
       expect(supabaseClient.storage.from).not.toHaveBeenCalled();
     });
 
