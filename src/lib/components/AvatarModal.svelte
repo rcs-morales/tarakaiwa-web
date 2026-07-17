@@ -8,7 +8,12 @@
 
   let { initialSrc, hasAvatar: initialHasAvatar, defaultAvatar, onchange, onclose } = $props();
 
+  // Deliberate snapshot, not a sync bug: this modal is remounted fresh on
+  // every open (guarded by {#if avatarModalOpen} in Settings.svelte), so
+  // the props can't go stale under this component.
+  // svelte-ignore state_referenced_locally
   let previewSrc = $state(initialSrc);
+  // svelte-ignore state_referenced_locally
   let hasAvatar = $state(initialHasAvatar);
   let uploading = $state(false);
   let removing = $state(false);

@@ -416,7 +416,6 @@
   }
 
   .avatar-btn {
-    position: relative;
     padding: 0;
     border: none;
     background: none;

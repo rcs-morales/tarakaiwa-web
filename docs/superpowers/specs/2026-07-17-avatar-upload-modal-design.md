@@ -91,31 +91,34 @@ your avatar" popup, screenshot supplied):
 
 ### 2. New `src/lib/components/AvatarModal.svelte`
 
-Props: `{ avatarUrl, avatarBusting, onchange, onclose }` — `onchange(newUrl)`
-reports a successful upload/remove back to the parent (mirrors
-`DeckFormModal`'s `onclose`-callback prop pattern), `onclose()` closes without
+Props: `{ initialSrc, hasAvatar, defaultAvatar, onchange, onclose }` —
+`onchange(newUrl)` reports a successful upload/remove back to the parent
+(mirrors `DeckFormModal`'s `onclose`-callback prop pattern), passing the new
+full URL on upload or `null` on removal. `onclose()` closes without
 necessarily having changed anything.
 
-State: `uploading`, `removing`, `status` (`{ text, type } | null`), a local
-`previewUrl` initialized from `avatarUrl` prop and updated on successful
-upload/remove so the modal's own preview reflects changes immediately.
+State: `uploading`, `removing`, `status` (`{ text, type } | null`), local
+`previewSrc`/`hasAvatar` initialized from the `initialSrc`/`hasAvatar` props
+and updated on successful upload/remove so the modal's own preview reflects
+changes immediately.
 
 Structure (per the reference screenshot):
 - Header row: small current-avatar thumbnail, "Change your avatar" title, X
   close button (disabled while uploading/removing).
-- Larger avatar preview (`previewUrl` or the same default-avatar fallback
-  Settings.svelte uses today).
+- Larger avatar preview (`previewSrc`, which becomes the `defaultAvatar` prop
+  after a removal).
 - Hidden `<input type=file accept="image/jpeg,image/png,image/gif">` +
   visible "Add new avatar" button that clicks it; `onchange` handler calls
-  `uploadAvatar(file)`, updates `previewUrl`/status, disabled while
+  `uploadAvatar(file)`, updates `previewSrc`/status, disabled while
   uploading/removing.
 - "Cancel" button → `onclose()`, disabled while uploading/removing.
 - Restrictions caption (static text): "125×125 image size (larger images
   will be resized), 32kb filesize (after resizing); image types: jpg, gif,
   png."
-- Red "Remove" button, bottom-left, only rendered when `previewUrl` is
-  truthy — calls `removeAvatar()` directly (no `confirm()`), disabled while
-  uploading/removing.
+- Red "Remove" button, bottom-left, only rendered while `hasAvatar` is true
+  (not keyed off `previewSrc`, since that's still truthy — the default
+  avatar image — right after a removal) — calls `removeAvatar()` directly
+  (no `confirm()`), disabled while uploading/removing.
 
 ### 3. `src/lib/components/Settings.svelte`
 
