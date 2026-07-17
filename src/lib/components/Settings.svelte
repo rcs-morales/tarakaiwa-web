@@ -11,15 +11,38 @@
   import { computeXP } from '$lib/gamification.svelte.js';
   import { prefs, setAid, setDailyGoal, DAILY_GOAL_MIN, DAILY_GOAL_MAX } from '$lib/prefs.svelte.js';
   import { getCurrentUser, onAuthChange } from '$lib/auth.js';
+  import { uploadAvatar, fetchAvatarUrl, removeAvatar } from '$lib/avatarUpload.js';
 
   const xp = $derived(computeXP(history.entries));
 
   let user = $state(null);
   let advancedOpen = $state(false);
 
+  const DEFAULT_AVATAR = '/assets/zundamon.png';
+  let avatarUrl = $state(null);      // stored base URL from profiles, or null
+  let avatarBusting = $state('');    // '?v=…' appended right after a fresh upload
+  let avatarUploading = $state(false);
+  let avatarRemoving = $state(false);
+  let avatarStatus = $state(null);   // { text, type: 'success'|'error'|'info' } | null
+  let avatarInputEl;
+
+  // Only signed-in users with an actual stored photo get a remove option —
+  // nothing to remove for a guest or a user already on the placeholder.
+  const canRemoveAvatar = $derived(!!user && !!avatarUrl);
+
+  // Guests (or signed-in with no stored picture yet) fall back to the same
+  // default every user saw before this feature existed.
+  const avatarSrc = $derived(user && avatarUrl ? avatarUrl + avatarBusting : DEFAULT_AVATAR);
+
+  async function loadAvatar() {
+    avatarUrl = user ? await fetchAvatarUrl() : null;
+    avatarBusting = '';
+  }
+
   onMount(() => {
     user = getCurrentUser();
-    onAuthChange((u) => { user = u; });
+    loadAvatar();
+    onAuthChange((u) => { user = u; loadAvatar(); });
   });
 
   const displayName = $derived(user?.email ? user.email.split('@')[0] : 'ゲスト · Guest');
@@ -29,6 +52,56 @@
     advancedOpen = true;
     requestAnimationFrame(() =>
       document.getElementById('setup-step-account')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  }
+
+  // Tapping the avatar opens the file picker for signed-in users; signed-out
+  // users get the same nudge toward Account as the Edit button (a picker that
+  // could only fail isn't useful to them).
+  function pickAvatar() {
+    if (!user) { editProfile(); return; }
+    avatarInputEl?.click();
+  }
+
+  async function onAvatarPicked(e) {
+    const file = e.currentTarget.files?.[0];
+    e.currentTarget.value = ''; // allow re-picking the same file later
+    if (!file) return;
+
+    avatarUploading = true;
+    avatarStatus = { text: 'Uploading…', type: 'info' };
+    try {
+      // uploadAvatar() already appends its own cache-buster (the object path
+      // is stable across re-uploads) — split it off rather than minting a
+      // second, redundant one here.
+      const url = await uploadAvatar(file);
+      const qIndex = url.indexOf('?');
+      avatarUrl = qIndex === -1 ? url : url.slice(0, qIndex);
+      avatarBusting = qIndex === -1 ? '' : url.slice(qIndex);
+      avatarStatus = { text: 'Profile picture updated.', type: 'success' };
+    } catch (err) {
+      console.error('avatar upload failed:', err);
+      avatarStatus = { text: err.message || 'Upload failed.', type: 'error' };
+    } finally {
+      avatarUploading = false;
+    }
+  }
+
+  async function onRemoveAvatar() {
+    if (!canRemoveAvatar || avatarRemoving) return;
+    if (!confirm('Remove your profile picture?')) return;
+
+    avatarRemoving = true;
+    try {
+      await removeAvatar();
+      avatarUrl = null;
+      avatarBusting = '';
+      avatarStatus = { text: 'Profile picture removed.', type: 'info' };
+    } catch (err) {
+      console.error('avatar remove failed:', err);
+      avatarStatus = { text: err.message || 'Remove failed.', type: 'error' };
+    } finally {
+      avatarRemoving = false;
+    }
   }
 
   // Single source of truth for signing out is the handler app.js bound to
@@ -50,13 +123,29 @@
 
   <!-- ── Profile ── -->
   <div class="settings-card profile-card">
-    <img class="profile-avatar" src="/assets/zundamon.png" alt="" />
+    <div class="avatar-wrap">
+      <button type="button" class="avatar-btn" onclick={pickAvatar} disabled={avatarUploading || avatarRemoving}
+        aria-label="Change profile picture">
+        <img class="profile-avatar" src={avatarSrc} alt="" />
+        {#if user}
+          <span class="avatar-cam" aria-hidden="true">{avatarUploading ? '…' : '📷'}</span>
+        {/if}
+      </button>
+      {#if canRemoveAvatar}
+        <button type="button" class="avatar-remove-btn" onclick={onRemoveAvatar} disabled={avatarRemoving}
+          aria-label="Remove profile picture">{avatarRemoving ? '…' : '✕'}</button>
+      {/if}
+    </div>
     <div class="profile-info">
       <div class="profile-name">{displayName}</div>
       <div class="profile-meta">Lv {xp.level} · {xp.title} · {xp.totalXP} XP</div>
     </div>
     <button class="profile-edit-pill" onclick={editProfile}>Edit</button>
   </div>
+  <input type="file" accept="image/*" class="hidden" bind:this={avatarInputEl} onchange={onAvatarPicked} />
+  {#if avatarStatus}
+    <div class="import-status {avatarStatus.type}">{avatarStatus.text}</div>
+  {/if}
 
   <!-- ── Learning aids ── -->
   <div class="settings-card">
@@ -360,6 +449,26 @@
     gap: 12px;
   }
 
+  .avatar-wrap {
+    position: relative;
+    flex: 0 0 auto;
+  }
+
+  .avatar-btn {
+    position: relative;
+    padding: 0;
+    border: none;
+    background: none;
+    border-radius: 50%;
+    cursor: pointer;
+    line-height: 0;
+  }
+
+  .avatar-btn:disabled {
+    cursor: default;
+    opacity: 0.7;
+  }
+
   .profile-avatar {
     width: 52px;
     height: 52px;
@@ -368,7 +477,46 @@
     object-position: top;
     background: var(--primary-tint);
     border: 2px solid var(--card-border);
-    flex: 0 0 auto;
+  }
+
+  .avatar-cam {
+    position: absolute;
+    right: -2px;
+    bottom: -2px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--surface);
+    border: 1.5px solid var(--card-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.62rem;
+  }
+
+  .avatar-remove-btn {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--wrong);
+    color: var(--on-accent);
+    border: 1.5px solid var(--surface);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.58rem;
+    font-weight: 800;
+    line-height: 1;
+    padding: 0;
+    cursor: pointer;
+  }
+
+  .avatar-remove-btn:disabled {
+    cursor: default;
+    opacity: 0.6;
   }
 
   .profile-info {
