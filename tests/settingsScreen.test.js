@@ -123,118 +123,74 @@ describe('Settings screen', () => {
     expect(screen.queryByRole('button', { name: /Sign out/ })).toBeNull();
   });
 
-  it('shows the default avatar with no camera badge while signed out, and tapping it opens Advanced/Account instead of a picker', async () => {
+  it('shows the default avatar while signed out, and tapping it opens Advanced/Account instead of a picker', async () => {
     const { container } = render(Settings);
 
     expect(container.querySelector('.profile-avatar').src).toContain('/assets/zundamon.png');
-    expect(container.querySelector('.avatar-cam')).toBeNull();
     expect(fetchAvatarUrl).not.toHaveBeenCalled();
 
     await fireEvent.click(container.querySelector('.avatar-btn'));
 
     expect(container.querySelector('.advanced-body').classList.contains('open')).toBe(true);
+    expect(container.querySelector('.modal')).toBeNull();
     expect(uploadAvatar).not.toHaveBeenCalled();
   });
 
-  it('shows the fetched avatar and a camera badge when signed in', async () => {
+  it('shows the fetched avatar when signed in', async () => {
     mockGetCurrentUser.mockReturnValue({ id: 'u1', email: 'me@example.com' });
     fetchAvatarUrl.mockResolvedValue('https://x/avatars/u1/avatar.jpg');
 
     const { container } = render(Settings);
 
     await waitFor(() => expect(container.querySelector('.profile-avatar').src).toContain('avatars/u1/avatar.jpg'));
-    expect(container.querySelector('.avatar-cam')).not.toBeNull();
   });
 
-  it('uploading a new picture updates the avatar and shows a success status', async () => {
+  it('tapping the avatar while signed in opens AvatarModal instead of a native picker', async () => {
     mockGetCurrentUser.mockReturnValue({ id: 'u1', email: 'me@example.com' });
+    fetchAvatarUrl.mockResolvedValue('https://x/avatars/u1/avatar.jpg');
+
+    const { container } = render(Settings);
+    await waitFor(() => expect(fetchAvatarUrl).toHaveBeenCalled());
+
+    await fireEvent.click(container.querySelector('.avatar-btn'));
+
+    expect(container.querySelector('.avm-card')).not.toBeNull();
+    expect(container.querySelector('.avm-preview').src).toContain('avatars/u1/avatar.jpg');
+  });
+
+  it('uploading inside the modal updates the small Settings avatar and closing the modal removes it', async () => {
+    mockGetCurrentUser.mockReturnValue({ id: 'u1', email: 'me@example.com' });
+    fetchAvatarUrl.mockResolvedValue('https://x/avatars/u1/avatar.jpg');
     uploadAvatar.mockResolvedValue('https://x/avatars/u1/avatar.jpg?v=42');
 
     const { container } = render(Settings);
     await waitFor(() => expect(fetchAvatarUrl).toHaveBeenCalled());
+    await fireEvent.click(container.querySelector('.avatar-btn'));
 
-    const input = container.querySelector('input[type="file"]');
+    const input = container.querySelector('.avm-card input[type="file"]');
     const file = new File(['x'], 'photo.png', { type: 'image/png' });
     await fireEvent.change(input, { target: { files: [file] } });
 
-    await waitFor(() => expect(uploadAvatar).toHaveBeenCalledWith(file));
     await waitFor(() => expect(container.querySelector('.profile-avatar').src).toContain('avatars/u1/avatar.jpg?v=42'));
-    expect(container.querySelector('.import-status.success').textContent).toContain('updated');
+
+    await fireEvent.click(container.querySelector('.avm-cancel'));
+    expect(container.querySelector('.avm-card')).toBeNull();
+    // small avatar keeps the uploaded photo after the modal closes
+    expect(container.querySelector('.profile-avatar').src).toContain('avatars/u1/avatar.jpg?v=42');
   });
 
-  it('a failed upload shows an error status and leaves the previous avatar in place', async () => {
+  it('removing inside the modal reverts the small Settings avatar to the placeholder', async () => {
     mockGetCurrentUser.mockReturnValue({ id: 'u1', email: 'me@example.com' });
     fetchAvatarUrl.mockResolvedValue('https://x/avatars/u1/avatar.jpg');
-    uploadAvatar.mockRejectedValue(new Error('Upload failed.'));
+    removeAvatar.mockResolvedValue(undefined);
 
     const { container } = render(Settings);
-    await waitFor(() => expect(container.querySelector('.profile-avatar').src).toContain('avatars/u1/avatar.jpg'));
-
-    const input = container.querySelector('input[type="file"]');
-    const file = new File(['x'], 'photo.png', { type: 'image/png' });
-    await fireEvent.change(input, { target: { files: [file] } });
-
-    await waitFor(() => expect(container.querySelector('.import-status.error')).not.toBeNull());
-    expect(container.querySelector('.import-status.error').textContent).toContain('Upload failed.');
-    expect(container.querySelector('.profile-avatar').src).toContain('avatars/u1/avatar.jpg');
-    expect(container.querySelector('.profile-avatar').src).not.toContain('?v=');
-  });
-
-  it('hides the remove badge for guests and for a signed-in user with no custom photo', async () => {
-    const { container } = render(Settings);
-    expect(container.querySelector('.avatar-remove-btn')).toBeNull();
-
-    mockGetCurrentUser.mockReturnValue({ id: 'u1', email: 'me@example.com' });
-    fetchAvatarUrl.mockResolvedValue(null); // signed in, but no photo set yet
-    const { container: c2 } = render(Settings);
     await waitFor(() => expect(fetchAvatarUrl).toHaveBeenCalled());
-    expect(c2.querySelector('.avatar-remove-btn')).toBeNull();
-  });
+    await fireEvent.click(container.querySelector('.avatar-btn'));
 
-  it('shows the remove badge once signed in with a custom photo, and removing reverts to the placeholder', async () => {
-    mockGetCurrentUser.mockReturnValue({ id: 'u1', email: 'me@example.com' });
-    fetchAvatarUrl.mockResolvedValue('https://x/avatars/u1/avatar.jpg');
-    vi.stubGlobal('confirm', vi.fn(() => true));
+    await waitFor(() => expect(container.querySelector('.avm-remove')).not.toBeNull());
+    await fireEvent.click(container.querySelector('.avm-remove'));
 
-    const { container } = render(Settings);
-    await waitFor(() => expect(container.querySelector('.avatar-remove-btn')).not.toBeNull());
-
-    await fireEvent.click(container.querySelector('.avatar-remove-btn'));
-
-    expect(removeAvatar).toHaveBeenCalled();
     await waitFor(() => expect(container.querySelector('.profile-avatar').src).toContain('/assets/zundamon.png'));
-    expect(container.querySelector('.avatar-remove-btn')).toBeNull();
-    expect(container.querySelector('.import-status.info').textContent).toContain('removed');
-  });
-
-  it('does nothing when the remove confirmation is dismissed', async () => {
-    mockGetCurrentUser.mockReturnValue({ id: 'u1', email: 'me@example.com' });
-    fetchAvatarUrl.mockResolvedValue('https://x/avatars/u1/avatar.jpg');
-    vi.stubGlobal('confirm', vi.fn(() => false));
-
-    const { container } = render(Settings);
-    await waitFor(() => expect(container.querySelector('.avatar-remove-btn')).not.toBeNull());
-
-    await fireEvent.click(container.querySelector('.avatar-remove-btn'));
-
-    expect(removeAvatar).not.toHaveBeenCalled();
-    expect(container.querySelector('.profile-avatar').src).toContain('avatars/u1/avatar.jpg');
-  });
-
-  it('shows an error status and keeps the photo when removal fails', async () => {
-    mockGetCurrentUser.mockReturnValue({ id: 'u1', email: 'me@example.com' });
-    fetchAvatarUrl.mockResolvedValue('https://x/avatars/u1/avatar.jpg');
-    removeAvatar.mockRejectedValue(new Error('Remove failed.'));
-    vi.stubGlobal('confirm', vi.fn(() => true));
-
-    const { container } = render(Settings);
-    await waitFor(() => expect(container.querySelector('.avatar-remove-btn')).not.toBeNull());
-
-    await fireEvent.click(container.querySelector('.avatar-remove-btn'));
-
-    await waitFor(() => expect(container.querySelector('.import-status.error')).not.toBeNull());
-    expect(container.querySelector('.import-status.error').textContent).toContain('Remove failed.');
-    expect(container.querySelector('.profile-avatar').src).toContain('avatars/u1/avatar.jpg');
-    expect(container.querySelector('.avatar-remove-btn')).not.toBeNull();
   });
 });
