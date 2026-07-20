@@ -38,19 +38,22 @@ function encodeAtQuality(canvas, quality) {
 }
 
 /**
- * Draw `file` to a canvas, center-cropped to a square and downscaled to
- * size×size, returning a JPEG Blob. No interactive cropping — just an
- * automatic center crop of the shorter side. Re-encodes at progressively
- * lower quality until the blob is under MAX_OUTPUT_BYTES; if even the
- * lowest quality step is still over, returns that last attempt rather
- * than failing the upload.
+ * Draw `file` to a canvas, cropped to a square and downscaled to size×size,
+ * returning a JPEG Blob. No interactive cropping — an automatic crop of the
+ * shorter side, centered horizontally but anchored to the TOP vertically
+ * (matches every display site's `object-position: top`), so a portrait
+ * source (a selfie, or a tall character portrait) keeps the face/upper
+ * chest in frame instead of a vertically-centered slice landing on the
+ * torso. Re-encodes at progressively lower quality until the blob is under
+ * MAX_OUTPUT_BYTES; if even the lowest quality step is still over, returns
+ * that last attempt rather than failing the upload.
  * @returns {Promise<Blob>}
  */
 export async function cropResizeToSquare(file, size = AVATAR_SIZE) {
   const bitmap = await createImageBitmap(file); // decodes + honors EXIF orientation
   const side = Math.min(bitmap.width, bitmap.height);
   const sx = (bitmap.width - side) / 2;
-  const sy = (bitmap.height - side) / 2;
+  const sy = 0;
 
   const canvas = document.createElement('canvas');
   canvas.width = size;

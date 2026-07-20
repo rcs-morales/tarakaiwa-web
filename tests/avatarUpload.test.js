@@ -86,15 +86,27 @@ describe('cropResizeToSquare / uploadAvatar (canvas-stubbed)', () => {
     HTMLCanvasElement.prototype.toBlob = originalToBlob;
   });
 
-  it('center-crops the shorter side and resizes to AVATAR_SIZE', async () => {
+  it('center-crops horizontally for a landscape source and resizes to AVATAR_SIZE', async () => {
     const blob = await cropResizeToSquare(makeFile());
 
     expect(blob).toBe(fakeBlob);
-    // source is 800x600 -> shorter side 600, centered crop: sx=(800-600)/2=100, sy=0
+    // source is 800x600 -> shorter side 600, horizontally centered, top-anchored: sx=(800-600)/2=100, sy=0
     expect(drawImageCalls).toHaveLength(1);
     const [, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight] = drawImageCalls[0];
     expect([sx, sy, sWidth, sHeight]).toEqual([100, 0, 600, 600]);
     expect([dx, dy, dWidth, dHeight]).toEqual([0, 0, AVATAR_SIZE, AVATAR_SIZE]);
+  });
+
+  it('anchors the crop to the top for a portrait source, keeping the top of the image (face/upper chest) in frame', async () => {
+    vi.stubGlobal('createImageBitmap', vi.fn(async () => ({ width: 600, height: 800, close: vi.fn() })));
+
+    const blob = await cropResizeToSquare(makeFile());
+
+    expect(blob).toBe(fakeBlob);
+    // source is 600x800 (portrait) -> shorter side 600, no horizontal crop needed,
+    // top-anchored vertically: sx=0, sy=0 (NOT the old centered (800-600)/2=100)
+    const [, sx, sy, sWidth, sHeight] = drawImageCalls[0];
+    expect([sx, sy, sWidth, sHeight]).toEqual([0, 0, 600, 600]);
   });
 
   it('rejects when the canvas fails to produce a blob', async () => {
