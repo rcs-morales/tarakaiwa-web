@@ -83,9 +83,21 @@ show up in the top-bar account icon, not just on the Settings screen.
 ### 3. New `src/lib/profile.svelte.js`
 
 Module-level shared avatar/user state, replacing the copy that currently
-lives only in `Settings.svelte`:
+lives only in `Settings.svelte`. **Critically: init is not automatic on import —
+instead, `watchProfile()` must be called explicitly once from Shell's `onMount`.**
+This avoids side effects at module-import time, which is safer for tests and SSR:
 
 ```js
+// ─────────────────────────────────────────────
+// PROFILE — shared avatar/user state, single source of truth for
+// Settings.svelte (profile card) and Shell.svelte (header account icon).
+// Loaded once via watchProfile(), called from Shell's onMount — the app's
+// single long-lived root. Other consumers just read `profile` reactively.
+// ─────────────────────────────────────────────
+
+import { getCurrentUser, onAuthChange } from './auth.js';
+import { fetchAvatarUrl } from './avatarUpload.js';
+
 export const DEFAULT_AVATAR = '/assets/zundamon.png';
 
 export const profile = $state({
@@ -94,27 +106,42 @@ export const profile = $state({
   avatarBusting: '',   // '?v=…' appended right after a fresh upload
 });
 
+async function loadAvatar() {
+  profile.avatarUrl = profile.user ? await fetchAvatarUrl() : null;
+  profile.avatarBusting = '';
+}
+
+/** Guests (or signed-in with no stored picture yet) fall back to the same
+ *  default every user saw before this feature existed. */
 export function avatarSrc() {
   return profile.user && profile.avatarUrl
     ? profile.avatarUrl + profile.avatarBusting
     : DEFAULT_AVATAR;
 }
 
-// Called from AvatarModal's onchange: url is a cache-busted URL on success,
-// or null after a removal.
-export function applyAvatarChange(url) { ... same split-off-the-`?v=` logic
-  Settings' onAvatarModalChange does today ... }
-
-async function loadAvatar() {
-  profile.avatarUrl = profile.user ? await fetchAvatarUrl() : null;
-  profile.avatarBusting = '';
+/** AvatarModal reports the outcome via this rather than reaching into
+ *  component state directly. url is a full cache-busted URL on a
+ *  successful upload/preset pick, or null after a successful removal. */
+export function applyAvatarChange(url) {
+  if (url === null) {
+    profile.avatarUrl = null;
+    profile.avatarBusting = '';
+    return;
+  }
+  const qIndex = url.indexOf('?');
+  profile.avatarUrl = qIndex === -1 ? url : url.slice(0, qIndex);
+  profile.avatarBusting = qIndex === -1 ? '' : url.slice(qIndex);
 }
 
-// Module-scope init, runs once on first import (same pattern as other
-// *.svelte.js state modules' top-level setup).
-profile.user = getCurrentUser();
-loadAvatar();
-onAuthChange((u) => { profile.user = u; loadAvatar(); });
+/**
+ * Load the current user/avatar and subscribe to auth changes. Call once
+ * from Shell's onMount. Returns the onAuthChange unsubscribe function.
+ */
+export function watchProfile() {
+  profile.user = getCurrentUser();
+  loadAvatar();
+  return onAuthChange((u) => { profile.user = u; loadAvatar(); });
+}
 ```
 
 ### 4. `src/lib/components/Settings.svelte`
@@ -132,8 +159,11 @@ onAuthChange((u) => { profile.user = u; loadAvatar(); });
 
 ### 5. `src/lib/components/Shell.svelte`
 
-- Import `profile`, `DEFAULT_AVATAR`, `avatarSrc` from
+- Import `profile`, `DEFAULT_AVATAR`, `avatarSrc`, `watchProfile` from
   `$lib/profile.svelte.js`.
+- In `onMount`, call `watchProfile()` once (the app's single long-lived root
+  at the top of the component tree). This initializes profile state and sets
+  up auth change subscriptions.
 - `#btn-account-menu`'s content becomes conditional:
   - `{#if profile.user}` → `<img class="account-avatar" src={avatarSrc()} alt="" />`
   - `{:else}` → the existing `👤` emoji, unchanged.
