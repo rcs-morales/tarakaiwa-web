@@ -121,7 +121,7 @@
 
     <div class="avm-actions">
       <button type="button" class="btn btn-primary" onclick={triggerPick} disabled={busy}>
-        {uploading ? 'Uploading…' : 'Add new avatar'}
+        {uploading ? 'Working…' : 'Add new avatar'}
       </button>
       <button type="button" class="btn btn-secondary avm-cancel" onclick={close} disabled={busy}>Cancel</button>
     </div>
