@@ -86,18 +86,23 @@ export async function fetchAvatarUrl() {
   return data?.avatar_url ?? null;
 }
 
+export const AVATAR_PRESETS = [
+  { id: 'zundamon', name: 'Zundamon', path: '/assets/zundamon.png' },
+  { id: 'shikoku_metan', name: 'Shikoku Metan', path: '/assets/shikoku_metan.png' },
+  { id: 'kasukabe_tsumugi', name: 'Kasukabe Tsumugi', path: '/assets/kasukabe_tsumugi.png' },
+  { id: 'sayo', name: 'Sayo', path: '/assets/sayo.png' },
+  { id: 'aoyama_ryusei', name: 'Aoyama Ryusei', path: '/assets/aoyama_ryusei.png' },
+  { id: 'shirakami_kotarou', name: 'Shirakami Kotarou', path: '/assets/shirakami_kotarou.png' },
+  { id: 'kurono_takehiro', name: 'Takehiro', path: '/assets/kurono_takehiro.png' },
+];
+
 /**
- * Full flow: validate → crop/resize → upload (upsert) → write profiles.avatar_url.
- * Returns a cache-busted public URL to display immediately. Throws on failure —
- * the caller shows the message via its own status UI.
+ * Upload `blob` to the signed-in `user`'s storage path (upsert) and write
+ * `profiles.avatar_url`. Returns a cache-busted public URL. Throws on
+ * failure — shared tail for both a custom upload and a preset pick.
  * @returns {Promise<string>}
  */
-export async function uploadAvatar(file) {
-  const user = getCurrentUser();
-  if (!user) throw new Error('Sign in to set a profile picture.');
-
-  validateImageFile(file);
-  const blob = await cropResizeToSquare(file);
+async function storeAvatarBlob(blob, user) {
   const path = `${user.id}/avatar.jpg`;
 
   const { error: uploadError } = await supabaseClient.storage
@@ -117,6 +122,42 @@ export async function uploadAvatar(file) {
   // The object path is stable across re-uploads, so bust the cache at render
   // time rather than storing a versioned URL in the database.
   return `${baseUrl}?v=${Date.now()}`;
+}
+
+/**
+ * Full flow: validate → crop/resize → upload (upsert) → write profiles.avatar_url.
+ * Returns a cache-busted public URL to display immediately. Throws on failure —
+ * the caller shows the message via its own status UI.
+ * @returns {Promise<string>}
+ */
+export async function uploadAvatar(file) {
+  const user = getCurrentUser();
+  if (!user) throw new Error('Sign in to set a profile picture.');
+
+  validateImageFile(file);
+  const blob = await cropResizeToSquare(file);
+  return storeAvatarBlob(blob, user);
+}
+
+/**
+ * Set one of the bundled character portraits (AVATAR_PRESETS) as the
+ * signed-in user's avatar — fetches the bundled asset, resizes it through
+ * the same pipeline as a custom upload, and stores it the same way.
+ * @returns {Promise<string>}
+ */
+export async function selectPresetAvatar(id) {
+  const user = getCurrentUser();
+  if (!user) throw new Error('Sign in to set a profile picture.');
+
+  const preset = AVATAR_PRESETS.find((p) => p.id === id);
+  if (!preset) throw new Error('Unknown avatar.');
+
+  const response = await fetch(preset.path);
+  if (!response.ok) throw new Error('Could not load that avatar.');
+  const sourceBlob = await response.blob();
+
+  const blob = await cropResizeToSquare(sourceBlob);
+  return storeAvatarBlob(blob, user);
 }
 
 /**

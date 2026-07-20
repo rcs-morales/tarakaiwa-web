@@ -17,6 +17,8 @@ import {
   fetchAvatarUrl,
   uploadAvatar,
   removeAvatar,
+  selectPresetAvatar,
+  AVATAR_PRESETS,
   MAX_UPLOAD_BYTES,
   MAX_OUTPUT_BYTES,
   AVATAR_SIZE,
@@ -188,6 +190,67 @@ describe('cropResizeToSquare / uploadAvatar (canvas-stubbed)', () => {
       supabaseClient.from.mockReturnValue({ update: vi.fn().mockReturnValue({ eq }) });
 
       await expect(uploadAvatar(makeFile())).rejects.toThrow('rls denied');
+    });
+  });
+
+  describe('selectPresetAvatar', () => {
+    beforeEach(() => {
+      vi.stubGlobal('fetch', vi.fn());
+    });
+
+    it('exposes exactly the 7 bundled character portraits', () => {
+      expect(AVATAR_PRESETS).toHaveLength(7);
+      for (const preset of AVATAR_PRESETS) {
+        expect(preset.id).toEqual(expect.any(String));
+        expect(preset.name).toEqual(expect.any(String));
+        expect(preset.path).toMatch(/^\/assets\/.+\.png$/);
+      }
+    });
+
+    it('throws when logged out, without fetching', async () => {
+      getCurrentUser.mockReturnValue(null);
+      await expect(selectPresetAvatar('zundamon')).rejects.toThrow('Sign in');
+      expect(fetch).not.toHaveBeenCalled();
+    });
+
+    it('throws for an unknown preset id', async () => {
+      getCurrentUser.mockReturnValue({ id: 'user-123', email: 'me@example.com' });
+      await expect(selectPresetAvatar('nope')).rejects.toThrow('Unknown avatar.');
+      expect(fetch).not.toHaveBeenCalled();
+    });
+
+    it('throws when the preset image fails to load', async () => {
+      getCurrentUser.mockReturnValue({ id: 'user-123', email: 'me@example.com' });
+      fetch.mockResolvedValue({ ok: false });
+      await expect(selectPresetAvatar('zundamon')).rejects.toThrow('Could not load that avatar.');
+      expect(supabaseClient.storage.from).not.toHaveBeenCalled();
+    });
+
+    it('fetches the preset image, resizes it, and stores it exactly like a normal upload', async () => {
+      getCurrentUser.mockReturnValue({ id: 'user-123', email: 'me@example.com' });
+      const sourceBlob = new Blob(['fake-png-bytes'], { type: 'image/png' });
+      fetch.mockResolvedValue({ ok: true, blob: async () => sourceBlob });
+
+      const upload = vi.fn().mockResolvedValue({ error: null });
+      const getPublicUrl = vi.fn().mockReturnValue({ data: { publicUrl: 'https://x.supabase.co/storage/v1/object/public/avatars/user-123/avatar.jpg' } });
+      supabaseClient.storage.from.mockReturnValue({ upload, getPublicUrl });
+      const eq = vi.fn().mockResolvedValue({ error: null });
+      supabaseClient.from.mockReturnValue({ update: vi.fn().mockReturnValue({ eq }) });
+
+      const url = await selectPresetAvatar('zundamon');
+
+      expect(fetch).toHaveBeenCalledWith('/assets/zundamon.png');
+      expect(upload).toHaveBeenCalledWith('user-123/avatar.jpg', fakeBlob, expect.objectContaining({ upsert: true, contentType: 'image/jpeg' }));
+      expect(url).toMatch(/^https:\/\/x\.supabase\.co\/storage\/v1\/object\/public\/avatars\/user-123\/avatar\.jpg\?v=\d+$/);
+    });
+
+    it('throws when the storage upload fails, same as uploadAvatar', async () => {
+      getCurrentUser.mockReturnValue({ id: 'user-123', email: 'me@example.com' });
+      fetch.mockResolvedValue({ ok: true, blob: async () => new Blob(['x'], { type: 'image/png' }) });
+      supabaseClient.storage.from.mockReturnValue({ upload: vi.fn().mockResolvedValue({ error: new Error('network down') }), getPublicUrl: vi.fn() });
+
+      await expect(selectPresetAvatar('zundamon')).rejects.toThrow('network down');
+      expect(supabaseClient.from).not.toHaveBeenCalled();
     });
   });
 });
