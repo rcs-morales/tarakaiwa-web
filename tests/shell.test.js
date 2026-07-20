@@ -1,13 +1,27 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen } from '@testing-library/svelte';
-import { fireEvent } from '@testing-library/dom';
+import { fireEvent, waitFor } from '@testing-library/dom';
+
+const mockGetCurrentUser = vi.fn(() => null);
+vi.mock('$lib/auth.js', () => ({
+  onAuthChange: vi.fn(),
+  getCurrentUser: (...args) => mockGetCurrentUser(...args),
+}));
+
+vi.mock('$lib/avatarUpload.js', () => ({
+  fetchAvatarUrl: vi.fn(async () => null),
+}));
+
 import Shell from '../src/lib/components/Shell.svelte';
 import { shell, setTab, TABS } from '../src/lib/shell.svelte.js';
+import { fetchAvatarUrl } from '$lib/avatarUpload.js';
 
 describe('App Shell', () => {
   beforeEach(() => {
     // module-level state persists between tests — reset it
     setTab('practice');
+    mockGetCurrentUser.mockReturnValue(null);
+    fetchAvatarUrl.mockReset().mockResolvedValue(null);
   });
 
   it('renders all four tabs in both the top nav and the bottom bar', () => {
@@ -52,5 +66,38 @@ describe('App Shell', () => {
     await fireEvent.click(container.querySelector('#btn-account-open'));
     expect(shell.tab).toBe('settings');
     expect(menu.classList.contains('open')).toBe(false);
+  });
+
+  it('shows the emoji account icon while signed out', () => {
+    const { container } = render(Shell);
+    expect(container.querySelector('#btn-account-menu').textContent).toContain('👤');
+    expect(container.querySelector('.account-avatar')).toBeNull();
+  });
+
+  it('shows the default avatar image when signed in with no stored picture', async () => {
+    mockGetCurrentUser.mockReturnValue({ id: 'u1', email: 'me@example.com' });
+    const { container } = render(Shell);
+    await waitFor(() => expect(container.querySelector('.account-avatar')).not.toBeNull());
+    expect(container.querySelector('.account-avatar').src).toContain('/assets/zundamon.png');
+  });
+
+  it('shows the stored avatar image when signed in with one set', async () => {
+    mockGetCurrentUser.mockReturnValue({ id: 'u1', email: 'me@example.com' });
+    fetchAvatarUrl.mockResolvedValue('https://x/avatars/u1/avatar.jpg');
+    const { container } = render(Shell);
+    await waitFor(() => {
+      const img = container.querySelector('.account-avatar');
+      expect(img?.src).toContain('avatars/u1/avatar.jpg');
+    });
+  });
+
+  it('still opens the account menu when signed in with an avatar', async () => {
+    mockGetCurrentUser.mockReturnValue({ id: 'u1', email: 'me@example.com' });
+    const { container } = render(Shell);
+    await waitFor(() => expect(container.querySelector('.account-avatar')).not.toBeNull());
+
+    const menu = container.querySelector('.account-menu');
+    await fireEvent.click(container.querySelector('#btn-account-menu'));
+    expect(menu.classList.contains('open')).toBe(true);
   });
 });
