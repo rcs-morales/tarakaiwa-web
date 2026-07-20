@@ -5,10 +5,15 @@ import { fireEvent, waitFor } from '@testing-library/dom';
 vi.mock('$lib/avatarUpload.js', () => ({
   uploadAvatar: vi.fn(),
   removeAvatar: vi.fn(),
+  selectPresetAvatar: vi.fn(),
+  AVATAR_PRESETS: [
+    { id: 'a', name: 'Preset A', path: '/assets/a.png' },
+    { id: 'b', name: 'Preset B', path: '/assets/b.png' },
+  ],
 }));
 
 import AvatarModal from '../src/lib/components/AvatarModal.svelte';
-import { uploadAvatar, removeAvatar } from '$lib/avatarUpload.js';
+import { uploadAvatar, removeAvatar, selectPresetAvatar, AVATAR_PRESETS } from '$lib/avatarUpload.js';
 
 const DEFAULT_AVATAR = '/assets/zundamon.png';
 
@@ -29,6 +34,7 @@ describe('AvatarModal', () => {
   beforeEach(() => {
     uploadAvatar.mockReset();
     removeAvatar.mockReset();
+    selectPresetAvatar.mockReset();
   });
 
   it('renders the current avatar, restrictions text, and a Remove button when hasAvatar is true', () => {
@@ -130,5 +136,54 @@ describe('AvatarModal', () => {
 
     resolveUpload('https://x/avatars/u1/avatar.jpg?v=1');
     await waitFor(() => expect(container.querySelector('.avm-cancel').disabled).toBe(false));
+  });
+
+  it('renders a thumbnail button for every preset in AVATAR_PRESETS', () => {
+    const { container } = renderModal();
+    const buttons = container.querySelectorAll('.avm-preset-btn');
+    expect(buttons).toHaveLength(AVATAR_PRESETS.length);
+    AVATAR_PRESETS.forEach((preset, i) => {
+      const img = buttons[i].querySelector('img');
+      expect(img.src).toContain(preset.path);
+      expect(img.alt).toBe(preset.name);
+    });
+  });
+
+  it('tapping a preset selects it, updates the preview, shows success, and reports the new URL', async () => {
+    selectPresetAvatar.mockResolvedValue('https://x/avatars/u1/avatar.jpg?v=7');
+    const onchange = vi.fn();
+    const { container } = renderModal({ onchange });
+
+    await fireEvent.click(container.querySelectorAll('.avm-preset-btn')[0]);
+
+    await waitFor(() => expect(selectPresetAvatar).toHaveBeenCalledWith('a'));
+    await waitFor(() => expect(container.querySelector('.avm-preview').src).toContain('?v=7'));
+    expect(container.querySelector('.import-status.success').textContent).toContain('updated');
+    expect(onchange).toHaveBeenCalledWith('https://x/avatars/u1/avatar.jpg?v=7');
+  });
+
+  it('a failed preset selection shows an error status and keeps the previous preview', async () => {
+    selectPresetAvatar.mockRejectedValue(new Error('Could not load that avatar.'));
+    const { container } = renderModal();
+
+    await fireEvent.click(container.querySelectorAll('.avm-preset-btn')[0]);
+
+    await waitFor(() => expect(container.querySelector('.import-status.error')).not.toBeNull());
+    expect(container.querySelector('.import-status.error').textContent).toContain('Could not load that avatar.');
+    expect(container.querySelector('.avm-preview').src).toContain('avatars/u1/avatar.jpg');
+  });
+
+  it('disables the preset buttons while an upload is in flight', async () => {
+    let resolveUpload;
+    uploadAvatar.mockReturnValue(new Promise((resolve) => { resolveUpload = resolve; }));
+    const { container } = renderModal();
+
+    const file = new File(['x'], 'photo.png', { type: 'image/png' });
+    const input = container.querySelector('input[type="file"]');
+    await fireEvent.change(input, { target: { files: [file] } });
+
+    await waitFor(() => expect(container.querySelectorAll('.avm-preset-btn')[0].disabled).toBe(true));
+    resolveUpload('https://x/avatars/u1/avatar.jpg?v=1');
+    await waitFor(() => expect(container.querySelectorAll('.avm-preset-btn')[0].disabled).toBe(false));
   });
 });

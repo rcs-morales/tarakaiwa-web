@@ -4,7 +4,7 @@
   // via onchange (new URL string, or null after a removal) rather than
   // reaching into Settings' own state directly. Reuses the app's global
   // .modal/.modal-card chrome (see DeckFormModal.svelte for the same pattern).
-  import { uploadAvatar, removeAvatar } from '$lib/avatarUpload.js';
+  import { uploadAvatar, removeAvatar, selectPresetAvatar, AVATAR_PRESETS } from '$lib/avatarUpload.js';
 
   let { initialSrc, hasAvatar: initialHasAvatar, defaultAvatar, onchange, onclose } = $props();
 
@@ -53,6 +53,24 @@
     }
   }
 
+  async function pickPreset(id) {
+    if (busy) return;
+    uploading = true;
+    status = { text: 'Setting avatar…', type: 'info' };
+    try {
+      const url = await selectPresetAvatar(id);
+      previewSrc = url;
+      hasAvatar = true;
+      status = { text: 'Profile picture updated.', type: 'success' };
+      onchange(url);
+    } catch (err) {
+      console.error('avatar preset select failed:', err);
+      status = { text: err.message || 'Could not set that avatar.', type: 'error' };
+    } finally {
+      uploading = false;
+    }
+  }
+
   async function remove() {
     if (!hasAvatar || busy) return;
     removing = true;
@@ -80,6 +98,23 @@
     </div>
 
     <img class="avm-preview" src={previewSrc} alt="" />
+
+    <div class="avm-presets">
+      <div class="avm-presets-label">Or choose a character</div>
+      <div class="avm-preset-grid">
+        {#each AVATAR_PRESETS as preset (preset.id)}
+          <button
+            type="button"
+            class="avm-preset-btn"
+            onclick={() => pickPreset(preset.id)}
+            disabled={busy}
+            aria-label={preset.name}
+          >
+            <img class="avm-preset-thumb" src={preset.path} alt={preset.name} />
+          </button>
+        {/each}
+      </div>
+    </div>
 
     <input type="file" accept="image/jpeg,image/png,image/gif" class="hidden"
       bind:this={fileInputEl} onchange={onFilePicked} />
@@ -163,6 +198,48 @@
     background: var(--primary-tint);
     border: 2px solid var(--card-border);
     margin: 0 auto 16px;
+  }
+
+  .avm-presets {
+    margin-bottom: 16px;
+  }
+
+  .avm-presets-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--muted);
+    text-align: center;
+    margin-bottom: 8px;
+  }
+
+  .avm-preset-grid {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .avm-preset-btn {
+    padding: 0;
+    border: 1.5px solid var(--card-border);
+    border-radius: 50%;
+    background: none;
+    cursor: pointer;
+    line-height: 0;
+  }
+
+  .avm-preset-btn:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+
+  .avm-preset-thumb {
+    display: block;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+    object-position: top;
   }
 
   .avm-actions {

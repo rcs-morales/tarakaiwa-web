@@ -13,6 +13,11 @@ vi.mock('$lib/avatarUpload.js', () => ({
   fetchAvatarUrl: vi.fn(async () => null),
   uploadAvatar: vi.fn(async () => 'https://x/avatars/u1/avatar.jpg?v=1'),
   removeAvatar: vi.fn(async () => undefined),
+  selectPresetAvatar: vi.fn(),
+  AVATAR_PRESETS: [
+    { id: 'a', name: 'Preset A', path: '/assets/a.png' },
+    { id: 'b', name: 'Preset B', path: '/assets/b.png' },
+  ],
 }));
 
 import Settings from '../src/lib/components/Settings.svelte';
