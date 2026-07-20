@@ -4,11 +4,15 @@
   // The account menu's status nodes (#account-bar-status, #quota-chip) are
   // always rendered (toggled with CSS) because app.js and quota.js write to
   // them imperatively by id.
+  import { onMount } from 'svelte';
   import { shell, setTab, TABS } from '$lib/shell.svelte.js';
   import { history, computeStats } from '$lib/history.svelte.js';
   import { computeXP } from '$lib/gamification.svelte.js';
+  import { profile, DEFAULT_AVATAR, avatarSrc, watchProfile } from '$lib/profile.svelte.js';
 
   let { children } = $props();
+
+  onMount(() => watchProfile());
 
   // Gamification status pills — derived from the reactive session history.
   let streak = $derived(computeStats(history.entries).streakDays);
@@ -70,7 +74,13 @@
           aria-haspopup="true"
           aria-expanded={menuOpen}
           onclick={() => (menuOpen = !menuOpen)}
-        >👤</button>
+        >
+          {#if profile.user}
+            <img class="account-avatar" src={avatarSrc()} alt="" onerror={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = DEFAULT_AVATAR; }} />
+          {:else}
+            👤
+          {/if}
+        </button>
         <div class="account-menu" class:open={menuOpen}>
           <div class="account-menu-status" id="account-bar-status">🔓 Not signed in — practice saves to this device only</div>
           <div class="account-menu-quota hidden" id="quota-chip"><span id="quota-text"></span></div>
@@ -237,6 +247,14 @@
 
   .icon-btn:hover {
     background: var(--surface-hover);
+  }
+
+  .account-avatar {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+    object-position: top;
   }
 
   .account-menu-wrap {

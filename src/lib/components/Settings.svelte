@@ -6,29 +6,36 @@
   // tts.js, avatar.js and groqClient.js drive the advanced controls
   // imperatively by id at mount, so the disclosure hides with CSS only —
   // its contents are always in the DOM, never behind an {#if}.
-  import { onMount } from 'svelte';
   import { history } from '$lib/history.svelte.js';
   import { computeXP } from '$lib/gamification.svelte.js';
   import { prefs, setAid, setDailyGoal, DAILY_GOAL_MIN, DAILY_GOAL_MAX } from '$lib/prefs.svelte.js';
-  import { getCurrentUser, onAuthChange } from '$lib/auth.js';
+  import { profile, DEFAULT_AVATAR, avatarSrc, applyAvatarChange } from '$lib/profile.svelte.js';
+  import AvatarModal from './AvatarModal.svelte';
 
   const xp = $derived(computeXP(history.entries));
 
-  let user = $state(null);
   let advancedOpen = $state(false);
+  let avatarModalOpen = $state(false);
 
-  onMount(() => {
-    user = getCurrentUser();
-    onAuthChange((u) => { user = u; });
-  });
+  // Only signed-in users with an actual stored photo get a remove option —
+  // nothing to remove for a guest or a user already on the placeholder.
+  const canRemoveAvatar = $derived(!!profile.user && !!profile.avatarUrl);
 
-  const displayName = $derived(user?.email ? user.email.split('@')[0] : 'ゲスト · Guest');
+  const displayName = $derived(profile.user?.email ? profile.user.email.split('@')[0] : 'ゲスト · Guest');
 
   // "Edit" opens the Advanced disclosure and brings the account card into view.
   function editProfile() {
     advancedOpen = true;
     requestAnimationFrame(() =>
       document.getElementById('setup-step-account')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  }
+
+  // Tapping the avatar opens the change-avatar modal for signed-in users;
+  // signed-out users get the same nudge toward Account as the Edit button
+  // (a modal that could only fail isn't useful to them).
+  function pickAvatar() {
+    if (!profile.user) { editProfile(); return; }
+    avatarModalOpen = true;
   }
 
   // Single source of truth for signing out is the handler app.js bound to
@@ -50,13 +57,24 @@
 
   <!-- ── Profile ── -->
   <div class="settings-card profile-card">
-    <img class="profile-avatar" src="/assets/zundamon.png" alt="" />
+    <button type="button" class="avatar-btn" onclick={pickAvatar} aria-label="Change profile picture">
+      <img class="profile-avatar" src={avatarSrc()} alt="" onerror={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = DEFAULT_AVATAR; }} />
+    </button>
     <div class="profile-info">
       <div class="profile-name">{displayName}</div>
       <div class="profile-meta">Lv {xp.level} · {xp.title} · {xp.totalXP} XP</div>
     </div>
     <button class="profile-edit-pill" onclick={editProfile}>Edit</button>
   </div>
+  {#if avatarModalOpen}
+    <AvatarModal
+      initialSrc={avatarSrc()}
+      hasAvatar={canRemoveAvatar}
+      defaultAvatar={DEFAULT_AVATAR}
+      onchange={applyAvatarChange}
+      onclose={() => (avatarModalOpen = false)}
+    />
+  {/if}
 
   <!-- ── Learning aids ── -->
   <div class="settings-card">
@@ -312,7 +330,7 @@
 
   </div>
 
-  {#if user}
+  {#if profile.user}
     <button class="btn btn-secondary signout-btn" onclick={signOut}>サインアウト · Sign out</button>
   {/if}
 </div>
@@ -360,6 +378,16 @@
     gap: 12px;
   }
 
+  .avatar-btn {
+    padding: 0;
+    border: none;
+    background: none;
+    border-radius: 50%;
+    cursor: pointer;
+    line-height: 0;
+    flex: 0 0 auto;
+  }
+
   .profile-avatar {
     width: 52px;
     height: 52px;
@@ -368,7 +396,6 @@
     object-position: top;
     background: var(--primary-tint);
     border: 2px solid var(--card-border);
-    flex: 0 0 auto;
   }
 
   .profile-info {

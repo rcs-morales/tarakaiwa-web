@@ -30,3 +30,11 @@ if (globalThis.window && globalThis.window !== globalThis) {
   ensureStorage(globalThis.window, 'localStorage');
   ensureStorage(globalThis.window, 'sessionStorage');
 }
+
+// jsdom does not implement Element.prototype.scrollIntoView at all (not even
+// a no-op) — several components call it defensively (`el?.scrollIntoView(...)`),
+// which throws "not a function" once the element exists. No-op it so those
+// calls behave the same as an unsupported-but-harmless browser API.
+if (typeof Element !== 'undefined' && !Element.prototype.scrollIntoView) {
+  Element.prototype.scrollIntoView = function () {};
+}

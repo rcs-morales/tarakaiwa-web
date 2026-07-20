@@ -1,17 +1,23 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen } from '@testing-library/svelte';
-import { fireEvent } from '@testing-library/dom';
+import { fireEvent, waitFor } from '@testing-library/dom';
 
-// auth.js would construct a supabase client — stub the bits the screen reads.
-vi.mock('$lib/auth.js', () => ({
-  onAuthChange: vi.fn(),
-  getCurrentUser: vi.fn(() => null),
+vi.mock('$lib/avatarUpload.js', () => ({
+  uploadAvatar: vi.fn(),
+  removeAvatar: vi.fn(),
+  selectPresetAvatar: vi.fn(),
+  AVATAR_PRESETS: [
+    { id: 'a', name: 'Preset A', path: '/assets/a.png' },
+    { id: 'b', name: 'Preset B', path: '/assets/b.png' },
+  ],
 }));
 
 import Settings from '../src/lib/components/Settings.svelte';
 import { history, recordSession } from '../src/lib/history.svelte.js';
 import { initPrefs, prefs } from '../src/lib/prefs.svelte.js';
 import { get, KEYS } from '../src/lib/settings.js';
+import { uploadAvatar, removeAvatar } from '$lib/avatarUpload.js';
+import { profile } from '../src/lib/profile.svelte.js';
 
 // The ids the imperative modules (app.js, quota.js, tts.js, avatar.js,
 // groqClient.js) look up at mount — all must exist even while the Advanced
@@ -40,6 +46,15 @@ describe('Settings screen', () => {
     document.body.className = '';
     history.entries = [];
     initPrefs();
+    profile.user = null;
+    profile.avatarUrl = null;
+    profile.avatarBusting = '';
+    uploadAvatar.mockReset().mockResolvedValue('https://x/avatars/u1/avatar.jpg?v=1');
+    removeAvatar.mockReset().mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it('keeps every imperatively wired element id in the DOM while collapsed', () => {
@@ -105,5 +120,71 @@ describe('Settings screen', () => {
   it('hides the sign-out button while signed out', () => {
     render(Settings);
     expect(screen.queryByRole('button', { name: /Sign out/ })).toBeNull();
+  });
+
+  it('shows the default avatar while signed out, and tapping it opens Advanced/Account instead of a picker', async () => {
+    const { container } = render(Settings);
+
+    expect(container.querySelector('.profile-avatar').src).toContain('/assets/zundamon.png');
+
+    await fireEvent.click(container.querySelector('.avatar-btn'));
+
+    expect(container.querySelector('.advanced-body').classList.contains('open')).toBe(true);
+    expect(container.querySelector('.modal')).toBeNull();
+    expect(uploadAvatar).not.toHaveBeenCalled();
+  });
+
+  it('shows the current avatar when signed in', () => {
+    profile.user = { id: 'u1', email: 'me@example.com' };
+    profile.avatarUrl = 'https://x/avatars/u1/avatar.jpg';
+
+    const { container } = render(Settings);
+
+    expect(container.querySelector('.profile-avatar').src).toContain('avatars/u1/avatar.jpg');
+  });
+
+  it('tapping the avatar while signed in opens AvatarModal instead of a native picker', async () => {
+    profile.user = { id: 'u1', email: 'me@example.com' };
+    profile.avatarUrl = 'https://x/avatars/u1/avatar.jpg';
+
+    const { container } = render(Settings);
+    await fireEvent.click(container.querySelector('.avatar-btn'));
+
+    expect(container.querySelector('.avm-card')).not.toBeNull();
+    expect(container.querySelector('.avm-preview').src).toContain('avatars/u1/avatar.jpg');
+  });
+
+  it('uploading inside the modal updates the small Settings avatar and closing the modal removes it', async () => {
+    profile.user = { id: 'u1', email: 'me@example.com' };
+    profile.avatarUrl = 'https://x/avatars/u1/avatar.jpg';
+    uploadAvatar.mockResolvedValue('https://x/avatars/u1/avatar.jpg?v=42');
+
+    const { container } = render(Settings);
+    await fireEvent.click(container.querySelector('.avatar-btn'));
+
+    const input = container.querySelector('.avm-card input[type="file"]');
+    const file = new File(['x'], 'photo.png', { type: 'image/png' });
+    await fireEvent.change(input, { target: { files: [file] } });
+
+    await waitFor(() => expect(container.querySelector('.profile-avatar').src).toContain('avatars/u1/avatar.jpg?v=42'));
+
+    await fireEvent.click(container.querySelector('.avm-cancel'));
+    expect(container.querySelector('.avm-card')).toBeNull();
+    // small avatar keeps the uploaded photo after the modal closes
+    expect(container.querySelector('.profile-avatar').src).toContain('avatars/u1/avatar.jpg?v=42');
+  });
+
+  it('removing inside the modal reverts the small Settings avatar to the placeholder', async () => {
+    profile.user = { id: 'u1', email: 'me@example.com' };
+    profile.avatarUrl = 'https://x/avatars/u1/avatar.jpg';
+    removeAvatar.mockResolvedValue(undefined);
+
+    const { container } = render(Settings);
+    await fireEvent.click(container.querySelector('.avatar-btn'));
+
+    await waitFor(() => expect(container.querySelector('.avm-remove')).not.toBeNull());
+    await fireEvent.click(container.querySelector('.avm-remove'));
+
+    await waitFor(() => expect(container.querySelector('.profile-avatar').src).toContain('/assets/zundamon.png'));
   });
 });
