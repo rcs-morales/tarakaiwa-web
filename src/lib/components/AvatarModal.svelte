@@ -32,43 +32,33 @@
     fileInputEl?.click();
   }
 
-  async function onFilePicked(e) {
-    const file = e.currentTarget.files?.[0];
-    e.currentTarget.value = ''; // allow re-picking the same file later
-    if (!file) return;
-
+  async function runAvatarOp(op, pendingText, fallbackErrorText) {
+    if (busy) return;
     uploading = true;
-    status = { text: 'Uploading…', type: 'info' };
+    status = { text: pendingText, type: 'info' };
     try {
-      const url = await uploadAvatar(file);
+      const url = await op();
       previewSrc = url;
       hasAvatar = true;
       status = { text: 'Profile picture updated.', type: 'success' };
       onchange(url);
     } catch (err) {
-      console.error('avatar upload failed:', err);
-      status = { text: err.message || 'Upload failed.', type: 'error' };
+      console.error('avatar operation failed:', err);
+      status = { text: err.message || fallbackErrorText, type: 'error' };
     } finally {
       uploading = false;
     }
   }
 
+  async function onFilePicked(e) {
+    const file = e.currentTarget.files?.[0];
+    e.currentTarget.value = ''; // allow re-picking the same file later
+    if (!file) return;
+    await runAvatarOp(() => uploadAvatar(file), 'Uploading…', 'Upload failed.');
+  }
+
   async function pickPreset(id) {
-    if (busy) return;
-    uploading = true;
-    status = { text: 'Setting avatar…', type: 'info' };
-    try {
-      const url = await selectPresetAvatar(id);
-      previewSrc = url;
-      hasAvatar = true;
-      status = { text: 'Profile picture updated.', type: 'success' };
-      onchange(url);
-    } catch (err) {
-      console.error('avatar preset select failed:', err);
-      status = { text: err.message || 'Could not set that avatar.', type: 'error' };
-    } finally {
-      uploading = false;
-    }
+    await runAvatarOp(() => selectPresetAvatar(id), 'Setting avatar…', 'Could not set that avatar.');
   }
 
   async function remove() {
