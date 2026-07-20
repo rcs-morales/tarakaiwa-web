@@ -8,7 +8,7 @@
   import { shell, setTab, TABS } from '$lib/shell.svelte.js';
   import { history, computeStats } from '$lib/history.svelte.js';
   import { computeXP } from '$lib/gamification.svelte.js';
-  import { profile, avatarSrc, watchProfile } from '$lib/profile.svelte.js';
+  import { profile, DEFAULT_AVATAR, avatarSrc, watchProfile } from '$lib/profile.svelte.js';
 
   let { children } = $props();
 
@@ -76,7 +76,7 @@
           onclick={() => (menuOpen = !menuOpen)}
         >
           {#if profile.user}
-            <img class="account-avatar" src={avatarSrc()} alt="" />
+            <img class="account-avatar" src={avatarSrc()} alt="" onerror={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = DEFAULT_AVATAR; }} />
           {:else}
             👤
           {/if}
