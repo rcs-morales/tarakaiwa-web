@@ -6,44 +6,22 @@
   // tts.js, avatar.js and groqClient.js drive the advanced controls
   // imperatively by id at mount, so the disclosure hides with CSS only —
   // its contents are always in the DOM, never behind an {#if}.
-  import { onMount } from 'svelte';
   import { history } from '$lib/history.svelte.js';
   import { computeXP } from '$lib/gamification.svelte.js';
   import { prefs, setAid, setDailyGoal, DAILY_GOAL_MIN, DAILY_GOAL_MAX } from '$lib/prefs.svelte.js';
-  import { getCurrentUser, onAuthChange } from '$lib/auth.js';
-  import { fetchAvatarUrl } from '$lib/avatarUpload.js';
+  import { profile, DEFAULT_AVATAR, avatarSrc, applyAvatarChange } from '$lib/profile.svelte.js';
   import AvatarModal from './AvatarModal.svelte';
 
   const xp = $derived(computeXP(history.entries));
 
-  let user = $state(null);
   let advancedOpen = $state(false);
-
-  const DEFAULT_AVATAR = '/assets/zundamon.png';
-  let avatarUrl = $state(null);      // stored base URL from profiles, or null
-  let avatarBusting = $state('');    // '?v=…' appended right after a fresh upload
   let avatarModalOpen = $state(false);
 
   // Only signed-in users with an actual stored photo get a remove option —
   // nothing to remove for a guest or a user already on the placeholder.
-  const canRemoveAvatar = $derived(!!user && !!avatarUrl);
+  const canRemoveAvatar = $derived(!!profile.user && !!profile.avatarUrl);
 
-  // Guests (or signed-in with no stored picture yet) fall back to the same
-  // default every user saw before this feature existed.
-  const avatarSrc = $derived(user && avatarUrl ? avatarUrl + avatarBusting : DEFAULT_AVATAR);
-
-  async function loadAvatar() {
-    avatarUrl = user ? await fetchAvatarUrl() : null;
-    avatarBusting = '';
-  }
-
-  onMount(() => {
-    user = getCurrentUser();
-    loadAvatar();
-    onAuthChange((u) => { user = u; loadAvatar(); });
-  });
-
-  const displayName = $derived(user?.email ? user.email.split('@')[0] : 'ゲスト · Guest');
+  const displayName = $derived(profile.user?.email ? profile.user.email.split('@')[0] : 'ゲスト · Guest');
 
   // "Edit" opens the Advanced disclosure and brings the account card into view.
   function editProfile() {
@@ -56,23 +34,8 @@
   // signed-out users get the same nudge toward Account as the Edit button
   // (a modal that could only fail isn't useful to them).
   function pickAvatar() {
-    if (!user) { editProfile(); return; }
+    if (!profile.user) { editProfile(); return; }
     avatarModalOpen = true;
-  }
-
-  // AvatarModal reports the outcome rather than reaching into this
-  // component's state directly. url is a full cache-busted URL on a
-  // successful upload, or null after a successful removal — the split
-  // mirrors the cache-busting logic the old inline handler used to do here.
-  function onAvatarModalChange(url) {
-    if (url === null) {
-      avatarUrl = null;
-      avatarBusting = '';
-      return;
-    }
-    const qIndex = url.indexOf('?');
-    avatarUrl = qIndex === -1 ? url : url.slice(0, qIndex);
-    avatarBusting = qIndex === -1 ? '' : url.slice(qIndex);
   }
 
   // Single source of truth for signing out is the handler app.js bound to
@@ -95,7 +58,7 @@
   <!-- ── Profile ── -->
   <div class="settings-card profile-card">
     <button type="button" class="avatar-btn" onclick={pickAvatar} aria-label="Change profile picture">
-      <img class="profile-avatar" src={avatarSrc} alt="" />
+      <img class="profile-avatar" src={avatarSrc()} alt="" />
     </button>
     <div class="profile-info">
       <div class="profile-name">{displayName}</div>
@@ -105,10 +68,10 @@
   </div>
   {#if avatarModalOpen}
     <AvatarModal
-      initialSrc={avatarSrc}
+      initialSrc={avatarSrc()}
       hasAvatar={canRemoveAvatar}
       defaultAvatar={DEFAULT_AVATAR}
-      onchange={onAvatarModalChange}
+      onchange={applyAvatarChange}
       onclose={() => (avatarModalOpen = false)}
     />
   {/if}
@@ -367,7 +330,7 @@
 
   </div>
 
-  {#if user}
+  {#if profile.user}
     <button class="btn btn-secondary signout-btn" onclick={signOut}>サインアウト · Sign out</button>
   {/if}
 </div>

@@ -2,17 +2,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen } from '@testing-library/svelte';
 import { fireEvent, waitFor } from '@testing-library/dom';
 
-// auth.js would construct a supabase client — stub the bits the screen reads.
-const mockGetCurrentUser = vi.fn(() => null);
-vi.mock('$lib/auth.js', () => ({
-  onAuthChange: vi.fn(),
-  getCurrentUser: (...args) => mockGetCurrentUser(...args),
-}));
-
 vi.mock('$lib/avatarUpload.js', () => ({
-  fetchAvatarUrl: vi.fn(async () => null),
-  uploadAvatar: vi.fn(async () => 'https://x/avatars/u1/avatar.jpg?v=1'),
-  removeAvatar: vi.fn(async () => undefined),
+  uploadAvatar: vi.fn(),
+  removeAvatar: vi.fn(),
   selectPresetAvatar: vi.fn(),
   AVATAR_PRESETS: [
     { id: 'a', name: 'Preset A', path: '/assets/a.png' },
@@ -24,7 +16,8 @@ import Settings from '../src/lib/components/Settings.svelte';
 import { history, recordSession } from '../src/lib/history.svelte.js';
 import { initPrefs, prefs } from '../src/lib/prefs.svelte.js';
 import { get, KEYS } from '../src/lib/settings.js';
-import { fetchAvatarUrl, uploadAvatar, removeAvatar } from '$lib/avatarUpload.js';
+import { uploadAvatar, removeAvatar } from '$lib/avatarUpload.js';
+import { profile } from '../src/lib/profile.svelte.js';
 
 // The ids the imperative modules (app.js, quota.js, tts.js, avatar.js,
 // groqClient.js) look up at mount — all must exist even while the Advanced
@@ -53,8 +46,9 @@ describe('Settings screen', () => {
     document.body.className = '';
     history.entries = [];
     initPrefs();
-    mockGetCurrentUser.mockReturnValue(null);
-    fetchAvatarUrl.mockReset().mockResolvedValue(null);
+    profile.user = null;
+    profile.avatarUrl = null;
+    profile.avatarBusting = '';
     uploadAvatar.mockReset().mockResolvedValue('https://x/avatars/u1/avatar.jpg?v=1');
     removeAvatar.mockReset().mockResolvedValue(undefined);
   });
@@ -132,7 +126,6 @@ describe('Settings screen', () => {
     const { container } = render(Settings);
 
     expect(container.querySelector('.profile-avatar').src).toContain('/assets/zundamon.png');
-    expect(fetchAvatarUrl).not.toHaveBeenCalled();
 
     await fireEvent.click(container.querySelector('.avatar-btn'));
 
@@ -141,22 +134,20 @@ describe('Settings screen', () => {
     expect(uploadAvatar).not.toHaveBeenCalled();
   });
 
-  it('shows the fetched avatar when signed in', async () => {
-    mockGetCurrentUser.mockReturnValue({ id: 'u1', email: 'me@example.com' });
-    fetchAvatarUrl.mockResolvedValue('https://x/avatars/u1/avatar.jpg');
+  it('shows the current avatar when signed in', () => {
+    profile.user = { id: 'u1', email: 'me@example.com' };
+    profile.avatarUrl = 'https://x/avatars/u1/avatar.jpg';
 
     const { container } = render(Settings);
 
-    await waitFor(() => expect(container.querySelector('.profile-avatar').src).toContain('avatars/u1/avatar.jpg'));
+    expect(container.querySelector('.profile-avatar').src).toContain('avatars/u1/avatar.jpg');
   });
 
   it('tapping the avatar while signed in opens AvatarModal instead of a native picker', async () => {
-    mockGetCurrentUser.mockReturnValue({ id: 'u1', email: 'me@example.com' });
-    fetchAvatarUrl.mockResolvedValue('https://x/avatars/u1/avatar.jpg');
+    profile.user = { id: 'u1', email: 'me@example.com' };
+    profile.avatarUrl = 'https://x/avatars/u1/avatar.jpg';
 
     const { container } = render(Settings);
-    await waitFor(() => expect(fetchAvatarUrl).toHaveBeenCalled());
-
     await fireEvent.click(container.querySelector('.avatar-btn'));
 
     expect(container.querySelector('.avm-card')).not.toBeNull();
@@ -164,12 +155,11 @@ describe('Settings screen', () => {
   });
 
   it('uploading inside the modal updates the small Settings avatar and closing the modal removes it', async () => {
-    mockGetCurrentUser.mockReturnValue({ id: 'u1', email: 'me@example.com' });
-    fetchAvatarUrl.mockResolvedValue('https://x/avatars/u1/avatar.jpg');
+    profile.user = { id: 'u1', email: 'me@example.com' };
+    profile.avatarUrl = 'https://x/avatars/u1/avatar.jpg';
     uploadAvatar.mockResolvedValue('https://x/avatars/u1/avatar.jpg?v=42');
 
     const { container } = render(Settings);
-    await waitFor(() => expect(fetchAvatarUrl).toHaveBeenCalled());
     await fireEvent.click(container.querySelector('.avatar-btn'));
 
     const input = container.querySelector('.avm-card input[type="file"]');
@@ -185,12 +175,11 @@ describe('Settings screen', () => {
   });
 
   it('removing inside the modal reverts the small Settings avatar to the placeholder', async () => {
-    mockGetCurrentUser.mockReturnValue({ id: 'u1', email: 'me@example.com' });
-    fetchAvatarUrl.mockResolvedValue('https://x/avatars/u1/avatar.jpg');
+    profile.user = { id: 'u1', email: 'me@example.com' };
+    profile.avatarUrl = 'https://x/avatars/u1/avatar.jpg';
     removeAvatar.mockResolvedValue(undefined);
 
     const { container } = render(Settings);
-    await waitFor(() => expect(fetchAvatarUrl).toHaveBeenCalled());
     await fireEvent.click(container.querySelector('.avatar-btn'));
 
     await waitFor(() => expect(container.querySelector('.avm-remove')).not.toBeNull());
