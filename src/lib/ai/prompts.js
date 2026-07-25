@@ -67,11 +67,13 @@ export function getToJapaneseTranslationPrompt(sourceLang) {
 
 Return ONLY a valid JSON object. Do not include markdown formatting, backticks, or any conversational text.
 Example format:
-{"japanese": "明日{ashita}の天気予報{tenki yohou}はどうですか", "romaji": "ashita no tenki yohou wa dou desu ka"}
+{"japanese": "明日{ashita}の天気予報{tenki yohou}はどうですか", "romaji": "ashita no tenki yohou wa dou desu ka", "english": "What is tomorrow's weather forecast?"}
 
 CRITICAL: In the "japanese" field, you MUST provide furigana for ALL kanji using the format: Kanji{reading}.
 The {reading} MUST be in hiragana or katakana ONLY. Do NOT use romaji inside the curly braces.
 Example: 図書館{としょかん}に行きます{いきます}.
+
+The "english" field MUST be a natural English gloss of the Japanese translation (not a copy of the original ${sourceLang} input), so the student can confirm the Japanese means what they intended.
 
 Ensure the "japanese" field is NEVER empty. If you cannot translate, provide the best possible Japanese equivalent.`;
 }

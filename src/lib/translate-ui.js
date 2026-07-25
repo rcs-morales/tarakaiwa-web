@@ -57,10 +57,14 @@ function showTranslateResult(result) {
   const text = document.getElementById('translate-result-text');
   if (!area || !text) return;
 
-  const { japanese, romaji } = result;
+  const { japanese, romaji, english } = result;
+  const englishLine = english
+    ? `<div id="translate-result-en" class="translate-result-en">${english}</div>`
+    : '';
   text.innerHTML = `
     <div class="jp-text">${toFuriganaHtml(japanese, romaji)}</div>
     <div class="romaji-text" style="font-size: 0.9em; color: var(--muted); margin-top: 4px;">${romaji}</div>
+    ${englishLine}
   `;
   area.classList.remove('hidden');
 }

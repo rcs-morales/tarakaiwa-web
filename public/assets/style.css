@@ -1228,6 +1228,14 @@ rt {
   word-break: break-word;
 }
 
+.translate-result-en {
+  font-size: 0.85em;
+  color: var(--ink-mid);
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--paper-2);
+}
+
 .btn-ai-mic.recording {
   background: var(--rec-bg);
   border-color: var(--rec-border);
@@ -1762,6 +1770,7 @@ body.aids-hide-en #translate-result,
 body.aids-hide-en #answer-translation,
 body.aids-hide-en #user-ans-trans,
 body.aids-hide-en #expected-ans-trans,
-body.aids-hide-en #target-answer-trans {
+body.aids-hide-en #target-answer-trans,
+body.aids-hide-en #translate-result-en {
   display: none !important;
 }
