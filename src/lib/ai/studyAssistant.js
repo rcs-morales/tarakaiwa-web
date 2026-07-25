@@ -100,7 +100,8 @@ export async function translateToJapaneseWithAI(text, sourceLang = 'English') {
       body: JSON.stringify({
         model: getGradingModel(),
         temperature: 0.2,
-        max_tokens: 300,
+        max_tokens: 450,
+        reasoning_effort: 'low',
         messages: [
           { role: 'system', content: getToJapaneseTranslationPrompt(sourceLang) },
           { role: 'user', content: text }
@@ -181,7 +182,8 @@ export async function translateWithAI(japaneseText, context = '') {
       body: JSON.stringify({
         model: getGradingModel(),
         temperature: 0.1,
-        max_tokens: 200,
+        max_tokens: 350,
+        reasoning_effort: 'low',
         messages: [
           { role: 'system', content: TRANSLATION_SYSTEM_PROMPT },
           { role: 'user', content: userContent }
