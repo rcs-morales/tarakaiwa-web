@@ -4,8 +4,17 @@
 
 import { getGradingModel, resolveAIRoute } from './groqClient.js';
 import {
-  STUDY_ASSISTANT_PROMPT, TRANSLATION_SYSTEM_PROMPT, getToJapaneseTranslationPrompt
+  STUDY_ASSISTANT_PROMPT, TRANSLATION_SYSTEM_PROMPT, ROMANIZATION_SYSTEM_PROMPT,
+  getToJapaneseTranslationPrompt
 } from './prompts.js';
+
+// Set by translateWithAI on failure/empty-result so the UI can show a
+// specific reason instead of always blaming the API key — mirrors
+// grading.js's lastGradingErrorReason / whisper.js's lastWhisperErrorReason.
+let lastTranslationErrorReason = null;
+export function getLastTranslationErrorReason() {
+  return lastTranslationErrorReason;
+}
 
 function normalizeJapaneseTranslation(raw) {
   if (!raw) return '';
@@ -165,8 +174,12 @@ export async function translateToJapaneseWithAI(text, sourceLang = 'English') {
 }
 
 export async function translateWithAI(japaneseText, context = '') {
+  lastTranslationErrorReason = null;
   const route = await resolveAIRoute();
-  if (!route) return null;
+  if (!route) {
+    lastTranslationErrorReason = 'NO_AI_ACCESS';
+    return null;
+  }
 
   try {
     const userContent = context
@@ -190,11 +203,56 @@ export async function translateWithAI(japaneseText, context = '') {
         ]
       })
     });
+    if (!response.ok) {
+      const errText = await response.text().catch(() => '');
+      console.error('Translation API failed:', response.status, errText);
+      lastTranslationErrorReason = response.status === 429 ? 'RATE_LIMIT'
+        : response.status === 401 ? 'INVALID_KEY'
+        : 'API_ERROR_' + response.status;
+      return null;
+    }
+    const data = await response.json();
+    const text = (data.choices?.[0]?.message?.content || '').trim();
+    if (!text) lastTranslationErrorReason = 'EMPTY_RESPONSE';
+    return text;
+  } catch (e) {
+    console.error('Translation error:', e);
+    lastTranslationErrorReason = 'NETWORK_ERROR';
+    return null;
+  }
+}
+
+/**
+ * Romanize a Japanese answer via the Groq LLM — used for decks that don't
+ * ship their own romaji field (only the built-in Sample deck does).
+ */
+export async function getRomajiWithAI(japaneseText) {
+  const route = await resolveAIRoute();
+  if (!route) return null;
+
+  try {
+    const response = await fetch(route.chatUrl, {
+      method: 'POST',
+      headers: {
+        ...route.headers,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: getGradingModel(),
+        temperature: 0.1,
+        max_tokens: 250,
+        reasoning_effort: 'low',
+        messages: [
+          { role: 'system', content: ROMANIZATION_SYSTEM_PROMPT },
+          { role: 'user', content: japaneseText }
+        ]
+      })
+    });
     if (!response.ok) return null;
     const data = await response.json();
     return (data.choices?.[0]?.message?.content || '').trim();
   } catch (e) {
-    console.error('Translation error:', e);
+    console.error('Romanization error:', e);
     return null;
   }
 }

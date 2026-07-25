@@ -22,6 +22,7 @@ Rules:
 - CRITICAL SPOKEN TEST RULE: Ignore all differences between Kanji, Hiragana, Katakana, and Arabic numerals if they represent the exact same spoken word (e.g., "29" vs "にじゅうきゅう", "8つ" vs "やっつ", "3分" vs "さんぶん" vs "さんぷん" vs "三分", or "会社" vs "かいしゃ"). NEVER create a breakdown item for script differences or number formatting because they sound identical. Leave breakdown empty for these cases.
 - CRITICAL SPOKEN TEST RULE: Ignore all differences in Punctuation, Spaces, and Capitalization (e.g. Youtube vs YouTube). NEVER create a breakdown item for punctuation, spacing, or capitalization differences.
 - In breakdown items, \`original\` MUST be copied exactly from the student answer text. Never rewrite it in a different script (e.g., do not show katakana if the student used hiragana).
+- The \`corrected\` field MUST be grounded in the given Expected answer — it is the minimal fix that brings \`original\` in line with the Expected answer's specific wording and grammar pattern. NEVER substitute a different, unrelated-but-valid phrasing that doesn't come from the Expected answer, even if it also sounds natural.
 - DO NOT prepend or include the Question text in your \`suggested_answer\` or \`corrected\` fields. The student is answering the question, they should not repeat the question itself.
 - Return ONLY a valid JSON object. Do not include any preamble, markdown blocks, or conversational text. Start your response immediately with the opening brace '{'.
 - TONE GUIDELINE: Act as a supportive, encouraging, and patient language tutor. Avoid harsh words like "nonsensical", "wrong", or "incorrect". Focus on guidance and encouragement.
@@ -55,6 +56,9 @@ export const STUDY_ASSISTANT_PROMPT = 'You are a professional and encouraging Ja
 
 /** System prompt for translation. */
 export const TRANSLATION_SYSTEM_PROMPT = 'You are a Japanese-to-English translator for a JLPT speaking app. Translate the Japanese text to natural English. Use the provided context if available. If a word is ambiguous, lean towards simple everyday vocabulary (e.g. けいたい = mobile phone). Return ONLY the English translation, nothing else.';
+
+/** System prompt for romanizing a Japanese answer (custom decks have no stored romaji). */
+export const ROMANIZATION_SYSTEM_PROMPT = 'You are a Japanese romanization tool for a JLPT speaking app. Convert the given Japanese text (kanji and/or kana) into Hepburn romaji, exactly as it would be pronounced. Return ONLY the romaji, nothing else — no quotes, no explanation.';
 
 /** System prompt for translating learner input into Japanese. */
 export function getToJapaneseTranslationPrompt(sourceLang) {

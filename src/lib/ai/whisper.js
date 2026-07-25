@@ -4,6 +4,14 @@
 
 import { resolveAIRoute } from './groqClient.js';
 
+// Set by transcribeWithWhisper on failure/empty-result so the UI can show a
+// specific reason instead of one generic "transcription failed" message —
+// mirrors grading.js's lastGradingErrorReason pattern.
+let lastWhisperErrorReason = null;
+export function getLastWhisperErrorReason() {
+  return lastWhisperErrorReason;
+}
+
 /**
  * Transcribe an audio blob using Groq's Whisper endpoint.
  * @param {Blob} audioBlob - recorded audio
@@ -49,10 +57,15 @@ export async function transcribeForTool(audioBlob) {
 }
 
 export async function transcribeWithWhisper(audioBlob, expectedAnswer = '') {
+  lastWhisperErrorReason = null;
   const route = await resolveAIRoute();
-  if (!route) return null;
+  if (!route) {
+    lastWhisperErrorReason = 'NO_AI_ACCESS';
+    return null;
+  }
   if (!audioBlob || audioBlob.size === 0) {
-    console.error('Whisper request skipped: empty audio blob');
+    console.error('Whisper request skipped: empty audio blob — the recording captured no audio data.');
+    lastWhisperErrorReason = 'EMPTY_BLOB';
     return null;
   }
 
@@ -80,13 +93,22 @@ export async function transcribeWithWhisper(audioBlob, expectedAnswer = '') {
     if (!response.ok) {
       const errText = await response.text();
       console.error('Whisper API failed:', response.status, errText);
+      lastWhisperErrorReason = response.status === 429 ? 'RATE_LIMIT' : 'API_ERROR_' + response.status;
       return null;
     }
 
     const data = await response.json();
-    return data.text || '';
+    const text = data.text || '';
+    if (!text.trim()) {
+      // Request succeeded — Whisper just didn't hear anything transcribable
+      // (silence, mic captured no speech, or audio too quiet/garbled).
+      console.warn('Whisper returned an empty transcript for a', audioBlob.size, 'byte', audioBlob.type, 'clip.');
+      lastWhisperErrorReason = 'EMPTY_TRANSCRIPT';
+    }
+    return text;
   } catch (e) {
     console.error('Transcription error:', e);
+    lastWhisperErrorReason = 'NETWORK_ERROR';
     return null;
   }
 }
