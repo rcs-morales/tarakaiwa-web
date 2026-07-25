@@ -83,6 +83,8 @@
     <button class="btn btn-success hidden" id="btn-next">Next →</button>
     <button class="btn btn-secondary" id="btn-skip">Skip ▷</button>
   </div>
+
+  <p class="practice-ai-disclaimer">AI can make mistakes. Double-check the responses.</p>
 </div>
 
 <style>
@@ -171,6 +173,13 @@
     font-style: normal;
     opacity: 0.8;
     margin-bottom: 4px;
+  }
+
+  .practice-ai-disclaimer {
+    margin: 16px 0 4px;
+    font-size: 0.72rem;
+    color: var(--muted-2, var(--muted));
+    text-align: center;
   }
 
   /* Primary actions grow to fill the row on mobile so the thumb can't miss;
