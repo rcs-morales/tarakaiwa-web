@@ -9,6 +9,7 @@
   import { session } from '$lib/session.svelte.js';
   import { signInWithEmail, signInWithGoogle, onAuthChange, getCurrentUser } from '$lib/auth.js';
   import { setTab } from '$lib/shell.svelte.js';
+  import { WHATS_NEW_VERSION } from '$lib/whatsNew.js';
 
   let open = $state(false);
   let step = $state(1);
@@ -81,6 +82,9 @@
 
   function finish() {
     set(KEYS.SETUP_COMPLETE, '1');
+    // Nothing in the "what's new" list is new to someone who just onboarded —
+    // mark the current version seen so WhatsNewModal doesn't fire right after.
+    set(KEYS.WHATS_NEW_SEEN, WHATS_NEW_VERSION);
     open = false;
     setTab('practice');
   }
