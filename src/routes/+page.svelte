@@ -4,6 +4,7 @@
   import Shell from '$lib/components/Shell.svelte';
   import Onboarding from '$lib/components/Onboarding.svelte';
   import WhatsNewModal from '$lib/components/WhatsNewModal.svelte';
+  import VoicePackWarningModal from '$lib/components/VoicePackWarningModal.svelte';
   import Dashboard from '$lib/components/Dashboard.svelte';
   import Practice from '$lib/components/Practice.svelte';
   import Results from '$lib/components/Results.svelte';
@@ -54,6 +55,7 @@
 
 <Onboarding />
 <WhatsNewModal />
+<VoicePackWarningModal />
 
 <div id="final-score-overlay" class="hidden">
   <div class="final-score-card">

@@ -22,7 +22,7 @@
   --teal-lt:   #ff6b42;
   --correct:   #2e7d44;   /* success green */
   --wrong:     #c0553e;
-  --muted:     #a08b75;
+  --muted:     #7a6450;   /* darkened from #a08b75 — was ~3:1 on --paper, fails WCAG AA body text */
 
   /* Fonts — M PLUS Rounded 1c for the warm rounded UI, DM Mono for numerics */
   --font-ui:    'M PLUS Rounded 1c', 'Noto Sans JP', sans-serif;
@@ -51,7 +51,7 @@
   --desk:            #efeae0;
   --card-border:     #f1e3cc;
   --faint:           #f3e8d5;
-  --muted-2:         #8a7560;
+  --muted-2:         #806b56;   /* darkened from #8a7560 for the same contrast reason as --muted */
   --primary:         #f4562a;
   --primary-shadow:  #c23a16;   /* press-down bottom shadow */
   --primary-tint:    #ffe9df;   /* pill bg / active tab */
@@ -269,6 +269,10 @@ rt {
 /* â”€â”€ Translate feature â”€â”€ */
 .translate-row {
   margin-bottom: 28px;
+}
+.translate-actions {
+  display: flex;
+  gap: 16px;
 }
 .translate-link {
   display: inline-block;
@@ -1745,12 +1749,19 @@ body.aids-hide-furigana #screen-practice rt {
   display: none;
 }
 
-body.aids-hide-romaji #target-romaji-text {
+body.aids-hide-romaji #target-romaji-text,
+body.aids-hide-romaji #expected-ans-romaji,
+body.aids-hide-romaji #btn-romaji,
+body.aids-hide-romaji #romaji-result {
   display: none !important;
 }
 
 /* !important — session.svelte.js shows/hides #translate-row with inline style */
-body.aids-hide-en #translate-row,
-body.aids-hide-en #answer-translation {
+body.aids-hide-en #btn-translate,
+body.aids-hide-en #translate-result,
+body.aids-hide-en #answer-translation,
+body.aids-hide-en #user-ans-trans,
+body.aids-hide-en #expected-ans-trans,
+body.aids-hide-en #target-answer-trans {
   display: none !important;
 }

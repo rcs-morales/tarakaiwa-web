@@ -7,7 +7,8 @@ import {
 import {
   getGradingModel, hasAIAccess,
   gradeWithAI, transcribeWithWhisper, isCorrectLocal,
-  translateWithAI, getLastGradingErrorReason
+  translateWithAI, getRomajiWithAI, getLastGradingErrorReason, getLastWhisperErrorReason,
+  getLastTranslationErrorReason
 } from './ai/index.js';
 import { updateQuotaDisplay } from './quota.js';
 import { get, set, KEYS } from './settings.js';
@@ -16,8 +17,9 @@ import { recordSession } from './history.svelte.js';
 import { getIsChecking, setIsChecking } from './sessionFlags.js';
 import {
   speakQuestion, speakFeedback, cancelSpeech, preloadVoicevoxAudio,
-  startVoicevoxWarmup, VOICEVOX_STOCK_PHRASES, unlockAudioForMobile
+  startVoicevoxWarmup, VOICEVOX_STOCK_PHRASES, unlockAudioForMobile, getVoicePackStatus
 } from './tts.js';
+import { requestVoicePackConfirmation } from './voicePackPrompt.svelte.js';
 import {
   initRecognizer, startListening, abortRecognition,
   startAIRecording, stopAIRecording, getLiveTranscript,
@@ -110,13 +112,19 @@ export async function startPractice() {
     initRecognizer();
   }
 
-  // ── Warm the Voicevox cache in the background ──
-  // Practice starts immediately; audio downloads quietly in question order
-  // (post-shuffle) plus the stock feedback phrases. Playback fetches on
-  // demand if it gets ahead — the >2.5s "Loading Cloud Voice" overlay in
-  // tts.js covers that visibly.
+  // ── Voicevox cache: warn before committing if it isn't fully warmed ──
+  // A mid-session "Loading Cloud Voice…" delay is a worse surprise than a
+  // heads-up now. Silent + immediate when the pack is already complete.
   if (get(KEYS.TTS_MODE) === 'voicevox') {
-    startVoicevoxWarmup([...session.qa.map(q => q.q), ...VOICEVOX_STOCK_PHRASES]);
+    const texts = [...session.qa.map(q => q.q), ...VOICEVOX_STOCK_PHRASES];
+    const { cached, total } = await getVoicePackStatus(texts);
+    if (cached < total) {
+      const proceed = await requestVoicePackConfirmation(cached, total);
+      if (!proceed) return;
+    }
+    // Downloads quietly in question order (post-shuffle) plus the stock
+    // feedback phrases; playback fetches on demand if it gets ahead.
+    startVoicevoxWarmup(texts);
   }
 
   showPracticeScreen();
@@ -124,6 +132,7 @@ export async function startPractice() {
 }
 
 export async function loadQuestion() {
+  clearHintTimer();
   const item = session.qa[session.current];
   const qText = document.getElementById('question-text');
   qText.textContent = item.q;
@@ -140,6 +149,11 @@ export async function loadQuestion() {
   if (translateRow) translateRow.style.display = 'none';
   if (translateResult) { translateResult.textContent = ''; translateResult.classList.remove('visible'); }
   if (translateLink) { translateLink.textContent = '🌐 Translate'; translateLink.classList.remove('loading'); }
+
+  const romajiResult = document.getElementById('romaji-result');
+  const romajiLink = document.getElementById('btn-romaji');
+  if (romajiResult) { romajiResult.textContent = ''; romajiResult.classList.remove('visible'); }
+  if (romajiLink) { romajiLink.textContent = '🔤 Romaji'; romajiLink.classList.remove('loading'); }
 
   showAnswerTranslation('');
 
@@ -204,6 +218,17 @@ export function toggleQuestionText() {
   }
 }
 
+// Maps translateWithAI's failure reason to something more useful than a
+// blanket "check your API key" — most failures aren't actually a bad key.
+function translationFailureReasonText() {
+  return {
+    RATE_LIMIT: 'Shared daily quota reached — try again later, or add your own Groq key in settings.',
+    INVALID_KEY: 'Your Groq API key looks invalid — check it in settings.',
+    NETWORK_ERROR: 'Couldn’t reach the translation service — check your connection and try again.',
+    EMPTY_RESPONSE: 'The AI returned an empty translation — try again.',
+  }[getLastTranslationErrorReason()] || null;
+}
+
 const translationCache = new Map();
 
 export async function translateQuestion() {
@@ -249,9 +274,58 @@ export async function translateQuestion() {
     result.classList.add('visible');
     link.textContent = '🌐 Hide Translation';
   } else {
-    result.textContent = '❌ Translation failed. Check your API key or try again.';
+    result.textContent = '❌ ' + (translationFailureReasonText() || 'Translation failed. Check your API key or try again.');
     result.classList.add('visible');
     link.textContent = '🌐 Translate';
+  }
+}
+
+const romajiCache = new Map();
+
+export async function getQuestionRomaji() {
+  const item = session.qa[session.current];
+  if (!item) return;
+
+  const link = document.getElementById('btn-romaji');
+  const result = document.getElementById('romaji-result');
+  if (!link || !result) return;
+
+  if (link.classList.contains('loading')) return;
+
+  if (result.classList.contains('visible')) {
+    result.classList.remove('visible');
+    link.textContent = '🔤 Romaji';
+    return;
+  }
+
+  if (romajiCache.has(item.q)) {
+    result.textContent = romajiCache.get(item.q);
+    result.classList.add('visible');
+    link.textContent = '🔤 Hide Romaji';
+    return;
+  }
+
+  if (!hasAIAccess()) {
+    result.textContent = '⚠️ Romaji needs AI access — sign in or add a Groq key in Settings.';
+    result.classList.add('visible');
+    return;
+  }
+
+  link.textContent = '⏳ Loading…';
+  link.classList.add('loading');
+
+  const romaji = await getRomajiWithAI(item.q);
+  link.classList.remove('loading');
+
+  if (romaji) {
+    romajiCache.set(item.q, romaji);
+    result.textContent = romaji;
+    result.classList.add('visible');
+    link.textContent = '🔤 Hide Romaji';
+  } else {
+    result.textContent = '❌ Romaji failed. Try again.';
+    result.classList.add('visible');
+    link.textContent = '🔤 Romaji';
   }
 }
 
@@ -264,6 +338,99 @@ function speakThenListen(item) {
       beginListen();
     }, 800);
   });
+}
+
+// ─────────────────────────────────────────────
+// STUCK-ANSWER HINT — offers a "Taking a While? Tap to Reveal Answer" prompt
+// (opt-in, never automatic) whenever the learner has gone quiet too long —
+// either before saying anything, or mid-answer if they pause. It keeps
+// watching the whole time listening is active: if they resume speaking
+// after the prompt appears, it hides again; if they pause again, it
+// re-shows after another quiet window.
+//
+// Detection is based on the live transcript changing, which only streams in
+// real time for browser STT. Whisper/AI recording has no partial transcript
+// until it stops, so there's no way to see them mid-answer — the transcript
+// just sits unchanged whether they're mid-sentence or done and forgot to
+// hit Finish. AI mode therefore uses a longer flat delay (a "reasonable
+// time to have finished speaking and pressed Finish Recording") instead of
+// the short pause-detection window that browser STT can afford.
+// ─────────────────────────────────────────────
+const HINT_DELAY_MS = 4000;       // browser STT — real pause detection
+const HINT_DELAY_AI_MS = 15000;   // AI/Whisper — no live signal, so just "reasonable time to finish"
+const HINT_POLL_MS = 400;
+let hintPollTimer = null;
+let hintLastTranscript = '';
+let hintQuietSinceMs = 0;
+let hintDelayMs = HINT_DELAY_MS;
+
+function clearHintTimer() {
+  if (hintPollTimer) { clearInterval(hintPollTimer); hintPollTimer = null; }
+  showBtn('btn-hint-prompt', false);
+}
+
+function scheduleHint(item, isAiMode) {
+  clearHintTimer();
+  hintDelayMs = isAiMode ? HINT_DELAY_AI_MS : HINT_DELAY_MS;
+  hintLastTranscript = getLiveTranscript();
+  hintQuietSinceMs = Date.now();
+
+  hintPollTimer = setInterval(() => {
+    if (session.qa[session.current] !== item) { clearHintTimer(); return; }
+
+    const targetBox = document.getElementById('target-answer-box');
+    if (targetBox && targetBox.style.display === 'block') { clearHintTimer(); return; } // tutorial/no-AI already showing it
+
+    const current = getLiveTranscript();
+    if (current !== hintLastTranscript) {
+      // New speech since the last check — they're actively answering.
+      // Reset the quiet window and hide the prompt if it was showing.
+      hintLastTranscript = current;
+      hintQuietSinceMs = Date.now();
+      showBtn('btn-hint-prompt', false);
+      return;
+    }
+
+    if (Date.now() - hintQuietSinceMs >= hintDelayMs) {
+      showBtn('btn-hint-prompt', true);
+    }
+  }, HINT_POLL_MS);
+}
+
+export function revealAnswerHint() {
+  showBtn('btn-hint-prompt', false);
+
+  const item = session.qa[session.current];
+  const targetBox = document.getElementById('target-answer-box');
+  if (!item || !targetBox || targetBox.style.display === 'block') return;
+
+  const label = document.getElementById('target-label');
+  if (label) label.textContent = '💡 Full Answer';
+  document.getElementById('target-answer-text').textContent = item.a;
+
+  const romajiEl = document.getElementById('target-romaji-text');
+  const transEl = document.getElementById('target-answer-trans');
+
+  if (romajiEl) {
+    if (item.r) {
+      romajiEl.textContent = item.r;
+    } else if (get(KEYS.SHOW_ROMAJI) !== '0' && hasAIAccess()) {
+      romajiEl.textContent = 'Loading romaji…';
+      getRomajiWithAI(item.a).then(romaji => { romajiEl.textContent = romaji || ''; });
+    } else {
+      romajiEl.textContent = '';
+    }
+  }
+  if (transEl) {
+    if (get(KEYS.SHOW_EN_HINTS) !== '0' && hasAIAccess()) {
+      transEl.textContent = 'Translating…';
+      translateWithAI(item.a, item.q).then(t => { transEl.textContent = t || ''; });
+    } else {
+      transEl.textContent = '';
+    }
+  }
+
+  targetBox.style.display = 'block';
 }
 
 async function beginListen() {
@@ -298,6 +465,7 @@ async function beginListen() {
 
   const sttMode = get(KEYS.STT_MODE) || 'ai';
   const useWhisper = sttMode === 'ai' && hasAIAccess();
+  let isAiMode = useWhisper;
 
   if (useWhisper) {
     const started = await startAIRecording((err) => {
@@ -310,6 +478,7 @@ async function beginListen() {
     });
 
     if (!started) {
+      isAiMode = false; // fell back to browser recognition — it does stream live results
       setStatus('listening', '🌐 Browser recognition fallback (AI mic unavailable)');
       try {
         startListening((err) => {
@@ -342,11 +511,14 @@ async function beginListen() {
       showBtn('btn-skip',     true);
     }, formatLiveTranscript);
   }
+
+  scheduleHint(item, isAiMode);
 }
 
 export async function finishRecording() {
   if (getIsChecking()) return;
   setIsChecking(true);
+  clearHintTimer();
 
   showBtn('btn-submit', false);
   showBtn('btn-rerecord', false);
@@ -355,6 +527,7 @@ export async function finishRecording() {
   const sttMode = get(KEYS.STT_MODE) || 'ai';
   const item = session.qa[session.current];
 
+  let whisperFailReason = null;
   if (sttMode === 'ai' && hasAIAccess()) {
     setStatus('checking', '🤖 Transcribing audio…');
     const ct = document.getElementById('transcript-content');
@@ -370,7 +543,12 @@ export async function finishRecording() {
       } else {
         setLiveTranscript('');
         showTranscript('', false);
+        whisperFailReason = getLastWhisperErrorReason();
       }
+    } else {
+      // stopAIRecording() returned null — the recorder never captured
+      // anything (e.g. it never actually started on this device).
+      whisperFailReason = 'NO_RECORDING';
     }
   } else {
     setStatus('checking', '⌛ Processing transcript…');
@@ -381,7 +559,14 @@ export async function finishRecording() {
   const raw = getLiveTranscript().trim();
 
   if (!raw || raw.startsWith('Transcribing')) {
-    setStatus('', 'Transcription failed or no speech captured — try re-recording.');
+    const message = {
+      NO_RECORDING: 'No recording was captured — check microphone permissions and try again.',
+      EMPTY_BLOB: 'No audio was captured — check your microphone permissions and try again.',
+      EMPTY_TRANSCRIPT: 'Didn’t catch any speech in that recording — try speaking louder or closer to the mic, then re-record.',
+      NETWORK_ERROR: 'Couldn’t reach the transcription service — check your connection and try again.',
+      RATE_LIMIT: 'Shared daily quota reached — try again later, or add your own Groq key in settings.',
+    }[whisperFailReason] || 'Transcription failed or no speech captured — try re-recording.';
+    setStatus('', message);
     showBtn('btn-rerecord', true);
     showBtn('btn-skip',     true);
     setIsChecking(false);
@@ -496,43 +681,62 @@ export async function checkAnswer() {
   showResult(gradeResult, item.a);
   showResultPanel(true);
 
-  if (hasAIAccess()) {
-    updateCheckedTranslation('user-ans-trans', 'Translating your answer...');
-    updateCheckedTranslation('expected-ans-trans', 'Translating expected answer...');
-    
-    (async () => {
-      let userTrans = null;
-      try {
-        userTrans = await translateWithAI(raw, item.q);
-      } catch (e) {}
-      
-      if (userTrans) {
-        updateCheckedTranslation('user-ans-trans', 'You said: ' + userTrans);
-      } else {
-        const query = encodeURIComponent(raw);
-        const url = `https://translate.google.com/?sl=ja&tl=en&text=${query}&op=translate`;
-        updateCheckedTranslation('user-ans-trans', `⚠️ AI Translation failed. <a href="${url}" target="_blank" style="color: var(--teal); text-decoration: underline;">Translate on Google ↗</a>`);
-      }
-      
-      let expTrans = null;
-      try {
-        expTrans = await translateWithAI(item.a, item.q);
-      } catch (e) {}
-      
-      if (expTrans) {
-        updateCheckedTranslation('expected-ans-trans', expTrans);
-      } else {
-        const expectedUrl = `https://translate.google.com/?sl=ja&tl=en&text=${encodeURIComponent(item.a)}&op=translate`;
-        updateCheckedTranslation('expected-ans-trans', `⚠️ AI Translation failed. <a href="${expectedUrl}" target="_blank" style="color: var(--teal); text-decoration: underline;">Translate on Google ↗</a>`);
-      }
-    })();
-  } else {
-    const query = encodeURIComponent(raw);
-    const url = `https://translate.google.com/?sl=ja&tl=en&text=${query}&op=translate`;
-    updateCheckedTranslation('user-ans-trans', `🌐 <a href="${url}" target="_blank" style="color: var(--teal); text-decoration: underline;">Translate what you said on Google Translate ↗</a>`);
-    
-    const expectedUrl = `https://translate.google.com/?sl=ja&tl=en&text=${encodeURIComponent(item.a)}&op=translate`;
-    updateCheckedTranslation('expected-ans-trans', `🌐 <a href="${expectedUrl}" target="_blank" style="color: var(--teal); text-decoration: underline;">Translate expected answer on Google Translate ↗</a>`);
+  // Romaji: prefer the deck's own stored reading (free, instant — only the
+  // built-in Sample deck has one) and only fall back to an AI call for
+  // decks that don't. Skipped entirely when the aid is toggled off, both to
+  // respect the setting and to avoid burning API quota on a hidden element.
+  if (get(KEYS.SHOW_ROMAJI) !== '0') {
+    if (item.r) {
+      updateCheckedTranslation('expected-ans-romaji', item.r);
+    } else if (hasAIAccess()) {
+      updateCheckedTranslation('expected-ans-romaji', 'Loading romaji…');
+      getRomajiWithAI(item.a)
+        .then(romaji => updateCheckedTranslation('expected-ans-romaji', romaji || ''))
+        .catch(() => updateCheckedTranslation('expected-ans-romaji', ''));
+    }
+  }
+
+  if (get(KEYS.SHOW_EN_HINTS) !== '0') {
+    if (hasAIAccess()) {
+      updateCheckedTranslation('user-ans-trans', 'Translating your answer...');
+      updateCheckedTranslation('expected-ans-trans', 'Translating expected answer...');
+
+      (async () => {
+        let userTrans = null;
+        try {
+          userTrans = await translateWithAI(raw, item.q);
+        } catch (e) {}
+
+        if (userTrans) {
+          updateCheckedTranslation('user-ans-trans', 'You said: ' + userTrans);
+        } else {
+          const query = encodeURIComponent(raw);
+          const url = `https://translate.google.com/?sl=ja&tl=en&text=${query}&op=translate`;
+          const reasonText = translationFailureReasonText();
+          updateCheckedTranslation('user-ans-trans', `⚠️ ${reasonText || 'AI Translation failed.'} <a href="${url}" target="_blank" style="color: var(--teal); text-decoration: underline;">Translate on Google ↗</a>`);
+        }
+
+        let expTrans = null;
+        try {
+          expTrans = await translateWithAI(item.a, item.q);
+        } catch (e) {}
+
+        if (expTrans) {
+          updateCheckedTranslation('expected-ans-trans', expTrans);
+        } else {
+          const expectedUrl = `https://translate.google.com/?sl=ja&tl=en&text=${encodeURIComponent(item.a)}&op=translate`;
+          const reasonText = translationFailureReasonText();
+          updateCheckedTranslation('expected-ans-trans', `⚠️ ${reasonText || 'AI Translation failed.'} <a href="${expectedUrl}" target="_blank" style="color: var(--teal); text-decoration: underline;">Translate on Google ↗</a>`);
+        }
+      })();
+    } else {
+      const query = encodeURIComponent(raw);
+      const url = `https://translate.google.com/?sl=ja&tl=en&text=${query}&op=translate`;
+      updateCheckedTranslation('user-ans-trans', `🌐 <a href="${url}" target="_blank" style="color: var(--teal); text-decoration: underline;">Translate what you said on Google Translate ↗</a>`);
+
+      const expectedUrl = `https://translate.google.com/?sl=ja&tl=en&text=${encodeURIComponent(item.a)}&op=translate`;
+      updateCheckedTranslation('expected-ans-trans', `🌐 <a href="${expectedUrl}" target="_blank" style="color: var(--teal); text-decoration: underline;">Translate expected answer on Google Translate ↗</a>`);
+    }
   }
 
   cancelSpeech('practice');
@@ -558,6 +762,7 @@ export async function checkAnswer() {
 }
 
 export async function rerecordAnswer() {
+  clearHintTimer();
   const item = session.qa[session.current];
   await ensureMicAccess();
   abortRecognition();
@@ -575,6 +780,7 @@ export async function rerecordAnswer() {
 }
 
 export async function nextQuestion() {
+  clearHintTimer();
   cancelSpeech('practice');
   await ensureMicAccess();
   abortRecognition();
@@ -587,6 +793,7 @@ export async function nextQuestion() {
 }
 
 export async function skipQuestion() {
+  clearHintTimer();
   cancelSpeech('practice');
   await ensureMicAccess();
   abortRecognition();
@@ -600,6 +807,7 @@ export async function skipQuestion() {
 }
 
 export function endSession() {
+  clearHintTimer();
   cancelSpeech('practice');
   abortRecognition();
   releaseMic();

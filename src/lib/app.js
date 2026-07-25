@@ -18,10 +18,11 @@ import { abortRecognition, releaseMic } from './stt.js';
 import { get, set, remove, KEYS } from './settings.js';
 import { initPrefs } from './prefs.svelte.js';
 import {
-  toggleQuestionText, translateQuestion,
+  toggleQuestionText, translateQuestion, getQuestionRomaji,
   finishRecording, checkAnswer, rerecordAnswer, nextQuestion,
   skipQuestion, endSession, session,
-  editTranscript, saveEditedTranscript, cancelEditTranscript
+  editTranscript, saveEditedTranscript, cancelEditTranscript,
+  revealAnswerHint
 } from './session.svelte.js';
 import {
   handleAssistantQuery, initAiPanelInteractivity, initAssistantFloatButton,
@@ -298,6 +299,8 @@ export function initApp() {
   // kept synchronous for the mobile audio unlock).
   bind('btn-toggle-question', toggleQuestionText);
   bind('btn-translate', translateQuestion);
+  bind('btn-romaji', getQuestionRomaji);
+  bind('btn-hint-prompt', revealAnswerHint);
   bind('btn-submit', finishRecording);
   bind('btn-check', checkAnswer);
   bind('btn-edit-transcript', editTranscript);
