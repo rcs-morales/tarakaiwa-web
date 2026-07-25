@@ -356,8 +356,8 @@ function speakThenListen(item) {
 // time to have finished speaking and pressed Finish Recording") instead of
 // the short pause-detection window that browser STT can afford.
 // ─────────────────────────────────────────────
-const HINT_DELAY_MS = 4000;       // browser STT — real pause detection
-const HINT_DELAY_AI_MS = 15000;   // AI/Whisper — no live signal, so just "reasonable time to finish"
+const HINT_DELAY_MS = 3000;       // browser STT — real pause detection
+const HINT_DELAY_AI_MS = 4000;   // AI/Whisper — same but with no mid transcript updates, so it's just a flat delay.
 const HINT_POLL_MS = 400;
 let hintPollTimer = null;
 let hintLastTranscript = '';
