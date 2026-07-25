@@ -334,34 +334,51 @@ async function speakWithVoicevox(text, onEnd, context, rate = 1) {
 
     if (chan.url) URL.revokeObjectURL(chan.url);
     chan.url = URL.createObjectURL(blob);
-    
+
     if (!chan.audio) chan.audio = new Audio();
     chan.audio.src = chan.url;
     chan.audio.volume = 1; // restore volume in case it was muted by unlockAudioForMobile
     chan.audio.playbackRate = rate;
+
+    let finished = false;
+    let watchdogTimer = null;
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      if (watchdogTimer) clearTimeout(watchdogTimer);
+      if (chan.url) URL.revokeObjectURL(chan.url);
+      chan.url = null;
+      if (onEnd) onEnd();
+    };
+
+    // Safety net: mobile browsers can silently drop the `ended`/`error`
+    // events (backgrounded tab, OS media-session interruption), leaving the
+    // avatar stuck mid-bounce forever since nothing ever calls toggleSpeaking
+    // (false). Fall back to a hard timeout sized to the clip's own duration
+    // (once known) so a missed event still resolves.
+    const armWatchdog = () => {
+      if (finished || watchdogTimer) return;
+      const knownMs = Number.isFinite(chan.audio.duration) && chan.audio.duration > 0
+        ? chan.audio.duration * 1000
+        : 20000;
+      watchdogTimer = setTimeout(finish, knownMs / Math.max(rate, 0.1) + 3000);
+    };
+
+    chan.audio.onloadedmetadata = armWatchdog;
 
     chan.audio.onplay = () => {
       if (context === 'practice') {
         toggleSpeaking(true);
         setStatus('speaking', 'Speaking question…');
       }
+      armWatchdog();
     };
 
-    chan.audio.onended = () => {
-      if (chan.url) URL.revokeObjectURL(chan.url);
-      chan.url = null;
-      if (onEnd) onEnd();
-    };
-    chan.audio.onerror = () => {
-      if (chan.url) URL.revokeObjectURL(chan.url);
-      chan.url = null;
-      if (onEnd) onEnd();
-    };
+    chan.audio.onended = finish;
+    chan.audio.onerror = finish;
     chan.audio.play().catch(err => {
       console.warn(`[${context}] Audio play caught error:`, err);
-      if (chan.url) URL.revokeObjectURL(chan.url);
-      chan.url = null;
-      if (onEnd) onEnd();
+      finish();
     });
   } catch (err) {
     clearTimeout(loadingTimer);
