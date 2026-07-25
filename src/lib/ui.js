@@ -84,12 +84,16 @@ export function showResult(gradeResult, answer) {
   const strong = document.createElement('strong');
   strong.textContent = correct ? 'Expected answer: ' : 'Expected: ';
   const text = document.createTextNode(answer);
-  
+
+  const romajiContainer = document.createElement('div');
+  romajiContainer.id = 'expected-ans-romaji';
+  romajiContainer.className = 'target-romaji';
+
   const transContainer = document.createElement('div');
   transContainer.id = 'expected-ans-trans';
   transContainer.className = 'trans-small';
-  
-  rev.append(strong, text, transContainer);
+
+  rev.append(strong, text, romajiContainer, transContainer);
 
   aiFb.replaceChildren();
   if (gradeResult.source === 'groq') {

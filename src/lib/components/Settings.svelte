@@ -46,7 +46,7 @@
 
   const AIDS = [
     { name: 'furigana', jp: 'ふりがな', en: 'Furigana', hint: 'Kana readings above kanji' },
-    { name: 'romaji', jp: 'ローマ字', en: 'Romaji', hint: 'Latin letters under the target answer' },
+    { name: 'romaji', jp: 'ローマ字', en: 'Romaji', hint: 'Latin letters under the expected answer' },
     { name: 'enHints', jp: '英語ヒント', en: 'English hints', hint: 'Translate links and answer translations' },
   ];
 </script>

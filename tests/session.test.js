@@ -34,6 +34,10 @@ vi.mock('../src/lib/ai/index.js', () => ({
   transcribeWithWhisper: vi.fn(),
   isCorrectLocal: vi.fn(),
   translateWithAI: vi.fn().mockResolvedValue('Translated text'),
+  getRomajiWithAI: vi.fn().mockResolvedValue('romaji'),
+  getLastGradingErrorReason: vi.fn().mockReturnValue(null),
+  getLastWhisperErrorReason: vi.fn().mockReturnValue(null),
+  getLastTranslationErrorReason: vi.fn().mockReturnValue(null),
 }));
 
 vi.mock('../src/lib/settings.js', () => ({
@@ -58,8 +62,15 @@ vi.mock('../src/lib/tts.js', () => ({
   preloadVoicevoxAudio: vi.fn(),
   preloadAllVoicevoxAudio: vi.fn().mockResolvedValue(undefined),
   startVoicevoxWarmup: vi.fn(),
+  // Fully cached by default so existing tests exercise the direct-warmup
+  // path unchanged; tests targeting the confirmation prompt override this.
+  getVoicePackStatus: vi.fn().mockImplementation((texts) => Promise.resolve({ cached: texts.length, total: texts.length })),
   VOICEVOX_STOCK_PHRASES: [],
   unlockAudioForMobile: vi.fn(),
+}));
+
+vi.mock('../src/lib/voicePackPrompt.svelte.js', () => ({
+  requestVoicePackConfirmation: vi.fn().mockResolvedValue(true),
 }));
 
 vi.mock('../src/lib/stt.js', () => ({

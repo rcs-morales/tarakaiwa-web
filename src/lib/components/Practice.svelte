@@ -27,8 +27,12 @@
   </div>
   <div class="question-text" id="question-text" style="display: none;">—</div>
   <div class="translate-row" id="translate-row" style="display: none;">
-    <span class="translate-link" id="btn-translate">🌐 Translate</span>
+    <div class="translate-actions">
+      <span class="translate-link" id="btn-translate">🌐 Translate</span>
+      <span class="translate-link" id="btn-romaji">🔤 Romaji</span>
+    </div>
     <div class="translate-result" id="translate-result"></div>
+    <div class="translate-result" id="romaji-result"></div>
   </div>
 
   <div class="warning-box" id="warning-box">
@@ -41,10 +45,13 @@
     <div class="status-text" id="status-text">Initializing...</div>
   </div>
 
+  <button class="hint-prompt-btn hidden" id="btn-hint-prompt">💡 Taking a While? Tap to Reveal Answer</button>
+
   <div class="target-answer-box" id="target-answer-box">
-    <div class="target-label" id="target-label">🎯 Target Answer</div>
+    <div class="target-label" id="target-label">🎯 Expected Answer</div>
     <div id="target-answer-text">—</div>
     <div id="target-romaji-text" class="target-romaji">—</div>
+    <div id="target-answer-trans" class="trans-small"></div>
   </div>
 
   <div class="transcript-box" id="transcript-box">
@@ -135,6 +142,29 @@
     padding: 8px 12px;
     font-size: 0.8rem;
     min-height: 44px; /* thumb target even though it looks compact */
+  }
+
+  /* ── Hint prompt: opt-in nudge, not an unrequested answer reveal ── */
+  .hint-prompt-btn {
+    display: block;
+    width: 100%;
+    min-height: 44px;
+    margin-bottom: 16px;
+    padding: 10px 16px;
+    border-radius: 12px;
+    border: 1.5px dashed var(--primary);
+    background: var(--primary-tint);
+    color: var(--primary);
+    font-family: var(--font-ui);
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    animation: hint-prompt-pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes hint-prompt-pulse {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0.7; }
   }
 
   .practice-answer-translation {
