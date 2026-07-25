@@ -332,6 +332,12 @@ async function speakWithVoicevox(text, onEnd, context, rate = 1) {
     hideVoicevoxLoading();
     if (!blob) throw new Error("Could not fetch Voicevox audio");
 
+    // A previous call on this channel that cancelSpeech() cut short may
+    // still have a watchdog pending (see below) — disarm it now, before it
+    // can fire later and revoke *this* call's URL / toggle speaking off the
+    // back of stale state.
+    if (chan.cancelWatchdog) { chan.cancelWatchdog(); chan.cancelWatchdog = null; }
+
     if (chan.url) URL.revokeObjectURL(chan.url);
     chan.url = URL.createObjectURL(blob);
 
@@ -346,9 +352,23 @@ async function speakWithVoicevox(text, onEnd, context, rate = 1) {
       if (finished) return;
       finished = true;
       if (watchdogTimer) clearTimeout(watchdogTimer);
+      chan.cancelWatchdog = null;
+      // Force .paused/.ended to a known state even when the watchdog (not a
+      // real 'ended'/'error' event) is what triggered this — otherwise the
+      // cross-context "is the other channel still speaking?" checks below
+      // and in cancelSpeech() keep seeing a stuck audio element as playing.
+      try { chan.audio?.pause(); } catch (_) { }
       if (chan.url) URL.revokeObjectURL(chan.url);
       chan.url = null;
       if (onEnd) onEnd();
+    };
+    // cancelSpeech() can't see this call's local `finished`/`watchdogTimer` —
+    // expose a way to silently disarm the watchdog (no onEnd, no URL
+    // revocation — cancelSpeech() already handles both itself) so a stale
+    // timer from an interrupted call can never fire after the fact.
+    chan.cancelWatchdog = () => {
+      finished = true;
+      if (watchdogTimer) clearTimeout(watchdogTimer);
     };
 
     // Safety net: mobile browsers can silently drop the `ended`/`error`
@@ -428,6 +448,11 @@ function speakWithBrowser(text, onEnd, context, rate = 1) {
 
 export function cancelSpeech(context = 'practice') {
   const chan = channels[context];
+
+  // Disarm any pending Voicevox watchdog for this channel — otherwise it
+  // can fire later (after this cancellation) against a since-replaced
+  // audio/url, based on this call's now-stale closure state.
+  if (chan.cancelWatchdog) { chan.cancelWatchdog(); chan.cancelWatchdog = null; }
 
   // Browser TTS: Always cancels everything (API limitation)
   const synth = window.speechSynthesis;
