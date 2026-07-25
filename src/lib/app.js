@@ -20,7 +20,8 @@ import { initPrefs } from './prefs.svelte.js';
 import {
   toggleQuestionText, translateQuestion,
   finishRecording, checkAnswer, rerecordAnswer, nextQuestion,
-  skipQuestion, endSession, session
+  skipQuestion, endSession, session,
+  editTranscript, saveEditedTranscript, cancelEditTranscript
 } from './session.svelte.js';
 import {
   handleAssistantQuery, initAiPanelInteractivity, initAssistantFloatButton,
@@ -299,6 +300,9 @@ export function initApp() {
   bind('btn-translate', translateQuestion);
   bind('btn-submit', finishRecording);
   bind('btn-check', checkAnswer);
+  bind('btn-edit-transcript', editTranscript);
+  bind('btn-save-edit', saveEditedTranscript);
+  bind('btn-cancel-edit', cancelEditTranscript);
   bind('btn-rerecord', rerecordAnswer);
   bind('btn-next', nextQuestion);
   bind('btn-skip', skipQuestion);

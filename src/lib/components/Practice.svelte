@@ -68,7 +68,10 @@
     <div class="btn-group-record">
       <button class="btn btn-submit hidden" id="btn-submit">■ Finish Recording</button>
       <button class="btn btn-primary hidden" id="btn-check">✔ Check Answer</button>
+      <button class="btn btn-secondary hidden" id="btn-edit-transcript" title="Fix a transcription mistake without re-recording">✏️ Edit</button>
       <button class="btn btn-secondary hidden" id="btn-rerecord">🎤 Try again</button>
+      <button class="btn btn-primary hidden" id="btn-save-edit">💾 Save</button>
+      <button class="btn btn-secondary hidden" id="btn-cancel-edit">✕ Cancel</button>
     </div>
     <button class="btn btn-success hidden" id="btn-next">Next →</button>
     <button class="btn btn-secondary" id="btn-skip">Skip ▷</button>
