@@ -152,6 +152,9 @@ export async function loadQuestion() {
   showBtn('btn-submit',   false);
   showBtn('btn-next',     false);
   showBtn('btn-rerecord', false);
+  showBtn('btn-edit-transcript', false);
+  showBtn('btn-save-edit', false);
+  showBtn('btn-cancel-edit', false);
   showBtn('btn-skip',     true);
 
   const targetBox = document.getElementById('target-answer-box');
@@ -387,6 +390,7 @@ export async function finishRecording() {
 
   setStatus('', 'Transcript ready. Review it, then click Check Answer.');
   showBtn('btn-check', true);
+  showBtn('btn-edit-transcript', true);
   showBtn('btn-rerecord', true);
   showBtn('btn-skip', true);
   setIsChecking(false);
@@ -395,11 +399,69 @@ export async function finishRecording() {
   updateQuotaDisplay();
 }
 
+// ─────────────────────────────────────────────
+// TRANSCRIPT EDITING — fixes STT/Whisper mis-transcriptions that a
+// re-recording can't (the spoken answer was already correct, the
+// recognizer just misheard it). Only available during the post-recording
+// review step, before Check Answer is pressed.
+// ─────────────────────────────────────────────
+
+export function editTranscript() {
+  const ct = document.getElementById('transcript-content');
+  const ph = document.getElementById('transcript-placeholder');
+  if (!ct) return;
+
+  const textarea = document.createElement('textarea');
+  textarea.id = 'transcript-edit-input';
+  textarea.className = 'transcript-edit-input';
+  textarea.value = getLiveTranscript();
+  ct.replaceChildren(textarea);
+  ct.classList.remove('hidden');
+  if (ph) ph.classList.add('hidden');
+  textarea.focus();
+  textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+
+  showBtn('btn-check', false);
+  showBtn('btn-rerecord', false);
+  showBtn('btn-skip', false);
+  showBtn('btn-edit-transcript', false);
+  showBtn('btn-save-edit', true);
+  showBtn('btn-cancel-edit', true);
+}
+
+export function saveEditedTranscript() {
+  const textarea = document.getElementById('transcript-edit-input');
+  if (!textarea) return;
+
+  const edited = textarea.value.trim();
+  if (!edited) {
+    alert('Please enter your answer, or press Cancel to keep the original transcription.');
+    return;
+  }
+  setLiveTranscript(edited);
+  exitEditMode(edited);
+}
+
+export function cancelEditTranscript() {
+  exitEditMode(getLiveTranscript());
+}
+
+function exitEditMode(text) {
+  showTranscript(text, true);
+  showBtn('btn-save-edit', false);
+  showBtn('btn-cancel-edit', false);
+  showBtn('btn-edit-transcript', true);
+  showBtn('btn-check', true);
+  showBtn('btn-rerecord', true);
+  showBtn('btn-skip', true);
+}
+
 export async function checkAnswer() {
   if (getIsChecking()) return;
   setIsChecking(true);
 
   showBtn('btn-check', false);
+  showBtn('btn-edit-transcript', false);
   showBtn('btn-rerecord', false);
   showBtn('btn-skip', false);
 
@@ -506,6 +568,9 @@ export async function rerecordAnswer() {
   showBtn('btn-rerecord', false);
   showBtn('btn-submit',   false);
   showBtn('btn-check',    false);
+  showBtn('btn-edit-transcript', false);
+  showBtn('btn-save-edit', false);
+  showBtn('btn-cancel-edit', false);
   speakThenListen(item);
 }
 

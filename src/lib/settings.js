@@ -48,6 +48,9 @@ export const KEYS = {
   SHOW_EN_HINTS: 'show_en_hints',
   // Sessions-per-day goal target ('1'..'10'). Synced.
   DAILY_GOAL: 'daily_goal_target',
+  // Version id of the last "What's new" modal a returning user dismissed
+  // (whatsNew.js WHATS_NEW_VERSION). Device-local — see sync.js.
+  WHATS_NEW_SEEN: 'whats_new_seen_version',
 };
 
 /**

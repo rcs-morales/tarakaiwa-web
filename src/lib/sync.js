@@ -23,6 +23,8 @@ import { KEYS, get, onChange } from './settings.js';
 //    for migration only (see decks.svelte.js)
 //  - DECKS: large; each deck lives in the `decks` table instead (syncDecks)
 //  - ACTIVE_DECK_ID: device-local pointer, not meaningful cross-device
+//  - WHATS_NEW_SEEN: device-local, so a signed-in user still sees the
+//    announcement once on each device rather than it syncing away silently
 const SYNC_EXCLUDE = new Set([
   KEYS.API_KEY,
   KEYS.API_PROVIDER,
@@ -33,6 +35,7 @@ const SYNC_EXCLUDE = new Set([
   KEYS.DECKS,
   KEYS.ACTIVE_DECK_ID,
   KEYS.SESSION_HISTORY, // device-local; the cloud record is session_results
+  KEYS.WHATS_NEW_SEEN,
 ]);
 
 const SYNC_KEYS = Object.values(KEYS).filter((k) => !SYNC_EXCLUDE.has(k));
