@@ -34,6 +34,23 @@ describe('translateToJapaneseWithAI Unit Tests', () => {
     expect(result).toEqual({ japanese: 'こんにちは', romaji: '' });
   });
 
+  it('returns the English gloss alongside Japanese and romaji', async () => {
+    localStorage.setItem('api_key', 'gsk_test_key');
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        choices: [{ message: { content: JSON.stringify({
+          japanese: '元気ですか',
+          romaji: 'genki desu ka',
+          english: 'Are you doing well?'
+        }) } }]
+      })
+    })));
+
+    const result = await realTranslateToJapanese('How are you?');
+    expect(result).toEqual({ japanese: '元気ですか', romaji: 'genki desu ka', english: 'Are you doing well?' });
+  });
+
   it('returns MISSING_KEY when no API key is configured', async () => {
     localStorage.removeItem('api_key');
     const result = await realTranslateToJapanese('Hello');
@@ -106,6 +123,28 @@ describe('Translate Tool UI', () => {
     expect(resultText).toContain('元気');
     expect(resultText).toContain('genki desu ka?');
     expect(document.getElementById('translate-result-area').classList.contains('hidden')).toBe(false);
+  });
+
+  it('shows the English gloss when the AI provides one', async () => {
+    vi.mocked(translateToJapaneseWithAI).mockResolvedValue({
+      japanese: '元気ですか？', romaji: 'genki desu ka?', english: 'Are you doing well?'
+    });
+
+    document.getElementById('translate-input').value = 'How are you?';
+    await handleTranslateAndSpeak();
+
+    const enEl = document.getElementById('translate-result-en');
+    expect(enEl).not.toBeNull();
+    expect(enEl.textContent).toBe('Are you doing well?');
+  });
+
+  it('omits the English gloss line when the AI does not provide one', async () => {
+    vi.mocked(translateToJapaneseWithAI).mockResolvedValue({ japanese: '元気ですか？', romaji: 'genki desu ka?' });
+
+    document.getElementById('translate-input').value = 'How are you?';
+    await handleTranslateAndSpeak();
+
+    expect(document.getElementById('translate-result-en')).toBeNull();
   });
 
   it('shows an error when translation fails', async () => {

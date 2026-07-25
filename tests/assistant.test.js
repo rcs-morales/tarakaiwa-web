@@ -130,7 +130,7 @@ describe('translateToJapaneseWithAI normalization', () => {
     })));
 
     const result = await translateToJapaneseWithAI('train');
-    expect(result).toEqual({ japanese: '電車', romaji: 'densha' });
+    expect(result).toEqual({ japanese: '電車', romaji: 'densha', english: '' });
   });
 });
 

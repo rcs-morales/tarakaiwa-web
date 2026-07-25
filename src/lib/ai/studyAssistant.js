@@ -93,7 +93,7 @@ export async function askStudyAssistant(query, history = []) {
 /**
  * Translate learner input into Japanese using the Groq LLM.
  * @param {string} text
- * @returns {Promise<{japanese?: string, error?: string}>}
+ * @returns {Promise<{japanese?: string, romaji?: string, english?: string, error?: string}>}
  */
 export async function translateToJapaneseWithAI(text, sourceLang = 'English') {
   const route = await resolveAIRoute();
@@ -139,10 +139,11 @@ export async function translateToJapaneseWithAI(text, sourceLang = 'English') {
         // Flexible key checking: look for 'japanese', 'translation', or 'text'
         const japaneseRaw = (parsed.japanese || parsed.translation || parsed.text || '').trim();
         const romaji = (parsed.romaji || '').trim();
+        const english = (parsed.english || '').trim();
         const japanese = normalizeJapaneseTranslation(japaneseRaw);
 
         if (japanese) {
-          return { japanese, romaji };
+          return { japanese, romaji, english };
         }
 
         // If we have romaji but no japanese, and the content was JSON,
