@@ -20,7 +20,7 @@ import { initPrefs } from './prefs.svelte.js';
 import {
   toggleQuestionText, translateQuestion, getQuestionRomaji,
   finishRecording, checkAnswer, rerecordAnswer, nextQuestion,
-  skipQuestion, endSession, session,
+  skipQuestion, previousQuestion, endSession, session,
   editTranscript, saveEditedTranscript, cancelEditTranscript,
   revealAnswerHint
 } from './session.svelte.js';
@@ -308,6 +308,7 @@ export function initApp() {
   bind('btn-cancel-edit', cancelEditTranscript);
   bind('btn-rerecord', rerecordAnswer);
   bind('btn-next', nextQuestion);
+  bind('btn-back', previousQuestion);
   bind('btn-skip', skipQuestion);
   bind('bug-close-btn', () => bugReporter.close());
   bind('bug-submit-btn', () => bugReporter.submit());

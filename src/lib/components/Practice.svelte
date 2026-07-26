@@ -81,6 +81,7 @@
       <button class="btn btn-secondary hidden" id="btn-cancel-edit">✕ Cancel</button>
     </div>
     <button class="btn btn-success hidden" id="btn-next">Next →</button>
+    <button class="btn btn-secondary hidden" id="btn-back">◁ Back</button>
     <button class="btn btn-secondary" id="btn-skip">Skip ▷</button>
   </div>
 
@@ -216,6 +217,7 @@
       flex: 1 1 60%;
     }
 
+    .practice-controls #btn-back,
     .practice-controls #btn-skip {
       flex: 1;
     }

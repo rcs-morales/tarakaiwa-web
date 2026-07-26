@@ -73,6 +73,13 @@ function playSound(type) {
   audio.play().catch(e => console.warn('Audio playback failed:', e));
 }
 
+// Skip and Back share the same visibility window (pre-check, during the
+// question). Back additionally requires a previous question to return to.
+function showSkipAndBack(visible) {
+  showBtn('btn-skip', visible);
+  showBtn('btn-back', visible && session.current > 0);
+}
+
 // ─────────────────────────────────────────────
 // PRACTICE LOGIC
 // ─────────────────────────────────────────────
@@ -169,7 +176,7 @@ export async function loadQuestion() {
   showBtn('btn-edit-transcript', false);
   showBtn('btn-save-edit', false);
   showBtn('btn-cancel-edit', false);
-  showBtn('btn-skip',     true);
+  showSkipAndBack(true);
 
   const targetBox = document.getElementById('target-answer-box');
   if (targetBox) {
@@ -474,7 +481,7 @@ async function beginListen() {
         document.getElementById('warning-box').style.display = 'block';
       }
       showBtn('btn-rerecord', true);
-      showBtn('btn-skip',     true);
+      showSkipAndBack(true);
     });
 
     if (!started) {
@@ -487,7 +494,7 @@ async function beginListen() {
             document.getElementById('warning-box').style.display = 'block';
           }
           showBtn('btn-rerecord', true);
-          showBtn('btn-skip',     true);
+          showSkipAndBack(true);
         }, formatLiveTranscript);
       } catch (e) {
         setStatus('', 'Microphone access is blocked by this browser. Please allow microphone access and retry.');
@@ -508,7 +515,7 @@ async function beginListen() {
         document.getElementById('warning-box').style.display = 'block';
       }
       showBtn('btn-rerecord', true);
-      showBtn('btn-skip',     true);
+      showSkipAndBack(true);
     }, formatLiveTranscript);
   }
 
@@ -522,7 +529,7 @@ export async function finishRecording() {
 
   showBtn('btn-submit', false);
   showBtn('btn-rerecord', false);
-  showBtn('btn-skip', false);
+  showSkipAndBack(false);
 
   const sttMode = get(KEYS.STT_MODE) || 'ai';
   const item = session.qa[session.current];
@@ -568,7 +575,7 @@ export async function finishRecording() {
     }[whisperFailReason] || 'Transcription failed or no speech captured — try re-recording.';
     setStatus('', message);
     showBtn('btn-rerecord', true);
-    showBtn('btn-skip',     true);
+    showSkipAndBack(true);
     setIsChecking(false);
     return;
   }
@@ -577,7 +584,7 @@ export async function finishRecording() {
   showBtn('btn-check', true);
   showBtn('btn-edit-transcript', true);
   showBtn('btn-rerecord', true);
-  showBtn('btn-skip', true);
+  showSkipAndBack(true);
   setIsChecking(false);
 
   // A Whisper request consumed shared quota — keep the start-screen chip fresh.
@@ -608,7 +615,7 @@ export function editTranscript() {
 
   showBtn('btn-check', false);
   showBtn('btn-rerecord', false);
-  showBtn('btn-skip', false);
+  showSkipAndBack(false);
   showBtn('btn-edit-transcript', false);
   showBtn('btn-save-edit', true);
   showBtn('btn-cancel-edit', true);
@@ -638,7 +645,7 @@ function exitEditMode(text) {
   showBtn('btn-edit-transcript', true);
   showBtn('btn-check', true);
   showBtn('btn-rerecord', true);
-  showBtn('btn-skip', true);
+  showSkipAndBack(true);
 }
 
 export async function checkAnswer() {
@@ -648,7 +655,7 @@ export async function checkAnswer() {
   showBtn('btn-check', false);
   showBtn('btn-edit-transcript', false);
   showBtn('btn-rerecord', false);
-  showBtn('btn-skip', false);
+  showSkipAndBack(false);
 
   const item = session.qa[session.current];
   const raw = getLiveTranscript().trim();
@@ -754,7 +761,7 @@ export async function checkAnswer() {
   }
   showBtn('btn-rerecord', false);
   showBtn('btn-check',    false);
-  showBtn('btn-skip',     false);
+  showSkipAndBack(false);
   setIsChecking(false);
 
   // A grading request consumed shared quota — keep the start-screen chip fresh.
@@ -803,6 +810,21 @@ export async function skipQuestion() {
     return;
   }
   session.current++;
+  loadQuestion();
+}
+
+// Only reachable while btn-back is visible, i.e. before the current question
+// has been checked/skipped — so session.results always ends with the
+// previous question's entry, which this discards to allow a redo.
+export async function previousQuestion() {
+  if (session.current === 0) return;
+  clearHintTimer();
+  cancelSpeech('practice');
+  await ensureMicAccess();
+  abortRecognition();
+  session.current--;
+  const removed = session.results.pop();
+  if (removed && removed.correct) session.score--;
   loadQuestion();
 }
 
