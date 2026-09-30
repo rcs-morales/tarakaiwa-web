@@ -55,6 +55,32 @@
     <StatCard icon="⭐" value={`${daily.done}/${daily.target}`} label="daily goal" tone="amber" />
   </div>
 
+  {#if session.scenario}
+    {@const s = session.scenario}
+    <div class="scenario-brief">
+      <div class="scenario-brief-title">
+        <span aria-hidden="true">{s.icon}</span> {s.titleJp}
+        <span class="scenario-brief-title-en">· {s.title}</span>
+      </div>
+      <div class="scenario-brief-setting">{s.setting}</div>
+      <div class="scenario-brief-role">You'll talk to: <strong>{s.role.jp}</strong> · {s.role.en}</div>
+
+      <div class="scenario-brief-label">Your goals</div>
+      <ol class="scenario-brief-goals">
+        {#each s.beats as b, i (i)}
+          <li>{b.goal}</li>
+        {/each}
+      </ol>
+
+      <div class="scenario-brief-label">Useful phrases</div>
+      <ul class="scenario-brief-phrases">
+        {#each s.keyPhrases as p (p.jp)}
+          <li><span class="scenario-brief-jp">{p.jp}</span> <span class="scenario-brief-en">{p.en}</span></li>
+        {/each}
+      </ul>
+    </div>
+  {/if}
+
   <div class="dash-cta">
     <button
       class="btn btn-primary dash-start-btn"
@@ -69,6 +95,8 @@
       <span class="chip">
         {#if !deckReady}
           🗂 No questions loaded
+        {:else if session.scenario}
+          {session.scenario.icon} {session.scenario.title} · {session.qa.length} turns
         {:else if session.isDefaultDeck}
           🎓 Sample deck · {session.qa.length} questions
         {:else}
@@ -129,6 +157,80 @@
     display: flex;
     gap: 10px;
     margin-bottom: 20px;
+  }
+
+  /* #screen-start centers its text globally (style.css); a checklist reads left-aligned. */
+  .scenario-brief {
+    text-align: left;
+    background: var(--surface);
+    border: 2px solid var(--card-border);
+    border-radius: 20px;
+    padding: 14px 16px;
+    margin-bottom: 18px;
+  }
+
+  .scenario-brief-title {
+    font-family: var(--font-jp);
+    font-weight: 800;
+    font-size: 1rem;
+    color: var(--text);
+  }
+
+  .scenario-brief-title-en {
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--muted);
+  }
+
+  .scenario-brief-setting {
+    font-size: 0.82rem;
+    color: var(--text);
+    margin: 6px 0 4px;
+  }
+
+  .scenario-brief-role {
+    font-size: 0.78rem;
+    color: var(--muted);
+  }
+
+  .scenario-brief-label {
+    font-family: var(--font-mono);
+    font-size: 0.66rem;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--primary);
+    margin: 12px 0 4px;
+  }
+
+  .scenario-brief-goals,
+  .scenario-brief-phrases {
+    margin: 0;
+    padding-left: 20px;
+    font-size: 0.82rem;
+    color: var(--text);
+  }
+
+  .scenario-brief-phrases {
+    list-style: none;
+    padding-left: 0;
+  }
+
+  .scenario-brief-phrases li {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px 8px;
+    padding: 2px 0;
+  }
+
+  .scenario-brief-jp {
+    font-family: var(--font-jp);
+    font-weight: 700;
+  }
+
+  .scenario-brief-en {
+    color: var(--muted);
   }
 
   .dash-cta {

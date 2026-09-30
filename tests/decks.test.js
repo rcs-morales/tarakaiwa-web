@@ -188,6 +188,67 @@ describe('decks.svelte.js', () => {
     expect(session.setQA).toHaveBeenCalledWith(expect.any(Array), { isDefault: true, deckId: null, jlptLevel: 'N5' });
   });
 
+  it('setActiveDeck selects a scenario, persists its id, and loads its script with the scenario attached', async () => {
+    const { decksModule, session } = await load();
+    const { SCENARIOS, scenarioToQA } = await import('../src/lib/scenarios.js');
+    const cafe = SCENARIOS.find((s) => s.id === 'cafe');
+
+    decksModule.setActiveDeck('scenario:cafe');
+
+    expect(decksModule.decks.activeId).toBe('scenario:cafe');
+    expect(localStorage.getItem(KEYS.ACTIVE_DECK_ID)).toBe('scenario:cafe');
+    expect(session.setQA).toHaveBeenCalledWith(scenarioToQA(cafe), {
+      isDefault: false,
+      deckId: 'scenario:cafe',
+      jlptLevel: cafe.jlptLevel,
+      scenario: cafe,
+    });
+  });
+
+  it('setActiveDeck ignores an unknown scenario id', async () => {
+    const { decksModule, session } = await load();
+
+    decksModule.setActiveDeck('scenario:does-not-exist');
+
+    expect(decksModule.decks.activeId).toBeNull();
+    expect(session.setQA).not.toHaveBeenCalled();
+  });
+
+  it('loadActiveDeckIntoSession restores a stored scenario on boot', async () => {
+    localStorage.setItem(KEYS.ACTIVE_DECK_ID, 'scenario:directions');
+    const { decksModule, session } = await load();
+
+    decksModule.loadActiveDeckIntoSession();
+
+    expect(decksModule.decks.activeId).toBe('scenario:directions');
+    expect(session.setQA).toHaveBeenCalledWith(
+      expect.any(Array),
+      expect.objectContaining({ deckId: 'scenario:directions', scenario: expect.objectContaining({ id: 'directions' }) })
+    );
+  });
+
+  it('loadActiveDeckIntoSession falls back to the Sample deck when a stored scenario no longer exists', async () => {
+    localStorage.setItem(KEYS.ACTIVE_DECK_ID, 'scenario:removed-from-catalog');
+    const { decksModule, session } = await load();
+
+    decksModule.loadActiveDeckIntoSession();
+
+    expect(decksModule.decks.activeId).toBeNull();
+    expect(session.setQA).toHaveBeenCalledWith(expect.any(Array), { isDefault: true, deckId: null, jlptLevel: 'N5' });
+  });
+
+  it('bestScoreForDeck keeps scenario runs separate from the Sample deck', async () => {
+    const { decksModule, historyModule } = await load();
+
+    historyModule.history.entries = [
+      { at: new Date().toISOString(), score: 4, total: 5, deckId: 'scenario:cafe' },
+      { at: new Date().toISOString(), score: 2, total: 10, deckId: null },
+    ];
+
+    expect(decksModule.bestScoreForDeck('scenario:cafe')).toBe(80);
+    expect(decksModule.bestScoreForDeck(null)).toBe(20);
+  });
+
   it('bestScoreForDeck reflects recorded history scoped to that deck', async () => {
     const { decksModule, historyModule } = await load();
     await decksModule.importDeck([{ q: 'q', a: 'a' }], 'deck1.json');

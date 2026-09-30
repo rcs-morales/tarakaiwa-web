@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/svelte';
 
 const { mockSession, startPractice } = vi.hoisted(() => ({
-  mockSession: { qa: [], current: 0, score: 0, results: [], isDefaultDeck: false, jlptLevel: 'N5' },
+  mockSession: { qa: [], current: 0, score: 0, results: [], isDefaultDeck: false, jlptLevel: 'N5', scenario: null },
   startPractice: vi.fn(),
 }));
 
@@ -13,6 +13,7 @@ vi.mock('$lib/session.svelte.js', () => ({
 
 import Dashboard from '../src/lib/components/Dashboard.svelte';
 import { history, recordSession } from '../src/lib/history.svelte.js';
+import { SCENARIOS, scenarioToQA } from '../src/lib/scenarios.js';
 
 describe('Practice dashboard', () => {
   beforeEach(() => {
@@ -20,7 +21,32 @@ describe('Practice dashboard', () => {
     history.entries = [];
     mockSession.qa = [];
     mockSession.isDefaultDeck = false;
+    mockSession.scenario = null;
     startPractice.mockClear();
+  });
+
+  it('shows the scenario briefing and a scenario summary chip when a scenario is active', () => {
+    const cafe = SCENARIOS.find((s) => s.id === 'cafe');
+    mockSession.qa = scenarioToQA(cafe);
+    mockSession.scenario = cafe;
+    const { container } = render(Dashboard);
+
+    const brief = container.querySelector('.scenario-brief');
+    expect(brief).not.toBeNull();
+    expect(brief.textContent).toContain(cafe.titleJp);
+    expect(brief.textContent).toContain(cafe.setting);
+    expect(brief.textContent).toContain(cafe.role.jp);
+    expect([...brief.querySelectorAll('.scenario-brief-goals li')].map((li) => li.textContent))
+      .toEqual(cafe.beats.map((b) => b.goal));
+    expect(brief.textContent).toContain(cafe.keyPhrases[0].jp);
+    expect(container.textContent).toContain(`${cafe.title} · ${cafe.beats.length} turns`);
+    expect(container.querySelector('#btn-start-practice').disabled).toBe(false);
+  });
+
+  it('shows no scenario briefing for a normal deck', () => {
+    mockSession.qa = [{ q: 'q', a: 'a' }];
+    const { container } = render(Dashboard);
+    expect(container.querySelector('.scenario-brief')).toBeNull();
   });
 
   it('disables the start button when no deck is loaded', () => {

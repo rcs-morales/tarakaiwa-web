@@ -26,6 +26,7 @@ import {
   setLiveTranscript, releaseMic, ensureMicAccess
 } from './stt.js';
 import { formatLiveTranscript } from './parser.js';
+import { scenarioToQA } from './scenarios.js';
 
 // ─────────────────────────────────────────────
 // SESSION STATE — reactive ($state) since Phase 5c
@@ -49,13 +50,17 @@ export const session = $state({
   // strictness and recorded-history labeling. Not the global Settings
   // default; that only seeds new decks (see decks.svelte.js).
   jlptLevel: 'N5',
+  // The active scenario (scenarios.js) when practicing a role-play
+  // conversation, or null for a normal deck run.
+  scenario: null,
 });
 
-export function setQA(newData, { isDefault = false, deckId = null, jlptLevel = 'N5' } = {}) {
+export function setQA(newData, { isDefault = false, deckId = null, jlptLevel = 'N5', scenario = null } = {}) {
   session.qa = newData;
   session.isDefaultDeck = isDefault;
   session.activeDeckId = deckId;
   session.jlptLevel = jlptLevel;
+  session.scenario = scenario;
 }
 export function setCurrent(val) {
   session.current = val;
@@ -90,8 +95,11 @@ export async function startPractice() {
   if (!recognitionSupported) {
     setStatus('', 'Speech recognition is not available in this browser, but microphone access will still be requested for AI transcription.');
   }
-  // Shuffle questions (unless the user turned shuffling off in settings)
-  if (get(KEYS.SHUFFLE_QUESTIONS) !== '0') {
+  if (session.scenario) {
+    // Beat order is the conversation, so scenarios never shuffle. Start from
+    // a fresh copy of the script each run.
+    session.qa = scenarioToQA(session.scenario);
+  } else if (get(KEYS.SHUFFLE_QUESTIONS) !== '0') {
     for (let i = session.qa.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [session.qa[i], session.qa[j]] = [session.qa[j], session.qa[i]];
@@ -179,7 +187,7 @@ export async function loadQuestion() {
   const pct = (session.current / session.qa.length) * 100;
   document.getElementById('progress-bar').style.width = pct + '%';
   document.getElementById('progress-label').textContent =
-    'Question ' + (session.current + 1) + ' / ' + session.qa.length;
+    (session.scenario ? 'Turn ' : 'Question ') + (session.current + 1) + ' / ' + session.qa.length;
 
   cancelSpeech('practice');
   setStatus('speaking', 'Preparing…');

@@ -14,6 +14,7 @@
 // so there's no separate sentinel to reconcile.
 
 import { DEFAULT_QA } from './data.js';
+import { findScenarioByDeckId, scenarioDeckId, scenarioToQA } from './scenarios.js';
 import { get, set, KEYS } from './settings.js';
 import { setQA } from './session.svelte.js';
 import { bestScoreForDeck as bestScoreFromHistory } from './history.svelte.js';
@@ -83,14 +84,31 @@ export function allDecks() {
 
 function findDeck(id) {
   if (id === null) return SAMPLE_DECK;
+  const scenario = findScenarioByDeckId(id);
+  if (scenario) {
+    return {
+      id: scenarioDeckId(scenario),
+      name: scenario.title,
+      jlptLevel: scenario.jlptLevel,
+      qa: scenarioToQA(scenario),
+      scenario,
+    };
+  }
   return decks.list.find((d) => d.id === id) || null;
+}
+
+// Only scenario runs carry a `scenario` option; setQA resets it to null otherwise.
+function sessionOptions(deck) {
+  const opts = { isDefault: !!deck.builtin, deckId: deck.builtin ? null : deck.id, jlptLevel: deck.jlptLevel };
+  if (deck.scenario) opts.scenario = deck.scenario;
+  return opts;
 }
 
 /** Load whichever deck is active into the practice session. Call once on boot. */
 export function loadActiveDeckIntoSession() {
   const deck = findDeck(decks.activeId) || SAMPLE_DECK;
   if (deck.builtin) decks.activeId = null;
-  setQA(deck.qa, { isDefault: !!deck.builtin, deckId: deck.builtin ? null : deck.id, jlptLevel: deck.jlptLevel });
+  setQA(deck.qa, sessionOptions(deck));
 }
 
 /** Import a freshly parsed Q&A file as a new deck, make it active, and sync it up. */
@@ -148,7 +166,7 @@ export function setActiveDeck(id) {
   if (!deck) return;
   decks.activeId = deck.builtin ? null : deck.id;
   set(KEYS.ACTIVE_DECK_ID, decks.activeId || '');
-  setQA(deck.qa, { isDefault: !!deck.builtin, deckId: deck.builtin ? null : deck.id, jlptLevel: deck.jlptLevel });
+  setQA(deck.qa, sessionOptions(deck));
 }
 
 /** Best score percentage recorded for this deck, or null if never played. */

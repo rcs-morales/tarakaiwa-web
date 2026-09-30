@@ -270,4 +270,29 @@ describe('Session Flow Integration Tests', () => {
     setQA([{ q: 'Q1', a: 'A1' }]);
     expect(session.jlptLevel).toBe('N5');
   });
+
+  it('setQA attaches a scenario and resets it to null for a normal deck', async () => {
+    const { SCENARIOS } = await import('../src/lib/scenarios.js');
+    setQA([{ q: 'Q1', a: 'A1' }], { deckId: 'scenario:cafe', scenario: SCENARIOS[0] });
+    expect(session.scenario).toEqual(SCENARIOS[0]);
+
+    setQA([{ q: 'Q1', a: 'A1' }], { deckId: 'deck-1' });
+    expect(session.scenario).toBeNull();
+  });
+
+  it('plays a scenario in script order from a fresh copy, labelled by turn', async () => {
+    const { SCENARIOS } = await import('../src/lib/scenarios.js');
+    const cafe = SCENARIOS.find((s) => s.id === 'cafe');
+    const random = vi.spyOn(Math, 'random').mockReturnValue(0); // would reorder a normal deck
+    settings.get.mockReturnValue('browser');
+    // A leftover, already-mutated script from a previous run must not carry over.
+    setQA([{ q: 'stale line', a: 'x' }], { deckId: 'scenario:cafe', scenario: cafe });
+
+    await startPractice();
+    random.mockRestore();
+
+    expect(session.qa.map((item) => item.q)).toEqual(cafe.beats.map((b) => b.npc));
+    expect(document.getElementById('question-text').textContent).toBe(cafe.beats[0].npc);
+    expect(document.getElementById('progress-label').textContent).toBe(`Turn 1 / ${cafe.beats.length}`);
+  });
 });

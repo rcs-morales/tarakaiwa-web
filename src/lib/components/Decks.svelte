@@ -4,6 +4,7 @@
   // #file-input stays wired imperatively (app.js binds its 'change' handler
   // by id, same as before).
   import { allDecks, decks, setActiveDeck, bestScoreForDeck } from '$lib/decks.svelte.js';
+  import { SCENARIOS, scenarioDeckId } from '$lib/scenarios.js';
   import DeckFormModal from './DeckFormModal.svelte';
 
   const LEVEL_ORDER = ['N5', 'N4', 'N3'];
@@ -72,6 +73,40 @@
       </button>
       <div class="deck-card-actions">
         {#if decks.activeId === null}
+          <span class="deck-inuse-pill">◉ In use</span>
+        {/if}
+      </div>
+    </div>
+  {/each}
+
+  <h3 class="decks-level-heading">シナリオ · Scenarios</h3>
+  <p class="decks-section-hint">Role-play a real conversation, one turn at a time.</p>
+  {#each SCENARIOS as s (s.id)}
+    {@const id = scenarioDeckId(s)}
+    {@const best = bestScoreForDeck(id)}
+    <div class="deck-card-wrap">
+      <button
+        type="button"
+        class="deck-card scenario-card"
+        class:active={decks.activeId === id}
+        onclick={() => setActiveDeck(id)}
+      >
+        <div class="deck-name"><span class="scenario-icon" aria-hidden="true">{s.icon}</span> {s.titleJp}</div>
+        <div class="deck-subtitle">{s.title}</div>
+        <div class="deck-chips">
+          <span class="deck-chip">{s.beats.length} turns</span>
+          <span class="deck-chip">JLPT {s.jlptLevel}</span>
+          {#if best === null}
+            <span class="deck-chip deck-chip-neutral">Not started</span>
+          {:else if best >= 75}
+            <span class="deck-chip deck-chip-good">Best {best}%</span>
+          {:else}
+            <span class="deck-chip deck-chip-low">Best {best}%</span>
+          {/if}
+        </div>
+      </button>
+      <div class="deck-card-actions">
+        {#if decks.activeId === id}
           <span class="deck-inuse-pill">◉ In use</span>
         {/if}
       </div>
@@ -192,6 +227,16 @@
 
   .decks-level-heading:first-of-type {
     margin-top: 20px;
+  }
+
+  .decks-section-hint {
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin: -4px 0 10px;
+  }
+
+  .scenario-icon {
+    margin-right: 2px;
   }
 
   .deck-card-wrap {
