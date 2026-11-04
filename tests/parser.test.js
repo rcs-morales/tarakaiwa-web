@@ -1,7 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   parseJSON,
   parseCSV,
+  parseExcel,
   katakanaToHiragana,
   toInt,
   numberToHiragana,
@@ -120,5 +123,28 @@ describe('toFuriganaHtml', () => {
 
   it('keeps trailing particles inside the ruby base with their reading', () => {
     expect(toFuriganaHtml('日本語を{にほんごを}')).toBe('<ruby>日本語を<rt>にほんごを</rt></ruby>');
+  });
+});
+
+describe('parseExcel', () => {
+  const fixture = () => {
+    const buf = readFileSync(join(process.cwd(), 'tests/fixtures/deck.xlsx'));
+    // Copy into an ArrayBuffer from the test realm, as FileReader would hand us.
+    const ab = new ArrayBuffer(buf.length);
+    new Uint8Array(ab).set(buf);
+    return ab;
+  };
+
+  it('reads Q&A pairs from the first sheet using the header names', async () => {
+    const qa = await parseExcel(fixture());
+    expect(qa).toEqual([
+      { q: 'お名前は？', a: 'わたしはタラです。' },
+      { q: 'How old are you?', a: '20' },
+      { q: 'Where do you live?', a: 'マニラにすんでいます。' },
+    ]);
+  });
+
+  it('wraps unreadable input in an Excel parse error', async () => {
+    await expect(parseExcel(new ArrayBuffer(16))).rejects.toThrow(/^Excel parse error/);
   });
 });
