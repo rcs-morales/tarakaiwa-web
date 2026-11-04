@@ -10,6 +10,7 @@
   import { signInWithEmail, signInWithGoogle, onAuthChange, getCurrentUser } from '$lib/auth.js';
   import { setTab } from '$lib/shell.svelte.js';
   import { WHATS_NEW_VERSION } from '$lib/whatsNew.js';
+  import { setJlptLevel } from '$lib/prefs.svelte.js';
 
   let open = $state(false);
   let step = $state(1);
@@ -39,12 +40,9 @@
     onAuthChange((u) => { user = u; });
   });
 
-  // The level doubles as grading strictness — persist it and mirror the
-  // Advanced select so the imperative wiring stays in agreement.
+  // Persist the chosen level (prefs keeps the Settings select in step).
   function applyLevelAndContinue() {
-    set(KEYS.JLPT_LEVEL, level);
-    const sel = /** @type {HTMLSelectElement} */ (document.getElementById('jlpt-level-select'));
-    if (sel) sel.value = level;
+    setJlptLevel(level);
     step = 2;
   }
 

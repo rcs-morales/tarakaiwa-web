@@ -1,14 +1,25 @@
 <script>
   // Settings tab (Phase 5f) — beginner-friendly grouped preferences per the
   // Kaiwa Quest handoff: profile card, learning-aid toggles, practice card
-  // (speed slider + daily-goal stepper + shuffle), with every pre-existing
-  // control tucked into the Advanced disclosure. CRITICAL: app.js, quota.js,
-  // tts.js, avatar.js and groqClient.js drive the advanced controls
-  // imperatively by id at mount, so the disclosure hides with CSS only —
-  // its contents are always in the DOM, never behind an {#if}.
-  import { history } from '$lib/history.svelte.js';
+  // (speed slider + daily-goal stepper), with every other control tucked
+  // into the Advanced disclosure. The preference controls are bound to
+  // prefs.svelte.js / voicePack.svelte.js. The Account and API-key sections
+  // are still driven imperatively by id (app.js, quota.js, groqClient.js),
+  // so the disclosure hides with CSS only — its contents are always in the
+  // DOM, never behind an {#if}.
+  import { history, resetProgress } from '$lib/history.svelte.js';
   import { computeXP } from '$lib/gamification.svelte.js';
-  import { prefs, setAid, setDailyGoal, DAILY_GOAL_MIN, DAILY_GOAL_MAX } from '$lib/prefs.svelte.js';
+  import {
+    prefs, setAid, setDailyGoal, DAILY_GOAL_MIN, DAILY_GOAL_MAX,
+    setJlptLevel, setGradingModel, setSttMode, setTtsMode, setVoicevoxSpeaker,
+    setAvatarModel, setTtsSpeed,
+  } from '$lib/prefs.svelte.js';
+  import {
+    voicePack, warmVoicesIfNeeded, refreshVoicePackStatus, downloadVoicePack, clearVoicePackCache,
+  } from '$lib/voicePack.svelte.js';
+  import { initAvatar } from '$lib/avatar.js';
+  import { deleteAllSessionResults } from '$lib/sync.js';
+  import { getCurrentUser } from '$lib/auth.js';
   import { profile, DEFAULT_AVATAR, avatarSrc, applyAvatarChange } from '$lib/profile.svelte.js';
   import AvatarModal from './AvatarModal.svelte';
 
@@ -42,6 +53,57 @@
   // #btn-sign-out (sign out + sync teardown + status message).
   function signOut() {
     document.getElementById('btn-sign-out')?.click();
+  }
+
+  /** @param {string} mode */
+  function changeTtsMode(mode) {
+    setTtsMode(mode);
+    initAvatar();
+    warmVoicesIfNeeded();
+    refreshVoicePackStatus();
+  }
+
+  /** @param {string} id */
+  function changeVoicevoxSpeaker(id) {
+    setVoicevoxSpeaker(id);
+    initAvatar();
+    // The audio cache is keyed by speaker, so a new voice starts cold.
+    warmVoicesIfNeeded();
+    refreshVoicePackStatus();
+  }
+
+  /** @param {string} name */
+  function changeAvatarModel(name) {
+    setAvatarModel(name);
+    initAvatar();
+  }
+
+  /** @type {{ message: string, type: '' | 'info' | 'success' | 'error' }} */
+  let resetStatus = $state({ message: '', type: '' });
+
+  async function resetAllProgress() {
+    const confirmed = confirm(
+      'Are you sure you want to reset all progress?\n\n'
+      + 'This will permanently erase:\n'
+      + '• All session history & recent sessions\n'
+      + '• Your XP, level, and streak\n'
+      + '• Daily goal progress\n'
+      + '• Average score stats\n\n'
+      + 'Your settings, deck, and account will NOT be affected.\n\n'
+      + 'This cannot be undone.'
+    );
+    if (!confirmed) return;
+
+    resetStatus = { message: '⏳ Resetting…', type: 'info' };
+    const signedIn = !!getCurrentUser();
+    resetProgress(); // local history (localStorage + reactive state)
+    // Cloud session results: false means signed out (nothing to delete) or,
+    // when signed in, that the delete failed.
+    const cloudDeleted = await deleteAllSessionResults();
+    resetProgress(); // in case anything re-populated it meanwhile
+    resetStatus = signedIn && !cloudDeleted
+      ? { message: '⚠️ Progress was reset on this device, but your synced history could not be deleted. Check your connection and try again, or it will come back on your next sign-in.', type: 'error' }
+      : { message: '✅ All progress has been reset.', type: 'success' };
   }
 
   const AIDS = [
@@ -103,10 +165,13 @@
 
     <div class="setting-row setting-row-stack">
       <div class="setting-row-text">
-        <div class="setting-row-name">🐢 Speaking speed <span class="speed-value" id="tts-speed-value">0.85×</span></div>
+        <div class="setting-row-name">🐢 Speaking speed <span class="speed-value" id="tts-speed-value">{parseFloat(prefs.ttsSpeed)}×</span></div>
         <div class="setting-row-hint">How fast questions are spoken — 1.0× is natural speed. Feedback always plays at natural speed.</div>
       </div>
-      <input type="range" class="speed-slider" id="tts-speed-slider" min="0.5" max="1.5" step="0.05" value="0.85" />
+      <!-- 'input' (not 'change') so the label and saved value track the drag live;
+           the settings sync push is debounced, so this doesn't spam the network. -->
+      <input type="range" class="speed-slider" id="tts-speed-slider" min="0.5" max="1.5" step="0.05"
+        value={prefs.ttsSpeed} oninput={(e) => setTtsSpeed(e.currentTarget.value)} />
     </div>
 
     <div class="setting-row">
@@ -219,7 +284,7 @@
 
       <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
         <label for="jlpt-level-select" style="font-size: 0.85rem; font-weight: bold; margin-right: 8px;">Default Level for New Decks:</label>
-        <select id="jlpt-level-select"
+        <select id="jlpt-level-select" value={prefs.jlptLevel} onchange={(e) => setJlptLevel(e.currentTarget.value)}
           style="padding: 4px; border-radius: 4px; border: 1px solid var(--border); background: var(--paper-2); color: var(--text);">
           <option value="N5">N5 (Beginner)</option>
           <option value="N4">N4 (Upper beginner)</option>
@@ -232,7 +297,7 @@
       </div>
       <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
         <label for="grading-model-select" style="font-size: 0.85rem; font-weight: bold; margin-right: 8px;">Grading Speed:</label>
-        <select id="grading-model-select"
+        <select id="grading-model-select" value={prefs.gradingModel} onchange={(e) => setGradingModel(e.currentTarget.value)}
           style="padding: 4px; border-radius: 4px; border: 1px solid var(--border); background: var(--paper-2); color: var(--text);">
           <option value="openai/gpt-oss-120b">Balanced — Better accuracy (GPT OSS 120B)</option>
           <option value="openai/gpt-oss-20b">Fast — Quicker feedback (GPT OSS 20B)</option>
@@ -248,7 +313,7 @@
       <h3>🔊 Voice &amp; Avatar</h3>
       <div style="margin-bottom: 12px;">
         <label for="stt-mode-select" style="font-size: 0.85rem; font-weight: bold; margin-right: 8px;">Speech Recognition:</label>
-        <select id="stt-mode-select"
+        <select id="stt-mode-select" value={prefs.sttMode} onchange={(e) => setSttMode(e.currentTarget.value)}
           style="padding: 4px; border-radius: 4px; border: 1px solid var(--border); background: var(--paper-2); color: var(--text);">
           <option value="ai">🧠 AI (Groq Whisper) — Best accuracy</option>
           <option value="browser">🌐 Browser Built-in — Live preview</option>
@@ -259,16 +324,17 @@
       </div>
       <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
         <label for="tts-mode-select" style="font-size: 0.85rem; font-weight: bold; margin-right: 8px;">Text-to-Speech (TTS):</label>
-        <select id="tts-mode-select"
+        <select id="tts-mode-select" value={prefs.ttsMode} onchange={(e) => changeTtsMode(e.currentTarget.value)}
           style="padding: 4px; border-radius: 4px; border: 1px solid var(--border); background: var(--paper-2); color: var(--text);">
-          <option value="browser" selected>🌐 Browser Built-in — Local, instant</option>
+          <option value="browser">🌐 Browser Built-in — Local, instant</option>
           <option value="voicevox">🎙️ VOICEVOX — Cloud, High Quality</option>
         </select>
       </div>
       <div id="voicevox-settings-section"
-        style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
+        style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);"
+        style:display={prefs.ttsMode === 'voicevox' ? 'block' : 'none'}>
         <label for="voicevox-speaker-select" style="font-size: 0.85rem; font-weight: bold; margin-right: 8px;">Cloud Voice:</label>
-        <select id="voicevox-speaker-select"
+        <select id="voicevox-speaker-select" value={prefs.voicevoxSpeaker} onchange={(e) => changeVoicevoxSpeaker(e.currentTarget.value)}
           style="padding: 4px; border-radius: 4px; border: 1px solid var(--border); background: var(--paper-2); color: var(--text); max-width: 100%;">
           <optgroup label="Clear Female Voices">
             <option value="3">Zundamon (Neutral & Clear)</option>
@@ -282,29 +348,31 @@
             <option value="11">Takehiro (Mature Male)</option>
           </optgroup>
         </select>
-        <input type="hidden" id="voicevox-speaker-input" />
         <p style="font-size: 0.72rem; color: var(--muted); margin-top: 4px; line-height: 1.4;">
           Audio is generated instantly via the free community <strong>api.tts.quest</strong> service.
         </p>
         <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border);">
           <div class="voicepack-row">
-            <span style="font-size: 0.82rem;">📦 Voice pack: <span id="voicepack-status">—</span></span>
-            <button id="btn-download-voicepack" class="btn btn-secondary btn-sm" style="font-size: 0.75rem;">⬇ Download all</button>
+            <span style="font-size: 0.82rem;">📦 Voice pack: <span id="voicepack-status">{voicePack.status}</span></span>
+            <!-- Swapped for the progress bar while the download runs. -->
+            <button id="btn-download-voicepack" class="btn btn-secondary btn-sm" style="font-size: 0.75rem;"
+              class:hidden={voicePack.downloading} onclick={downloadVoicePack}>⬇ Download all</button>
           </div>
-          <div id="voicepack-progress" class="voicepack-progress hidden">
+          <div id="voicepack-progress" class="voicepack-progress" class:hidden={!voicePack.downloading}>
             <div class="voicepack-progress-track">
-              <div id="voicepack-progress-fill" class="voicepack-progress-fill"></div>
+              <div id="voicepack-progress-fill" class="voicepack-progress-fill" style:width="{voicePack.progress}%"></div>
             </div>
           </div>
           <p style="font-size: 0.72rem; color: var(--muted); margin-top: 4px; line-height: 1.4;">
             Download once on good wifi to practice without waiting on cloud audio (audio also downloads quietly in the background during practice).
           </p>
         </div>
-        <button id="btn-clear-audio-cache" class="btn btn-secondary" style="margin-top: 8px; font-size: 0.75rem;">🗑️ Clear Audio Cache</button>
+        <button id="btn-clear-audio-cache" class="btn btn-secondary" style="margin-top: 8px; font-size: 0.75rem;" onclick={clearVoicePackCache}>🗑️ Clear Audio Cache</button>
       </div>
-      <div id="avatar-settings-section" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
+      <div id="avatar-settings-section" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);"
+        style:display={prefs.ttsMode === 'browser' ? 'block' : 'none'}>
         <label for="avatar-model-select" style="font-size: 0.85rem; font-weight: bold; margin-right: 8px;">Avatar model:</label>
-        <select id="avatar-model-select"
+        <select id="avatar-model-select" value={prefs.avatarModel} onchange={(e) => changeAvatarModel(e.currentTarget.value)}
           style="padding: 4px; border-radius: 4px; border: 1px solid var(--border); background: var(--paper-2); color: var(--text);">
           <option value="simple">Simple (Female)</option>
           <option value="chitose">Chitose (Male)</option>
@@ -324,8 +392,8 @@
         Erase all session history, XP, level, streak, daily goals, and score
         stats. Your settings, deck, and account are <strong>not</strong> affected.
       </p>
-      <button class="btn btn-danger" id="btn-reset-progress">Reset All Progress</button>
-      <div class="import-status" id="reset-progress-status"></div>
+      <button class="btn btn-danger" id="btn-reset-progress" onclick={resetAllProgress}>Reset All Progress</button>
+      <div class="import-status {resetStatus.type}" id="reset-progress-status">{resetStatus.message}</div>
     </div>
 
   </div>

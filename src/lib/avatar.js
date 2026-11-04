@@ -1,6 +1,6 @@
 import './live2d-shim.js';
 import { AVATAR_MODELS } from './data.js';
-import { get, set, KEYS } from './settings.js';
+import { get, KEYS } from './settings.js';
 
 let live2dModel = null;
 let live2dApp = null;
@@ -11,17 +11,6 @@ let originalShouldRequestIdleMotion = null;
 
 export function getAvatarModelName() {
   return get(KEYS.AVATAR_MODEL);
-}
-
-export function saveAvatarModel() {
-  const select = /** @type {HTMLSelectElement} */ (document.getElementById('avatar-model-select'));
-  if (!select) return;
-  const oldModel = get(KEYS.AVATAR_MODEL);
-  const newModel = select.value;
-
-  if (oldModel !== newModel) {
-    set(KEYS.AVATAR_MODEL, newModel);
-  }
 }
 
 export function getAvatarModelConfig(name = getAvatarModelName()) {

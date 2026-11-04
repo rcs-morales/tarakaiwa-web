@@ -1,7 +1,7 @@
 import { setStatus } from './ui.js';
 import { toggleSpeaking } from './avatar.js';
 import { AVATAR_MODELS } from './data.js';
-import { get, set, KEYS } from './settings.js';
+import { get, KEYS } from './settings.js';
 import { getAudio, saveAudio } from './db.js';
 
 let channels = {
@@ -37,14 +37,6 @@ export function unlockAudioForMobile() {
       synth.speak(utter);
     }
   } catch (_) { /* ignore */ }
-}
-
-export function toggleTTSVoicePanels(mode) {
-  const vvSettings = document.getElementById('voicevox-settings-section');
-  const avatarSettings = document.getElementById('avatar-settings-section');
-
-  if (vvSettings) vvSettings.style.display = (mode === 'voicevox') ? 'block' : 'none';
-  if (avatarSettings) avatarSettings.style.display = (mode === 'browser') ? 'block' : 'none';
 }
 
 // Stock phrases spoken during every session (feedback + end-of-session praise)
@@ -405,15 +397,6 @@ async function speakWithVoicevox(text, onEnd, context, rate = 1) {
     hideVoicevoxLoading();
     console.error(`Voicevox TTS failed [${context}]:`, err);
     if (onEnd) onEnd();
-  }
-}
-
-export function saveVoicevoxSpeaker() {
-  const select = /** @type {HTMLSelectElement} */ (document.getElementById('voicevox-speaker-select'));
-  const input = /** @type {HTMLInputElement} */ (document.getElementById('voicevox-speaker-input'));
-  if (select && select.value) {
-    set(KEYS.VOICEVOX_SPEAKER, select.value);
-    if (input) input.value = select.value;
   }
 }
 
