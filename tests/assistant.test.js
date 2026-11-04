@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { askStudyAssistant, translateToJapaneseWithAI } from '../src/lib/ai/index.js';
-import { handleAssistantQuery, assistantHistory } from '../src/lib/assistant-ui.js';
+import { askAssistant, assistant, assistantHistory, formatAssistantReply } from '../src/lib/assistant.svelte.js';
 
 vi.mock('../src/lib/ai/index.js', async (importOriginal) => {
   const actual = await importOriginal();
@@ -134,50 +134,88 @@ describe('translateToJapaneseWithAI normalization', () => {
   });
 });
 
-describe('AI Assistant UI Integration', () => {
+describe('AI Assistant chat flow', () => {
   beforeEach(() => {
-    document.body.innerHTML = `
-      <div id="ai-chat-history"></div>
-      <input id="ai-chat-input" value="Hello tutor!" />
-      <button id="btn-ai-send"></button>
-    `;
-    assistantHistory.length = 0; // Clear history
+    assistant.messages.length = 0;
+    assistant.busy = false;
+    assistantHistory.length = 0;
     vi.restoreAllMocks();
+    vi.mocked(askStudyAssistant).mockClear();
   });
 
-  it('should append user message and handle a successful AI response', async () => {
+  it('appends the question and a formatted reply', async () => {
     vi.mocked(askStudyAssistant).mockResolvedValue({ response: 'Hello! I am here to help. (konnichiwa)' });
 
-    await handleAssistantQuery('Hello tutor!');
+    await askAssistant('Hello tutor!');
 
-    const history = document.getElementById('ai-chat-history');
-    expect(history.innerHTML).toContain('Hello tutor!');
-    expect(history.innerHTML).toContain('Hello! I am here to help.');
-    expect(history.innerHTML).toContain('ai-reading-highlight'); // Verify formatting
+    expect(assistant.messages).toHaveLength(2);
+    expect(assistant.messages[0]).toEqual({ role: 'user', text: 'Hello tutor!' });
+    expect(assistant.messages[1].html).toContain('Hello! I am here to help.');
+    expect(assistant.messages[1].html).toContain('<span class="ai-reading-highlight">(konnichiwa)</span>');
     expect(assistantHistory).toHaveLength(2);
   });
 
-  it('should map API errors to user-friendly messages', async () => {
+  it('maps API errors to user-friendly messages', async () => {
     vi.mocked(askStudyAssistant).mockResolvedValue({ error: 'RATE_LIMIT' });
 
-    await handleAssistantQuery('Help me!');
+    await askAssistant('Help me!');
 
-    const history = document.getElementById('ai-chat-history');
-    expect(history.innerHTML).toContain('Rate limit exceeded');
+    expect(assistant.messages[1].text).toContain('Rate limit exceeded');
+    expect(assistant.messages[1].html).toBeUndefined();
+    expect(assistantHistory).toHaveLength(0);
   });
 
-  it('should truncate history to 20 messages', async () => {
+  it('shows the error code for unknown API errors', async () => {
+    vi.mocked(askStudyAssistant).mockResolvedValue({ error: 'API_ERROR_500' });
+
+    await askAssistant('Help me!');
+
+    expect(assistant.messages[1].text).toBe('❌ API Error (API_ERROR_500). Please try again.');
+  });
+
+  it('keeps the context history capped at 20 messages', async () => {
     vi.mocked(askStudyAssistant).mockResolvedValue({ response: 'Ok' });
 
-    // Fill history up to 20
-    for (let i = 0; i < 11; i++) {
-      await handleAssistantQuery('Query ' + i);
+    for (let i = 0; i < 12; i++) {
+      await askAssistant('Query ' + i);
     }
 
-    expect(assistantHistory.length).toBe(20);
+    expect(assistantHistory).toHaveLength(20);
+    expect(assistantHistory.map((m) => m.content)).not.toContain('Query 0');
+    expect(assistantHistory.map((m) => m.content)).toContain('Query 11');
+  });
 
-    // Add one more
-    await handleAssistantQuery('Query 11');
-    expect(assistantHistory.length).toBe(20); // Should remain 20
+  it('is busy while waiting and ignores a second question meanwhile', async () => {
+    let resolve;
+    vi.mocked(askStudyAssistant).mockImplementation(() => new Promise((r) => { resolve = r; }));
+
+    const pending = askAssistant('First');
+    expect(assistant.busy).toBe(true);
+    await askAssistant('Second');
+    expect(askStudyAssistant).toHaveBeenCalledTimes(1);
+
+    resolve({ response: 'Done' });
+    await pending;
+    expect(assistant.busy).toBe(false);
+  });
+});
+
+describe('formatAssistantReply', () => {
+  it('keeps the formatting tags the prompt asks for', () => {
+    const html = formatAssistantReply('<p><strong>時</strong> means time.</p><ul><li>今 (ima)</li></ul>');
+    expect(html).toBe('<p><strong>時</strong> means time.</p><ul><li>今 <span class="ai-reading-highlight">(ima)</span></li></ul>');
+  });
+
+  it('strips scripts, event handlers, links and other attributes', () => {
+    const html = formatAssistantReply(
+      '<p onclick="x()">Hi</p><img src=x onerror="alert(1)"><script>alert(2)</script>' +
+      '<a href="javascript:alert(3)">link</a><strong style="color:red">bold</strong>'
+    );
+    expect(html).toBe('<p>Hi</p>link<strong>bold</strong>');
+  });
+
+  it('escapes plain text that looks like markup after decoding', () => {
+    const html = formatAssistantReply('a &lt;b&gt; c');
+    expect(html).toBe('a &lt;b&gt; c');
   });
 });
