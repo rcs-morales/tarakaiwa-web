@@ -22,5 +22,10 @@
     "pixi-live2d-display": "^0.4.0",
     "pixi.js": "^6.5.10",
     "read-excel-file": "^9.3.14"
+  },
+  "overrides": {
+    "pixi-live2d-display": {
+      "gh-pages": "^6.3.0"
+    }
   }
 }
