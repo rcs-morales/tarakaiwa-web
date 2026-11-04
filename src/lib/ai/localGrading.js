@@ -326,6 +326,7 @@ export async function isCorrectLocal(rawTranscript, answer, question = '') {
       particleNotes: '',
       vocabularyNotes: '',
       suggestedAnswer: '',
+      hints: [],
       source: 'local'
     };
   }
@@ -348,6 +349,9 @@ export async function isCorrectLocal(rawTranscript, answer, question = '') {
 
   let finalScore = Math.round(sim * 100);
   let grammarNotes = '';
+  // Category for grammarNotes, matching the AI breakdown tags
+  // (Completeness / Conjugation / Tense) so the UI can colour it the same way.
+  let grammarCategory = '';
   let particleNotes = '';
 
   const completionSignals = analyzeAnswerCompleteness(question, answer, rawTranscript, transcriptToFurigana, katakanaToHiragana);
@@ -355,6 +359,7 @@ export async function isCorrectLocal(rawTranscript, answer, question = '') {
   if (completionSignals.incomplete || completionSignals.hasExtraTrailingChars) {
     finalScore = Math.min(finalScore, completionSignals.incomplete ? 40 : 35);
     grammarNotes = completionSignals.reason;
+    grammarCategory = 'Completeness';
   }
 
   // N5-friendly: small wording differences should not be treated as hard failures.
@@ -451,21 +456,34 @@ export async function isCorrectLocal(rawTranscript, answer, question = '') {
     }
     if (hasCompletionProblem) {
       grammarNotes = completionSignals.reason;
+      grammarCategory = 'Completeness';
     } else if (hasProhibitionProblem) {
       grammarNotes = 'Prohibition form error: use 〜てはいけません instead of 〜てもいきません.';
+      grammarCategory = 'Conjugation';
     } else if (hasPolarityProblem) {
       grammarNotes = 'Polarity mismatch: positive/negative form does not match the expected answer.';
+      grammarCategory = 'Conjugation';
     } else if (hasTenseProblem || missingVerbs.length > 0) {
       grammarNotes = hasTenseProblem
         ? (questionAnswerTenseMismatch
           ? 'Question and answer tense do not match.'
           : 'Verb tense error: used present tense (ます) instead of required past tense (ました).')
         : 'Check your verb tense/conjugation: ' + missingVerbs.join(', ') + ' seems missing or incorrect.';
+      grammarCategory = hasTenseProblem ? 'Tense' : 'Conjugation';
     }
   }
 
   finalScore = Math.max(0, finalScore);
   const isCorrect = !hasCompletionProblem && !hasParticleMismatch && !hasTenseProblem && !hasProhibitionProblem && finalScore >= 45;
+
+  // The specific reasons above, in the { category, explanation } shape the
+  // feedback cards render (AI results carry these as `breakdown`). The
+  // particle note is only shown when the sentence is otherwise identical
+  // (grammarSignals.particleMismatch): the character-count check also fires on
+  // kana inside words (が in がくせい, で in です), which reads as nonsense.
+  const hints = [];
+  if (grammarNotes) hints.push({ category: grammarCategory || 'Grammar', explanation: grammarNotes });
+  if (particleNotes && grammarSignals.particleMismatch) hints.push({ category: 'Particle', explanation: particleNotes });
 
   return {
     correct: isCorrect,
@@ -475,6 +493,7 @@ export async function isCorrectLocal(rawTranscript, answer, question = '') {
     particleNotes: particleNotes,
     vocabularyNotes: '',
     suggestedAnswer: isCorrect ? '' : answer,
+    hints,
     source: 'local'
   };
 }

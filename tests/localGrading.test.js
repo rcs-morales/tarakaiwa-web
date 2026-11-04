@@ -126,3 +126,34 @@ describe('hasMeaningfulBreakdownError', () => {
     expect(hasMeaningfulBreakdownError(breakdown, isScriptOnly)).toBe(true);
   });
 });
+
+describe('isCorrectLocal hints', () => {
+  it('returns no hints for a matching answer', async () => {
+    const r = await isCorrectLocal('わたしはたなかです', 'わたしはたなかです', 'おなまえは？');
+    expect(r.correct).toBe(true);
+    expect(r.hints).toEqual([]);
+  });
+
+  it('tags a past/present tense slip as a Tense hint', async () => {
+    const r = await isCorrectLocal('きのうえいがをみます', 'きのうえいがをみました', 'きのうなにをしましたか？');
+    expect(r.correct).toBe(false);
+    expect(r.hints).toEqual([
+      { category: 'Tense', explanation: expect.stringContaining('past tense (ました)') },
+    ]);
+  });
+
+  it('tags a positive/negative slip as a Conjugation hint', async () => {
+    const r = await isCorrectLocal('がくせいではありません', 'がくせいです', 'がくせいですか？');
+    expect(r.correct).toBe(false);
+    expect(r.hints.map((h) => h.category)).toEqual(['Conjugation']);
+    expect(r.hints[0].explanation).toContain('Polarity mismatch');
+  });
+
+  it('shows a Particle hint when only the particle differs', async () => {
+    const r = await isCorrectLocal('りんごがたべます', 'りんごをたべます', 'なにをたべますか？');
+    expect(r.correct).toBe(false);
+    expect(r.hints).toEqual([
+      { category: 'Particle', explanation: 'Particle mismatch: expected particles "を" but heard "が".' },
+    ]);
+  });
+});

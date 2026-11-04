@@ -53,6 +53,34 @@ describe('Results screen', () => {
     expect(container.textContent).toContain('Subject marker needed.');
   });
 
+  it('renders local grading hints as tagged cards', () => {
+    mockSession.results = [{
+      q: 'Q', a: 'りんごをたべます', transcript: 'りんごがたべます', correct: false,
+      gradeResult: {
+        source: 'local',
+        feedback: 'Answer did not match closely enough (local check).',
+        hints: [{ category: 'Particle', explanation: 'Particle mismatch: expected particles "を" but heard "が".' }],
+      },
+    }];
+
+    const { container } = render(Results);
+    expect(container.textContent).toContain('Answer did not match closely enough');
+    const tag = container.querySelector('.rich-breakdown-tag');
+    expect(tag.textContent).toBe('Particle');
+    expect(tag.classList.contains('rich-tag-particle')).toBe(true);
+    expect(container.textContent).toContain('expected particles "を" but heard "が"');
+  });
+
+  it('renders local results without hints (older entries) as before', () => {
+    mockSession.results = [{
+      q: 'Q', a: 'A', transcript: 'B', correct: false,
+      gradeResult: { source: 'local', feedback: 'Answer did not match closely enough (local check).' },
+    }];
+
+    const { container } = render(Results);
+    expect(container.querySelector('.rich-breakdown-card')).toBeNull();
+  });
+
   it('keeps the restart button for the app.js binding', () => {
     const { container } = render(Results);
     expect(container.querySelector('#btn-restart-app')).not.toBeNull();

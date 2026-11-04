@@ -106,6 +106,18 @@
                 {/each}
               </div>
             {/if}
+            {#if r.gradeResult.source === 'local' && (r.gradeResult.hints || []).length > 0}
+              <div class="ai-breakdown-container">
+                {#each r.gradeResult.hints as hint}
+                  <div class="rich-breakdown-card">
+                    <div class="rich-breakdown-top">
+                      <div class="rich-breakdown-tag {tagClassFor(hint.category)}">{hint.category || 'Feedback'}</div>
+                    </div>
+                    <div class="rich-breakdown-desc">{hint.explanation}</div>
+                  </div>
+                {/each}
+              </div>
+            {/if}
           </div>
         {/if}
       </div>

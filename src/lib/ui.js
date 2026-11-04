@@ -155,7 +155,40 @@ export function showResult(gradeResult, answer) {
     fbText.className = 'ai-feedback-text';
     fbText.textContent = '⚙️ ' + gradeResult.feedback + ' (AI unavailable — used local matching)';
     aiFb.appendChild(fbText);
+
+    // The specific grammar/particle reasons the local checker found. Same
+    // card styling as the AI breakdown, minus the original → corrected line.
+    const hints = gradeResult.hints || [];
+    if (hints.length > 0) {
+      const richSection = document.createElement('div');
+      richSection.className = 'rich-feedback-section';
+      hints.forEach(hint => {
+        const card = document.createElement('div');
+        card.className = 'rich-breakdown-card';
+        const top = document.createElement('div');
+        top.className = 'rich-breakdown-top';
+        const tag = document.createElement('div');
+        tag.className = 'rich-breakdown-tag ' + hintTagClass(hint.category);
+        tag.textContent = hint.category || 'Feedback';
+        top.append(tag);
+        const desc = document.createElement('div');
+        desc.className = 'rich-breakdown-desc';
+        desc.textContent = hint.explanation;
+        card.append(top, desc);
+        richSection.appendChild(card);
+      });
+      aiFb.appendChild(richSection);
+    }
   }
+}
+
+/** Category → tag colour for local grading hints (same buckets as the AI breakdown). */
+function hintTagClass(category) {
+  const c = (category || '').toLowerCase();
+  if (c.includes('completeness')) return 'rich-tag-sentence-structure';
+  if (c.includes('particle')) return 'rich-tag-particle';
+  if (c.includes('conjugation') || c.includes('tense')) return 'rich-tag-conjugation';
+  return 'rich-tag-default';
 }
 
 export function showBtn(id, visible) {
