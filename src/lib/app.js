@@ -7,7 +7,6 @@ import {
   saveApiKeyFromInput, clearApiKey, getGroqApiKey,
   testApiConnection
 } from './ai/index.js';
-import { bugReporter } from './bugReporter.js';
 import { initAvatar, getAvatarModelName, saveAvatarModel } from './avatar.js';
 import {
   saveVoicevoxSpeaker, toggleTTSVoicePanels,
@@ -305,8 +304,6 @@ export function initApp() {
   bind('btn-rerecord', rerecordAnswer);
   bind('btn-next', nextQuestion);
   bind('btn-skip', skipQuestion);
-  bind('bug-close-btn', () => bugReporter.close());
-  bind('bug-submit-btn', () => bugReporter.submit());
   bind('btn-clear-audio-cache', async () => {
     await clearAudioCache();
     refreshVoicePackStatus();
@@ -314,9 +311,6 @@ export function initApp() {
   });
   bind('btn-download-voicepack', downloadVoicePack);
   bind('btn-reset-progress', handleResetProgress);
-  bind('btn-close-final-overlay', () => {
-    document.getElementById('final-score-overlay').style.display = 'none';
-  });
 
   // ── Account / auth ──
   // (the account menu's "Account & sync settings" button is wired inside
@@ -337,10 +331,6 @@ export function initApp() {
     await signOut();
     onLogout();
     setAccountStatus('Signed out.', 'info');
-  });
-
-  document.querySelectorAll('.btn-report-bug').forEach(btn => {
-    btn.addEventListener('click', () => bugReporter.open());
   });
 
   // Magic-link form: Enter should send the link, not reload the page.

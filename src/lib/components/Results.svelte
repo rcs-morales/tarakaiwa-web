@@ -7,6 +7,7 @@
   import { history } from '$lib/history.svelte.js';
   import { computeDailyGoal, XP_PER_CORRECT, newlyEarnedBadges } from '$lib/gamification.svelte.js';
   import { prefs } from '$lib/prefs.svelte.js';
+  import { openBugReport } from '$lib/bugReport.svelte.js';
 
   const total = $derived(session.results.length);
   // Badges that this session's history entry just unlocked (recordSession
@@ -130,7 +131,7 @@
     <button class="btn btn-primary" id="btn-restart-app">もう一度 · Again</button>
   </div>
   <div class="results-footer">
-    <button class="btn btn-secondary btn-sm btn-report-bug">🐞 Report Bug</button>
+    <button class="btn btn-secondary btn-sm btn-report-bug" onclick={openBugReport}>🐞 Report Bug</button>
   </div>
 </div>
 

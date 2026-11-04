@@ -9,6 +9,7 @@
   import { history, computeStats } from '$lib/history.svelte.js';
   import { computeDailyGoal } from '$lib/gamification.svelte.js';
   import { prefs } from '$lib/prefs.svelte.js';
+  import { openBugReport } from '$lib/bugReport.svelte.js';
 
   const stats = $derived(computeStats(history.entries));
   const daily = $derived(computeDailyGoal(history.entries, prefs.dailyGoal));
@@ -102,7 +103,7 @@
   {/if}
 
   <div class="dash-footer">
-    <button class="btn btn-secondary btn-sm btn-report-bug">🐞 Report Bug</button>
+    <button class="btn btn-secondary btn-sm btn-report-bug" onclick={openBugReport}>🐞 Report Bug</button>
   </div>
 </div>
 

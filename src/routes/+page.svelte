@@ -13,6 +13,8 @@
   import Settings from '$lib/components/Settings.svelte';
   import StudyAssistant from '$lib/components/StudyAssistant.svelte';
   import TranslateTool from '$lib/components/TranslateTool.svelte';
+  import FinalScoreOverlay from '$lib/components/FinalScoreOverlay.svelte';
+  import BugReportModal from '$lib/components/BugReportModal.svelte';
   import { shell } from '$lib/shell.svelte.js';
 
   onMount(initApp);
@@ -59,31 +61,8 @@
 <WhatsNewModal />
 <VoicePackWarningModal />
 
-<div id="final-score-overlay" class="hidden">
-  <div class="final-score-card">
-    <div id="final-score-icon">🏆</div>
-    <h2 style="font-family: Noto Serif JP, serif; margin-bottom: 8px;">Session Complete!</h2>
-    <div id="final-score-text">0 / 0</div>
-    <button class="btn btn-secondary" id="btn-close-final-overlay" style="margin-top: 20px;">Close</button>
-  </div>
-</div>
-
-<!-- ── BUG REPORT MODAL ── -->
-<div id="bug-report-modal" class="modal hidden">
-  <div class="modal-card">
-    <h3 style="font-family: 'Noto Serif JP', serif; margin-bottom: 8px;">🐞 Report a Bug</h3>
-    <p style="font-size: 0.85rem; color: var(--muted); margin-bottom: 16px;">Help us improve TaraKaiwa! Please describe the issue you've encountered.</p>
-    <textarea id="bug-message" placeholder="What happened? (e.g., 'The AI gave a wrong answer')"></textarea>
-    <div class="file-input-row">
-      <label for="bug-screenshot" style="font-size: 0.8rem; font-weight: 500; color: var(--ink-mid);">📸 Attach Screenshot (Optional)</label>
-      <input type="file" id="bug-screenshot" accept="image/*" />
-    </div>
-    <div class="modal-btn-row" style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px;">
-      <button class="btn btn-secondary" id="bug-close-btn">Close</button>
-      <button class="btn btn-primary btn-submit" id="bug-submit-btn">Submit Report</button>
-    </div>
-  </div>
-</div>
+<FinalScoreOverlay />
+<BugReportModal />
 
 <!-- ── Floating study tools ── -->
 <TranslateTool />
