@@ -2,8 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { translateToJapaneseWithAI } from '../src/lib/ai/index.js';
 import { toFuriganaHtml } from '../src/lib/parser.js';
 import {
-  handleTranslateAndSpeak, toggleTranslateMic, replayJapaneseAudio
-} from '../src/lib/translate-ui.js';
+  translate, translateAndSpeak, toggleMic, replayJapaneseAudio, closeTranslateTool,
+} from '../src/lib/translate.svelte.js';
 
 describe('translateToJapaneseWithAI Unit Tests', () => {
   let realTranslateToJapanese;
@@ -99,75 +99,78 @@ describe('Furigana Rendering', () => {
   });
 });
 
-describe('Translate Tool UI', () => {
+function resetTranslate() {
+  translate.open = false;
+  translate.input = '';
+  translate.sourceLang = 'English';
+  translate.status = { message: '', type: '' };
+  translate.result = null;
+  translate.recording = false;
+  translate.speaking = false;
+}
+
+describe('Translate tool flow', () => {
   beforeEach(() => {
-    document.body.innerHTML = `
-      <textarea id="translate-input"></textarea>
-      <button id="btn-translate-speak"></button>
-      <button id="btn-translate-mic"></button>
-      <div id="translate-status"></div>
-      <div id="translate-result-area" class="hidden"></div>
-      <div id="translate-result-text"></div>
-    `;
+    resetTranslate();
     vi.clearAllMocks();
   });
 
-  it('translates input and shows Japanese result', async () => {
+  it('translates the input and keeps the result', async () => {
     vi.mocked(translateToJapaneseWithAI).mockResolvedValue({ japanese: '元気ですか？', romaji: 'genki desu ka?' });
 
-    document.getElementById('translate-input').value = 'How are you?';
-    await handleTranslateAndSpeak();
+    translate.input = 'How are you?';
+    await translateAndSpeak();
 
     expect(translateToJapaneseWithAI).toHaveBeenCalledWith('How are you?', 'English');
-    const resultText = document.getElementById('translate-result-text').textContent;
-    expect(resultText).toContain('元気');
-    expect(resultText).toContain('genki desu ka?');
-    expect(document.getElementById('translate-result-area').classList.contains('hidden')).toBe(false);
+    expect(translate.result).toEqual({ japanese: '元気ですか？', romaji: 'genki desu ka?', english: '' });
+    expect(translate.status).toEqual({ message: 'Done! Edit the phrase or tap Replay.', type: 'success' });
+    expect(translate.speaking).toBe(false);
   });
 
-  it('shows the English gloss when the AI provides one', async () => {
-    vi.mocked(translateToJapaneseWithAI).mockResolvedValue({
-      japanese: '元気ですか？', romaji: 'genki desu ka?', english: 'Are you doing well?'
-    });
+  it('passes the chosen source language', async () => {
+    vi.mocked(translateToJapaneseWithAI).mockResolvedValue({ japanese: 'こんにちは' });
 
-    document.getElementById('translate-input').value = 'How are you?';
-    await handleTranslateAndSpeak();
+    translate.input = 'Kumusta';
+    translate.sourceLang = 'Filipino';
+    await translateAndSpeak();
 
-    const enEl = document.getElementById('translate-result-en');
-    expect(enEl).not.toBeNull();
-    expect(enEl.textContent).toBe('Are you doing well?');
+    expect(translateToJapaneseWithAI).toHaveBeenCalledWith('Kumusta', 'Filipino');
   });
 
-  it('omits the English gloss line when the AI does not provide one', async () => {
-    vi.mocked(translateToJapaneseWithAI).mockResolvedValue({ japanese: '元気ですか？', romaji: 'genki desu ka?' });
+  it('speaks the Japanese without furigana markers', async () => {
+    const { speakQuestion } = await import('../src/lib/tts.js');
+    vi.mocked(translateToJapaneseWithAI).mockResolvedValue({ japanese: '元気{げんき}ですか', romaji: 'genki desu ka' });
 
-    document.getElementById('translate-input').value = 'How are you?';
-    await handleTranslateAndSpeak();
+    translate.input = 'How are you?';
+    await translateAndSpeak();
 
-    expect(document.getElementById('translate-result-en')).toBeNull();
+    expect(speakQuestion).toHaveBeenCalledWith('元気ですか', expect.any(Function), 'tool');
   });
 
   it('shows an error when translation fails', async () => {
     vi.mocked(translateToJapaneseWithAI).mockResolvedValue({ error: 'MISSING_KEY' });
 
-    document.getElementById('translate-input').value = 'Hello';
-    await handleTranslateAndSpeak();
+    translate.input = 'Hello';
+    await translateAndSpeak();
 
-    expect(document.getElementById('translate-status').textContent).toContain('No API key');
+    expect(translate.status.message).toContain('No API key');
+    expect(translate.status.type).toBe('error');
+    expect(translate.speaking).toBe(false);
+    expect(translate.result).toBeNull();
   });
 
   it('rejects empty input', async () => {
-    await handleTranslateAndSpeak();
+    await translateAndSpeak();
     expect(translateToJapaneseWithAI).not.toHaveBeenCalled();
-    expect(document.getElementById('translate-status').textContent).toContain('Enter or speak');
+    expect(translate.status.message).toContain('Enter or speak');
   });
 
   it('replays the last Japanese audio', async () => {
     const { speakQuestion } = await import('../src/lib/tts.js');
     vi.mocked(translateToJapaneseWithAI).mockResolvedValue({ japanese: 'ありがとう' });
 
-    document.getElementById('translate-input').value = 'Thank you';
-    await handleTranslateAndSpeak();
+    translate.input = 'Thank you';
+    await translateAndSpeak();
     vi.mocked(speakQuestion).mockClear();
 
     await replayJapaneseAudio();
@@ -175,49 +178,85 @@ describe('Translate Tool UI', () => {
   });
 });
 
-describe('Translate Tool Mic', () => {
+describe('Translate tool mic', () => {
+  /** @type {import('vitest').Mock} */
+  let trackStop;
+
   beforeEach(() => {
-    document.body.innerHTML = `
-      <textarea id="translate-input"></textarea>
-      <button id="btn-translate-mic"></button>
-      <div id="translate-status"></div>
-    `;
+    resetTranslate();
     vi.clearAllMocks();
-    // Browser speech recognition is now gated behind a mic-permission request.
+    trackStop = vi.fn();
+    // Browser speech recognition is gated behind a mic-permission request.
     Object.defineProperty(navigator, 'mediaDevices', {
       configurable: true,
-      value: { getUserMedia: vi.fn(async () => ({ getTracks: () => [] })) },
+      value: { getUserMedia: vi.fn(async () => ({ getTracks: () => [{ stop: trackStop }] })) },
     });
   });
 
   it('uses browser speech recognition when available', async () => {
     class MockSpeechRecognition {
-      constructor() {
-        this.lang = '';
-        this.onstart = null;
-        this.onresult = null;
-        this.onend = null;
-      }
       start() {
-        if (this.onstart) this.onstart();
-        if (this.onresult) {
-          this.onresult({
-            results: [{ 0: { transcript: 'Good morning' }, isFinal: true }]
-          });
-        }
-        if (this.onend) this.onend();
+        this.onstart?.();
+        this.onresult?.({ results: [{ 0: { transcript: 'Good morning' }, isFinal: true }] });
+        this.onend?.();
       }
-      stop() {
-        if (this.onend) this.onend();
-      }
+      stop() { this.onend?.(); }
     }
-
     window.SpeechRecognition = MockSpeechRecognition;
     window.webkitSpeechRecognition = MockSpeechRecognition;
 
-    await toggleTranslateMic();
+    await toggleMic();
 
-    expect(document.getElementById('translate-input').value).toBe('Good morning');
-    expect(document.getElementById('btn-translate-mic').classList.contains('recording')).toBe(false);
+    expect(translate.input).toBe('Good morning');
+    expect(translate.recording).toBe(false);
+    expect(translate.status.message).toContain('Speech captured');
+  });
+
+  it('releases the microphone when the user stops listening', async () => {
+    class MockSpeechRecognition {
+      start() { this.onstart?.(); }
+      stop() { this.onend?.(); }
+    }
+    window.SpeechRecognition = MockSpeechRecognition;
+
+    await toggleMic();
+    expect(translate.recording).toBe(true);
+    expect(trackStop).not.toHaveBeenCalled();
+
+    await toggleMic();
+    expect(translate.recording).toBe(false);
+    expect(trackStop).toHaveBeenCalled();
+  });
+
+  it('releases the microphone when recognition ends on its own', async () => {
+    let instance;
+    class MockSpeechRecognition {
+      constructor() { instance = this; }
+      start() { this.onstart?.(); }
+      stop() { this.onend?.(); }
+    }
+    window.SpeechRecognition = MockSpeechRecognition;
+
+    await toggleMic();
+    instance.onend(); // e.g. the browser times out on silence
+
+    expect(translate.recording).toBe(false);
+    expect(trackStop).toHaveBeenCalled();
+  });
+
+  it('closing the panel stops listening', async () => {
+    class MockSpeechRecognition {
+      start() { this.onstart?.(); }
+      stop() { this.onend?.(); }
+    }
+    window.SpeechRecognition = MockSpeechRecognition;
+    translate.open = true;
+
+    await toggleMic();
+    closeTranslateTool();
+
+    expect(translate.open).toBe(false);
+    expect(translate.recording).toBe(false);
+    expect(trackStop).toHaveBeenCalled();
   });
 });

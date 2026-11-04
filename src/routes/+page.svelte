@@ -12,6 +12,7 @@
   import Progress from '$lib/components/Progress.svelte';
   import Settings from '$lib/components/Settings.svelte';
   import StudyAssistant from '$lib/components/StudyAssistant.svelte';
+  import TranslateTool from '$lib/components/TranslateTool.svelte';
   import { shell } from '$lib/shell.svelte.js';
 
   onMount(initApp);
@@ -84,41 +85,8 @@
   </div>
 </div>
 
-<!-- ── AI Study Assistant ── -->
-<button id="btn-translate-tool" class="btn-translate-float" title="Speak in Japanese">🔊</button>
-<div id="translate-tool-panel" class="ai-panel translate-panel hidden">
-  <div class="ai-panel-header translate-panel-header">
-    <span>🔊 Speak in Japanese</span>
-    <button id="btn-close-translate" class="btn-close-ai">✕</button>
-  </div>
-  <div class="translate-tool-body">
-    <p class="translate-tool-hint">Type or speak any phrase to hear it in Japanese.</p>
-    <div class="translate-source-lang-row" style="margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
-      <label for="translate-source-lang" style="font-size: 0.85rem; font-weight: bold;">Source:</label>
-      <select id="translate-source-lang" style="padding: 2px; border-radius: 4px; background: var(--paper-2); color: var(--text); border: 1px solid var(--border);">
-        <option value="English">English</option>
-        <option value="Filipino">Filipino</option>
-        <option value="Spanish">Spanish</option>
-        <option value="French">French</option>
-        <option value="Chinese">Chinese</option>
-        <option value="Korean">Korean</option>
-      </select>
-    </div>
-    <textarea id="translate-input" class="translate-input" rows="3" placeholder="e.g. Hello, how are you?"></textarea>
-    <div id="translate-status" class="translate-status"></div>
-    <div class="translate-tool-actions ai-panel-input">
-      <button id="btn-translate-mic" class="btn-ai-mic" title="Speak your phrase">🎤</button>
-      <button id="btn-translate-speak" class="btn-ai-send">Translate &amp; Speak</button>
-    </div>
-    <div id="translate-result-area" class="translate-result-area hidden">
-      <div class="translate-result-label">Japanese</div>
-      <div id="translate-result-text" class="translate-result-text"></div>
-      <button id="btn-translate-replay" class="btn btn-secondary btn-sm">🔊 Replay</button>
-    </div>
-  </div>
-  <div class="ai-panel-resizer"></div>
-</div>
-
+<!-- ── Floating study tools ── -->
+<TranslateTool />
 <StudyAssistant />
 
 <style>

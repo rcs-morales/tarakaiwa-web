@@ -2,6 +2,7 @@
 // components/StudyAssistant.svelte.
 
 import { askStudyAssistant } from './ai/index.js';
+import { sanitizeHtml } from './sanitize.js';
 
 /** Conversation sent back to the model as context (capped at 20 messages). */
 export const assistantHistory = [];
@@ -62,10 +63,9 @@ export async function askAssistant(query) {
 }
 
 // Tags the assistant prompt asks for (see STUDY_ASSISTANT_PROMPT), plus a few
-// harmless inline ones. Everything else is unwrapped to its text; no
-// attributes survive, so replies can't carry scripts, handlers or links.
-const ALLOWED_TAGS = new Set(['P', 'STRONG', 'B', 'EM', 'I', 'UL', 'OL', 'LI', 'BR']);
-const DROP_WITH_CONTENT = new Set(['SCRIPT', 'STYLE', 'TEMPLATE', 'IFRAME', 'OBJECT', 'EMBED', 'NOSCRIPT']);
+// harmless inline ones. No attributes survive, so replies can't carry
+// scripts, handlers or links.
+const ALLOWED_TAGS = ['p', 'strong', 'b', 'em', 'i', 'ul', 'ol', 'li', 'br'];
 // Readings the model writes after kanji, e.g. 時 (toki).
 const READING_RE = /(\([a-zA-Z\s-]+\))/g;
 
@@ -76,35 +76,7 @@ const READING_RE = /(\([a-zA-Z\s-]+\))/g;
  * @returns {string}
  */
 export function formatAssistantReply(html) {
-  // <template> content is inert: nothing in it runs or loads while parsing.
-  const tpl = document.createElement('template');
-  tpl.innerHTML = String(html ?? '');
-  const out = document.createElement('div');
-  appendClean(tpl.content, out);
-  return out.innerHTML;
-}
-
-/**
- * @param {Node} from
- * @param {Node} to
- */
-function appendClean(from, to) {
-  for (const node of Array.from(from.childNodes)) {
-    if (node.nodeType === Node.TEXT_NODE) {
-      appendHighlightedText(node.textContent || '', to);
-    } else if (node.nodeType === Node.ELEMENT_NODE) {
-      const tag = /** @type {Element} */ (node).tagName;
-      if (DROP_WITH_CONTENT.has(tag)) continue;
-      if (ALLOWED_TAGS.has(tag)) {
-        const el = document.createElement(tag.toLowerCase());
-        appendClean(node, el);
-        to.appendChild(el);
-      } else {
-        appendClean(node, to);
-      }
-    }
-    // Comments and anything else are dropped.
-  }
+  return sanitizeHtml(html, { allow: ALLOWED_TAGS, onText: appendHighlightedText });
 }
 
 /**

@@ -25,7 +25,6 @@ import {
   revealAnswerHint
 } from './session.svelte.js';
 import { assistantHistory } from './assistant.svelte.js';
-import { initTranslateTool } from './translate-ui.js';
 import { handleFileImport } from './import.js';
 import { clearAudioCache } from './db.js';
 import {
@@ -384,8 +383,8 @@ export function initApp() {
     initAvatar();
   });
 
-  // The AI Study Assistant panel is StudyAssistant.svelte.
-  initTranslateTool();
+  // The AI Study Assistant and Speak-in-Japanese panels are Svelte components
+  // (StudyAssistant.svelte, TranslateTool.svelte).
 
   // Initialize avatar on startup
   initAvatar();
