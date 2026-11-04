@@ -19,7 +19,7 @@ export async function POST({ request, platform }) {
   if (!env.GROQ_API_KEY) return json({ error: 'Server AI key not configured.' }, 500);
 
   const auth = await authenticateRequest(request, env);
-  if (auth.error) return json({ error: auth.error }, auth.status);
+  if ('error' in auth) return json({ error: auth.error }, auth.status);
 
   const rawBody = await request.text();
   if (rawBody.length > MAX_BODY_BYTES) return json({ error: 'Request too large.' }, 413);

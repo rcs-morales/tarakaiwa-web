@@ -9,7 +9,8 @@ import { importDeck, MAX_DECK_QUESTIONS } from './decks.svelte.js';
  * @param {Event} event
  */
 export async function handleFileImport(event) {
-  const file = event.target.files[0];
+  const input = /** @type {HTMLInputElement} */ (event.target);
+  const file = input.files[0];
   if (!file) return;
 
   const reader = new FileReader();
@@ -19,7 +20,7 @@ export async function handleFileImport(event) {
 
   if (isLegacyExcel) {
     showImportStatus('❌ Import failed: old .xls files aren\'t supported. In Excel, use File → Save As → Excel Workbook (.xlsx) or CSV, then import that file.', 'error');
-    event.target.value = '';
+    input.value = '';
     return;
   }
 
@@ -28,7 +29,7 @@ export async function handleFileImport(event) {
       let qa;
 
       if (isExcel) {
-        qa = await parseExcel(e.target.result);
+        qa = await parseExcel(/** @type {ArrayBuffer} */ (e.target.result));
       } else {
         const content = e.target.result;
         if (fileName.endsWith('.json')) {
@@ -74,5 +75,5 @@ export async function handleFileImport(event) {
     reader.readAsText(file);
   }
 
-  event.target.value = '';
+  input.value = '';
 }

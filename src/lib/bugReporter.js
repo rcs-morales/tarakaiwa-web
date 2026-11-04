@@ -9,10 +9,10 @@ export const bugReporter = {
     const modal = document.getElementById('bug-report-modal');
     if (modal) modal.classList.add('hidden');
 
-    const messageInput = document.getElementById('bug-message');
+    const messageInput = /** @type {HTMLTextAreaElement} */ (document.getElementById('bug-message'));
     if (messageInput) messageInput.value = '';
 
-    const fileInput = document.getElementById('bug-screenshot');
+    const fileInput = /** @type {HTMLInputElement} */ (document.getElementById('bug-screenshot'));
     if (fileInput) fileInput.value = '';
   },
   async submit() {
@@ -21,10 +21,10 @@ export const bugReporter = {
       return;
     }
 
-    const message = document.getElementById('bug-message')?.value.trim();
-    const file = document.getElementById('bug-screenshot')?.files[0];
-    const jlptLevel = document.getElementById('jlpt-level-select')?.value || 'Unknown';
-    const submitBtn = document.getElementById('bug-submit-btn');
+    const message = /** @type {HTMLTextAreaElement} */ (document.getElementById('bug-message'))?.value.trim();
+    const file = /** @type {HTMLInputElement} */ (document.getElementById('bug-screenshot'))?.files[0];
+    const jlptLevel = /** @type {HTMLSelectElement} */ (document.getElementById('jlpt-level-select'))?.value || 'Unknown';
+    const submitBtn = /** @type {HTMLButtonElement} */ (document.getElementById('bug-submit-btn'));
 
     if (!message) {
       alert('Please provide a description of the bug.');

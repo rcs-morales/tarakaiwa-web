@@ -100,7 +100,7 @@ async function startBrowserTranslateListening() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRecognition) return false;
 
-  const input = document.getElementById('translate-input');
+  const input = /** @type {HTMLTextAreaElement} */ (document.getElementById('translate-input'));
   const micReady = await requestTranslateMicAccess();
   if (!micReady) return false;
   stopBrowserTranslateRecog();
@@ -193,7 +193,7 @@ async function stopWhisperTranslateRecording() {
     return;
   }
 
-  const input = document.getElementById('translate-input');
+  const input = /** @type {HTMLTextAreaElement} */ (document.getElementById('translate-input'));
   const blob = await new Promise((resolve) => {
     translateMediaRecorder.onstop = () => {
       const mimeType = (translateMediaRecorder.mimeType || 'audio/webm').split(';')[0].trim();
@@ -244,8 +244,8 @@ function stripFurigana(text) {
 }
 
 export async function handleTranslateAndSpeak() {
-  const input = document.getElementById('translate-input');
-  const speakBtn = document.getElementById('btn-translate-speak');
+  const input = /** @type {HTMLTextAreaElement} */ (document.getElementById('translate-input'));
+  const speakBtn = /** @type {HTMLButtonElement} */ (document.getElementById('btn-translate-speak'));
   const text = input?.value.trim();
   if (!text) {
     setTranslateStatus('Enter or speak a phrase first.', 'error');
@@ -297,7 +297,7 @@ function initTranslatePanelInteractivity() {
   let isResizing = false;
   let startWidth = 0, startHeight = 0, startX = 0, startY = 0;
 
-  resizer.addEventListener('mousedown', (e) => {
+  resizer.addEventListener('mousedown', (/** @type {MouseEvent} */ e) => {
     isResizing = true;
     e.preventDefault();
     e.stopPropagation();
@@ -354,7 +354,7 @@ export function initTranslateTool() {
   const speakBtn = document.getElementById('btn-translate-speak');
   const replayBtn = document.getElementById('btn-translate-replay');
   const input = document.getElementById('translate-input');
-  const langPicker = document.getElementById('translate-source-lang');
+  const langPicker = /** @type {HTMLSelectElement} */ (document.getElementById('translate-source-lang'));
 
   if (floatBtn) {
     makeDraggable(floatBtn, floatBtn);
@@ -372,7 +372,7 @@ export function initTranslateTool() {
   if (langPicker) {
     langPicker.value = get(KEYS.SOURCE_LANGUAGE) || 'English';
     langPicker.addEventListener('change', (e) => {
-      set(KEYS.SOURCE_LANGUAGE, e.target.value);
+      set(KEYS.SOURCE_LANGUAGE, /** @type {HTMLSelectElement} */ (e.target).value);
     });
   }
 

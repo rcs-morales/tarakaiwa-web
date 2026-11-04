@@ -74,7 +74,7 @@ export function getGradingModel() {
 
 /** Save the grading model from the settings select. */
 export function saveGradingModel() {
-  const select = document.getElementById('grading-model-select');
+  const select = /** @type {HTMLSelectElement} */ (document.getElementById('grading-model-select'));
   if (select) set(KEYS.GRADING_MODEL, select.value);
 }
 
@@ -99,7 +99,7 @@ export function updateAIStatusChip() {
 
 /** Save the Groq API key from the settings input field. */
 export function saveApiKeyFromInput() {
-  const input = document.getElementById('api-key-input');
+  const input = /** @type {HTMLInputElement} */ (document.getElementById('api-key-input'));
   let key = input ? input.value : '';
   key = key.replace(/[^\x21-\x7E]/g, '');
   if (input) input.value = key;
@@ -122,7 +122,7 @@ export function saveApiKeyFromInput() {
 export function clearApiKey() {
   remove(KEYS.API_KEY);
   remove(KEYS.API_PROVIDER);
-  const input = document.getElementById('api-key-input');
+  const input = /** @type {HTMLInputElement} */ (document.getElementById('api-key-input'));
   if (input) input.value = '';
   updateAIStatusChip();
   showApiKeyStatus('🗑 API key cleared. Grading will use local fallback.', 'info');
@@ -130,7 +130,7 @@ export function clearApiKey() {
 
 /** Test the API connection using the key in the input field. */
 export async function testApiConnection() {
-  const input = document.getElementById('api-key-input');
+  const input = /** @type {HTMLInputElement} */ (document.getElementById('api-key-input'));
   let key = input ? input.value : '';
   key = key.replace(/[^\x21-\x7E]/g, '');
   if (input) input.value = key;

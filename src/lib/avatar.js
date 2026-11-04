@@ -14,7 +14,7 @@ export function getAvatarModelName() {
 }
 
 export function saveAvatarModel() {
-  const select = document.getElementById('avatar-model-select');
+  const select = /** @type {HTMLSelectElement} */ (document.getElementById('avatar-model-select'));
   if (!select) return;
   const oldModel = get(KEYS.AVATAR_MODEL);
   const newModel = select.value;

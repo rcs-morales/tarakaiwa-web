@@ -9,6 +9,7 @@
   import { createDeck, updateDeck, deleteDeck, MAX_DECK_QUESTIONS } from '$lib/decks.svelte.js';
   import { showImportStatus } from '$lib/ui.js';
 
+  /** @type {{ deck?: { name: string, jlptLevel: string, qa: { q: string, a: string }[] } & Record<string, any>, onclose: () => void }} */
   let { deck, onclose } = $props();
   const isEdit = !!deck;
 

@@ -110,14 +110,14 @@ async function downloadVoicePack() {
 }
 
 function saveTTSMode() {
-  const select = document.getElementById('tts-mode-select');
+  const select = /** @type {HTMLSelectElement} */ (document.getElementById('tts-mode-select'));
   if (!select) return;
   const mode = select.value;
   set(KEYS.TTS_MODE, mode);
 
   if (mode === 'voicevox') {
     set(KEYS.VOICEVOX_SPEAKER, '3');
-    const vvSelect = document.getElementById('voicevox-speaker-select');
+    const vvSelect = /** @type {HTMLSelectElement} */ (document.getElementById('voicevox-speaker-select'));
     if (vvSelect) vvSelect.value = '3';
   }
 
@@ -128,12 +128,12 @@ function saveTTSMode() {
 }
 
 function saveSTTMode() {
-  const select = document.getElementById('stt-mode-select');
+  const select = /** @type {HTMLSelectElement} */ (document.getElementById('stt-mode-select'));
   if (select) set(KEYS.STT_MODE, select.value);
 }
 
 function saveJLPTLevel() {
-  const select = document.getElementById('jlpt-level-select');
+  const select = /** @type {HTMLSelectElement} */ (document.getElementById('jlpt-level-select'));
   if (select) set(KEYS.JLPT_LEVEL, select.value);
 }
 
@@ -186,12 +186,12 @@ async function handleResetProgress() {
 // repeatedly — used on boot and after a login pull ('settings-synced').
 function applySettingsToUI() {
   const savedKey = getGroqApiKey();
-  const input = document.getElementById('api-key-input');
+  const input = /** @type {HTMLInputElement} */ (document.getElementById('api-key-input'));
   if (input) input.value = savedKey || '';
   updateAIStatusChip();
 
   const setVal = (id, val) => {
-    const el = document.getElementById(id);
+    const el = /** @type {HTMLInputElement | HTMLSelectElement} */ (document.getElementById(id));
     if (el && val != null) el.value = val;
   };
 
@@ -201,16 +201,16 @@ function applySettingsToUI() {
   setVal('avatar-model-select', getAvatarModelName());
   setVal('voicevox-speaker-select', get(KEYS.VOICEVOX_SPEAKER));
 
-  const ttsSelect = document.getElementById('tts-mode-select');
+  const ttsSelect = /** @type {HTMLSelectElement} */ (document.getElementById('tts-mode-select'));
   if (ttsSelect) {
     ttsSelect.value = get(KEYS.TTS_MODE);
     toggleTTSVoicePanels(get(KEYS.TTS_MODE));
   }
 
-  const shuffleBox = document.getElementById('shuffle-questions-checkbox');
+  const shuffleBox = /** @type {HTMLInputElement} */ (document.getElementById('shuffle-questions-checkbox'));
   if (shuffleBox) shuffleBox.checked = get(KEYS.SHUFFLE_QUESTIONS) !== '0';
 
-  const speedSlider = document.getElementById('tts-speed-slider');
+  const speedSlider = /** @type {HTMLInputElement} */ (document.getElementById('tts-speed-slider'));
   if (speedSlider) {
     speedSlider.value = get(KEYS.TTS_SPEED);
     updateTTSSpeedLabel(speedSlider.value);
@@ -326,7 +326,7 @@ export function initApp() {
   // (the account menu's "Account & sync settings" button is wired inside
   // Shell.svelte — it just switches to the Settings tab)
   bind('btn-send-magic-link', async () => {
-    const email = document.getElementById('account-email-input')?.value.trim();
+    const email = /** @type {HTMLInputElement} */ (document.getElementById('account-email-input'))?.value.trim();
     if (!email) { setAccountStatus('Please enter your email address.', 'error'); return; }
     setAccountStatus('Sending magic link…', 'info');
     const { error } = await signInWithEmail(email);
@@ -378,8 +378,9 @@ export function initApp() {
   // 'input' (not 'change') so the label and saved value track the drag live;
   // the settings sync push is debounced, so this doesn't spam the network.
   document.getElementById('tts-speed-slider')?.addEventListener('input', (e) => {
-    set(KEYS.TTS_SPEED, e.target.value);
-    updateTTSSpeedLabel(e.target.value);
+    const { value } = /** @type {HTMLInputElement} */ (e.target);
+    set(KEYS.TTS_SPEED, value);
+    updateTTSSpeedLabel(value);
   });
   bindChange('avatar-model-select', () => {
     saveAvatarModel();
@@ -390,7 +391,7 @@ export function initApp() {
   const aiPanel = document.getElementById('ai-assistant-panel');
   const btnCloseAi = document.getElementById('btn-close-ai');
   const btnAiSend = document.getElementById('btn-ai-send');
-  const aiChatInput = document.getElementById('ai-chat-input');
+  const aiChatInput = /** @type {HTMLInputElement} */ (document.getElementById('ai-chat-input'));
 
   if (btnAiAssistant && aiPanel) {
     btnAiAssistant.addEventListener('click', () => {
@@ -454,7 +455,7 @@ export function initApp() {
 
   // The deck list was merged with the cloud on login — adopt it and reload
   // whichever deck is active (its qa may have changed on another device).
-  window.addEventListener('deck-list-synced', (e) => {
+  window.addEventListener('deck-list-synced', (/** @type {CustomEvent} */ e) => {
     const list = e.detail?.list;
     if (!Array.isArray(list)) return;
     adoptSyncedDecks(list);

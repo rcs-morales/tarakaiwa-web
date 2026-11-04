@@ -129,7 +129,7 @@ async function pullMergeSettings() {
  * after a fresh import and (via syncDecks below) for any local-only deck
  * discovered on login.
  *
- * @param {{ id: string, name: string, jlptLevel: string, qa: any[] }} deck
+ * @param {{ id: string, name: string, jlptLevel: string, qa: any[], updatedAt?: string }} deck
  * @returns {Promise<boolean|null>} true = pushed, false = failed, null = logged out
  */
 export async function pushDeck(deck) {

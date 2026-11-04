@@ -58,7 +58,7 @@
   <!-- ── Profile ── -->
   <div class="settings-card profile-card">
     <button type="button" class="avatar-btn" onclick={pickAvatar} aria-label="Change profile picture">
-      <img class="profile-avatar" src={avatarSrc()} alt="" onerror={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = DEFAULT_AVATAR; }} />
+      <img class="profile-avatar" src={avatarSrc()} alt="" onerror={(e) => { const img = /** @type {HTMLImageElement} */ (e.currentTarget); img.onerror = null; img.src = DEFAULT_AVATAR; }} />
     </button>
     <div class="profile-info">
       <div class="profile-name">{displayName}</div>
