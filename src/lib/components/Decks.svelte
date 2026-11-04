@@ -5,6 +5,7 @@
   // by id, same as before).
   import { allDecks, decks, setActiveDeck, bestScoreForDeck } from '$lib/decks.svelte.js';
   import DeckFormModal from './DeckFormModal.svelte';
+  import { prefs, setShuffle } from '$lib/prefs.svelte.js';
 
   const LEVEL_ORDER = ['N5', 'N4', 'N3'];
   const list = $derived(allDecks());
@@ -122,7 +123,8 @@
 
   <div class="decks-shuffle-row">
     <label class="decks-shuffle-label">
-      <input type="checkbox" id="shuffle-questions-checkbox" checked />
+      <input type="checkbox" id="shuffle-questions-checkbox" checked={prefs.shuffle}
+        onchange={(e) => setShuffle(e.currentTarget.checked)} />
       🔀 Shuffle question order each session
     </label>
     <p class="decks-shuffle-hint">Turn off to practice questions in the same order as the deck file.</p>

@@ -72,12 +72,6 @@ export function getGradingModel() {
   return GROQ_GRADING_MODELS.balanced;
 }
 
-/** Save the grading model from the settings select. */
-export function saveGradingModel() {
-  const select = /** @type {HTMLSelectElement} */ (document.getElementById('grading-model-select'));
-  if (select) set(KEYS.GRADING_MODEL, select.value);
-}
-
 /** Update the AI status chip badge in the start screen. */
 export function updateAIStatusChip() {
   const apiKey = getGroqApiKey();

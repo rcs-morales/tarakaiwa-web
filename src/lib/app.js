@@ -3,16 +3,12 @@ import {
   showStartScreen
 } from './ui.js';
 import {
-  getGradingModel, saveGradingModel, updateAIStatusChip,
+  updateAIStatusChip,
   saveApiKeyFromInput, clearApiKey, getGroqApiKey,
   testApiConnection
 } from './ai/index.js';
-import { initAvatar, getAvatarModelName, saveAvatarModel } from './avatar.js';
-import {
-  saveVoicevoxSpeaker, toggleTTSVoicePanels,
-  startVoicevoxWarmup, cancelVoicevoxWarmup, getVoicePackStatus,
-  preloadAllVoicevoxAudio, VOICEVOX_STOCK_PHRASES
-} from './tts.js';
+import { initAvatar } from './avatar.js';
+import { warmVoicesIfNeeded, refreshVoicePackStatus } from './voicePack.svelte.js';
 import { abortRecognition, releaseMic } from './stt.js';
 import { get, set, remove, KEYS } from './settings.js';
 import { initPrefs } from './prefs.svelte.js';
@@ -25,112 +21,19 @@ import {
 } from './session.svelte.js';
 import { assistantHistory } from './assistant.svelte.js';
 import { handleFileImport } from './import.js';
-import { clearAudioCache } from './db.js';
 import {
   initAuth, onAuthChange,
   signInWithEmail, signInWithGoogle, signOut
 } from './auth.js';
-import { registerSettingsSync, onLogin, onLogout, deleteAllSessionResults } from './sync.js';
-import { syncFromRemote, resetToLocal, resetProgress } from './history.svelte.js';
+import { registerSettingsSync, onLogin, onLogout } from './sync.js';
+import { syncFromRemote, resetToLocal } from './history.svelte.js';
 import { decks, loadActiveDeckIntoSession, adoptSyncedDecks } from './decks.svelte.js';
 import { updateQuotaDisplay } from './quota.js';
 import { initTheme, toggleTheme, applyTheme } from './theme.js';
 
-// ── Voicevox voice pack ──
-
-// The first two stock phrases are the pass/fail feedback lines spoken after
-// every single answer — everything past that is end-of-session praise, only
-// needed once. See checkAnswer() in session.svelte.js.
-const FEEDBACK_PHRASE_COUNT = 2;
-
-/**
- * All phrases a full session can speak: deck questions + stock phrases,
- * ordered so whatever the learner is about to hear next is warmed first.
- * Voice can be swapped mid-session (Settings is its own always-mounted tab),
- * so this starts from session.current rather than the deck's original
- * order — otherwise the background warmup wastes its one-at-a-time queue
- * re-caching already-answered questions before ever reaching upcoming ones.
- * The pass/fail feedback lines are pulled to right after the current
- * question (instead of after the whole remaining deck) since they're needed
- * on the very next "Check Answer" — leaving them queued behind a long deck
- * is what causes a cold, delayed feedback line right after a voice swap.
- */
-function voicePackTexts() {
-  const upcoming = session.qa.slice(session.current).map(q => q.q);
-  const answered = session.qa.slice(0, session.current).map(q => q.q);
-  const feedback = VOICEVOX_STOCK_PHRASES.slice(0, FEEDBACK_PHRASE_COUNT);
-  const praise = VOICEVOX_STOCK_PHRASES.slice(FEEDBACK_PHRASE_COUNT);
-  return [...upcoming.slice(0, 1), ...feedback, ...upcoming.slice(1), ...praise, ...answered];
-}
-
-/** Kick off a quiet background download of any uncached audio (voicevox only). */
-function warmVoicesIfNeeded() {
-  if (get(KEYS.TTS_MODE) !== 'voicevox' || session.qa.length === 0) return;
-  startVoicevoxWarmup(voicePackTexts());
-}
-
-/** Refresh the "Voice pack: N/M cached" indicator in Voice settings. */
-async function refreshVoicePackStatus() {
-  const el = document.getElementById('voicepack-status');
-  if (!el) return;
-  const { cached, total } = await getVoicePackStatus(voicePackTexts());
-  el.textContent = `${cached}/${total} phrases cached`;
-}
-
-async function downloadVoicePack() {
-  const btn = document.getElementById('btn-download-voicepack');
-  const el = document.getElementById('voicepack-status');
-  const progress = document.getElementById('voicepack-progress');
-  const fill = document.getElementById('voicepack-progress-fill');
-  if (!btn || !el) return;
-  // Swap the button out for the progress bar while the download runs.
-  btn.classList.add('hidden');
-  if (fill) fill.style.width = '0%';
-  if (progress) progress.classList.remove('hidden');
-  cancelVoicevoxWarmup(); // don't race the background warmup for the same files
-  try {
-    await preloadAllVoicevoxAudio(
-      voicePackTexts(),
-      (done, total, msg) => {
-        el.textContent = msg || `downloading ${done}/${total}…`;
-        if (fill && total) fill.style.width = `${Math.round((done / total) * 100)}%`;
-      },
-      { cancelled: false }
-    );
-  } finally {
-    if (progress) progress.classList.add('hidden');
-    btn.classList.remove('hidden');
-    refreshVoicePackStatus();
-  }
-}
-
-function saveTTSMode() {
-  const select = /** @type {HTMLSelectElement} */ (document.getElementById('tts-mode-select'));
-  if (!select) return;
-  const mode = select.value;
-  set(KEYS.TTS_MODE, mode);
-
-  if (mode === 'voicevox') {
-    set(KEYS.VOICEVOX_SPEAKER, '3');
-    const vvSelect = /** @type {HTMLSelectElement} */ (document.getElementById('voicevox-speaker-select'));
-    if (vvSelect) vvSelect.value = '3';
-  }
-
-  toggleTTSVoicePanels(mode);
-  initAvatar();
-  warmVoicesIfNeeded();
-  refreshVoicePackStatus();
-}
-
-function saveSTTMode() {
-  const select = /** @type {HTMLSelectElement} */ (document.getElementById('stt-mode-select'));
-  if (select) set(KEYS.STT_MODE, select.value);
-}
-
-function saveJLPTLevel() {
-  const select = /** @type {HTMLSelectElement} */ (document.getElementById('jlpt-level-select'));
-  if (select) set(KEYS.JLPT_LEVEL, select.value);
-}
+// The Settings tab's preference controls are bound in Settings.svelte
+// (prefs.svelte.js, voicePack.svelte.js); the voice pack warmup and status
+// live in voicePack.svelte.js.
 
 function restartApp() {
   abortRecognition();
@@ -140,81 +43,14 @@ function restartApp() {
   updateQuotaDisplay();
 }
 
-async function handleResetProgress() {
-  const confirmed = confirm(
-    'Are you sure you want to reset all progress?\n\n'
-    + 'This will permanently erase:\n'
-    + '• All session history & recent sessions\n'
-    + '• Your XP, level, and streak\n'
-    + '• Daily goal progress\n'
-    + '• Average score stats\n\n'
-    + 'Your settings, deck, and account will NOT be affected.\n\n'
-    + 'This cannot be undone.'
-  );
-  if (!confirmed) return;
-
-  console.log('[reset] User confirmed progress reset');
-  const statusEl = document.getElementById('reset-progress-status');
-  if (statusEl) { statusEl.textContent = '⏳ Resetting…'; statusEl.className = 'import-status info'; }
-
-  // 1. Clear local history (localStorage + reactive state)
-  resetProgress();
-  console.log('[reset] Local history cleared');
-
-  // 2. Clear cloud session results (if signed in)
-  const cloudOk = await deleteAllSessionResults();
-  console.log('[reset] Cloud delete result:', cloudOk);
-
-  // 3. Ensure reactive state stays empty (in case something re-populated it)
-  resetProgress();
-
-  if (statusEl) {
-    if (cloudOk || cloudOk === false) {
-      // false = logged out (no-op), true = deleted
-      statusEl.textContent = '✅ All progress has been reset.';
-      statusEl.className = 'import-status success';
-    }
-  }
-}
-
-// Reflect the current stored settings into the wizard controls. Safe to call
+// Reflect the stored API key into the Settings input. Safe to call
 // repeatedly — used on boot and after a login pull ('settings-synced').
+// (The other Settings controls follow prefs.svelte.js reactively.)
 function applySettingsToUI() {
   const savedKey = getGroqApiKey();
   const input = /** @type {HTMLInputElement} */ (document.getElementById('api-key-input'));
   if (input) input.value = savedKey || '';
   updateAIStatusChip();
-
-  const setVal = (id, val) => {
-    const el = /** @type {HTMLInputElement | HTMLSelectElement} */ (document.getElementById(id));
-    if (el && val != null) el.value = val;
-  };
-
-  setVal('grading-model-select', getGradingModel());
-  setVal('stt-mode-select', get(KEYS.STT_MODE));
-  setVal('jlpt-level-select', get(KEYS.JLPT_LEVEL));
-  setVal('avatar-model-select', getAvatarModelName());
-  setVal('voicevox-speaker-select', get(KEYS.VOICEVOX_SPEAKER));
-
-  const ttsSelect = /** @type {HTMLSelectElement} */ (document.getElementById('tts-mode-select'));
-  if (ttsSelect) {
-    ttsSelect.value = get(KEYS.TTS_MODE);
-    toggleTTSVoicePanels(get(KEYS.TTS_MODE));
-  }
-
-  const shuffleBox = /** @type {HTMLInputElement} */ (document.getElementById('shuffle-questions-checkbox'));
-  if (shuffleBox) shuffleBox.checked = get(KEYS.SHUFFLE_QUESTIONS) !== '0';
-
-  const speedSlider = /** @type {HTMLInputElement} */ (document.getElementById('tts-speed-slider'));
-  if (speedSlider) {
-    speedSlider.value = get(KEYS.TTS_SPEED);
-    updateTTSSpeedLabel(speedSlider.value);
-  }
-}
-
-function updateTTSSpeedLabel(value) {
-  const label = document.getElementById('tts-speed-value');
-  if (label) label.textContent = `${parseFloat(value)}×`;
 }
 
 // ─────────────────────────────────────────────
@@ -304,13 +140,6 @@ export function initApp() {
   bind('btn-rerecord', rerecordAnswer);
   bind('btn-next', nextQuestion);
   bind('btn-skip', skipQuestion);
-  bind('btn-clear-audio-cache', async () => {
-    await clearAudioCache();
-    refreshVoicePackStatus();
-    alert('Voicevox audio cache cleared successfully.');
-  });
-  bind('btn-download-voicepack', downloadVoicePack);
-  bind('btn-reset-progress', handleResetProgress);
 
   // ── Account / auth ──
   // (the account menu's "Account & sync settings" button is wired inside
@@ -342,37 +171,6 @@ export function initApp() {
   const fileInput = document.getElementById('file-input');
   if (fileInput) fileInput.addEventListener('change', handleFileImport);
 
-  const bindChange = (id, fn) => {
-    const el = document.getElementById(id);
-    if (el) el.addEventListener('change', fn);
-  };
-
-  bindChange('grading-model-select', saveGradingModel);
-  bindChange('stt-mode-select', saveSTTMode);
-  bindChange('tts-mode-select', saveTTSMode);
-  bindChange('jlpt-level-select', saveJLPTLevel);
-  bindChange('voicevox-speaker-select', () => {
-    saveVoicevoxSpeaker();
-    initAvatar();
-    // The audio cache is keyed by speaker, so a new voice starts cold.
-    warmVoicesIfNeeded();
-    refreshVoicePackStatus();
-  });
-  bindChange('shuffle-questions-checkbox', (e) => {
-    set(KEYS.SHUFFLE_QUESTIONS, e.target.checked ? '1' : '0');
-  });
-  // 'input' (not 'change') so the label and saved value track the drag live;
-  // the settings sync push is debounced, so this doesn't spam the network.
-  document.getElementById('tts-speed-slider')?.addEventListener('input', (e) => {
-    const { value } = /** @type {HTMLInputElement} */ (e.target);
-    set(KEYS.TTS_SPEED, value);
-    updateTTSSpeedLabel(value);
-  });
-  bindChange('avatar-model-select', () => {
-    saveAvatarModel();
-    initAvatar();
-  });
-
   // The AI Study Assistant and Speak-in-Japanese panels are Svelte components
   // (StudyAssistant.svelte, TranslateTool.svelte).
 
@@ -385,6 +183,7 @@ export function initApp() {
 
   // A login pull rewrote localStorage settings — refresh the controls, avatar,
   // and theme (the synced choice may differ from this device's).
+  // (prefs.svelte.js re-reads the preference controls on the same event.)
   window.addEventListener('settings-synced', () => {
     applySettingsToUI();
     initAvatar();
