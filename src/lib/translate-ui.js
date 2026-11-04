@@ -1,6 +1,6 @@
 import { translateToJapaneseWithAI, hasAIAccess, transcribeForTool } from './ai/index.js';
 import { speakQuestion, cancelSpeech } from './tts.js';
-import { makeDraggable } from './assistant-ui.js';
+import { makeDraggable } from './panel.js';
 import { toFuriganaHtml } from './parser.js';
 import { get, set, KEYS } from './settings.js';
 
@@ -288,7 +288,7 @@ export async function replayJapaneseAudio() {
 
 function initTranslatePanelInteractivity() {
   const panel = document.getElementById('translate-tool-panel');
-  const header = panel?.querySelector('.ai-panel-header');
+  const header = /** @type {HTMLElement | null} */ (panel?.querySelector('.ai-panel-header'));
   const resizer = panel?.querySelector('.ai-panel-resizer');
   if (!panel || !header || !resizer) return;
 

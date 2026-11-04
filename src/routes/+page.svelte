@@ -11,6 +11,7 @@
   import Decks from '$lib/components/Decks.svelte';
   import Progress from '$lib/components/Progress.svelte';
   import Settings from '$lib/components/Settings.svelte';
+  import StudyAssistant from '$lib/components/StudyAssistant.svelte';
   import { shell } from '$lib/shell.svelte.js';
 
   onMount(initApp);
@@ -118,19 +119,7 @@
   <div class="ai-panel-resizer"></div>
 </div>
 
-<button id="btn-ai-assistant" class="btn-ai-float" title="AI Study Assistant">📚</button>
-<div id="ai-assistant-panel" class="ai-panel hidden">
-  <div class="ai-panel-header">
-    <span>🤖 AI Study Assistant</span>
-    <button id="btn-close-ai" class="btn-close-ai">✕</button>
-  </div>
-  <div id="ai-chat-history" class="ai-chat-history"></div>
-  <div class="ai-panel-input">
-    <input type="text" id="ai-chat-input" placeholder="Ask about grammar, vocab..." autocomplete="off" />
-    <button id="btn-ai-send" class="btn-ai-send">Send</button>
-  </div>
-  <div class="ai-panel-resizer"></div>
-</div>
+<StudyAssistant />
 
 <style>
   /* Panel wrapper replaces the old body-level centering: each tab centers its

@@ -24,10 +24,7 @@ import {
   editTranscript, saveEditedTranscript, cancelEditTranscript,
   revealAnswerHint
 } from './session.svelte.js';
-import {
-  handleAssistantQuery, initAiPanelInteractivity, initAssistantFloatButton,
-  assistantHistory
-} from './assistant-ui.js';
+import { assistantHistory } from './assistant.svelte.js';
 import { initTranslateTool } from './translate-ui.js';
 import { handleFileImport } from './import.js';
 import { clearAudioCache } from './db.js';
@@ -387,49 +384,8 @@ export function initApp() {
     initAvatar();
   });
 
-  const btnAiAssistant = document.getElementById('btn-ai-assistant');
-  const aiPanel = document.getElementById('ai-assistant-panel');
-  const btnCloseAi = document.getElementById('btn-close-ai');
-  const btnAiSend = document.getElementById('btn-ai-send');
-  const aiChatInput = /** @type {HTMLInputElement} */ (document.getElementById('ai-chat-input'));
-
-  if (btnAiAssistant && aiPanel) {
-    btnAiAssistant.addEventListener('click', () => {
-      if (aiPanel.classList.contains('hidden')) {
-        const btnRect = btnAiAssistant.getBoundingClientRect();
-        aiPanel.style.transition = 'none';
-        aiPanel.style.left = (btnRect.right - (aiPanel.offsetWidth || 360)) + 'px';
-        aiPanel.style.top = (btnRect.top - (aiPanel.offsetHeight || 500)) + 'px';
-        aiPanel.style.bottom = 'auto';
-        aiPanel.style.right = 'auto';
-        const panelRect = aiPanel.getBoundingClientRect();
-        if (panelRect.left < 0) aiPanel.style.left = '10px';
-        if (panelRect.top < 0) aiPanel.style.top = '10px';
-        aiPanel.classList.remove('hidden');
-        setTimeout(() => { aiPanel.style.transition = ''; }, 10);
-      } else {
-        aiPanel.classList.add('hidden');
-      }
-    });
-  }
-
-  if (btnCloseAi && aiPanel) {
-    btnCloseAi.addEventListener('click', () => aiPanel.classList.add('hidden'));
-  }
-
-  initAiPanelInteractivity();
-  initAssistantFloatButton();
+  // The AI Study Assistant panel is StudyAssistant.svelte.
   initTranslateTool();
-
-  if (btnAiSend && aiChatInput) {
-    btnAiSend.addEventListener('click', () => handleAssistantQuery(aiChatInput.value));
-  }
-
-  if (aiChatInput) {
-    aiChatInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') handleAssistantQuery(aiChatInput.value);
-    });
-  }
 
   // Initialize avatar on startup
   initAvatar();
