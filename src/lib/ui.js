@@ -208,20 +208,6 @@ export function showImportStatus(message, type) {
   }
 }
 
-export function showApiKeyStatus(message, type) {
-  const statusDiv = document.getElementById('api-key-status');
-  if (!statusDiv) return;
-  statusDiv.textContent = message;
-  statusDiv.className = 'import-status ' + type;
-  if (type !== 'info') {
-    setTimeout(() => { statusDiv.className = 'import-status'; }, 5000);
-  }
-}
-export function toggleKeyVisibility() {
-  const input = /** @type {HTMLInputElement} */ (document.getElementById('api-key-input'));
-  if (!input) return;
-  input.type = input.type === 'password' ? 'text' : 'password';
-}
 
 export function showScreen(id) {
   const el = document.getElementById(id);

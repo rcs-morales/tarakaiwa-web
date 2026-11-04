@@ -1,12 +1,5 @@
-import {
-  showApiKeyStatus, toggleKeyVisibility,
-  showStartScreen
-} from './ui.js';
-import {
-  updateAIStatusChip,
-  saveApiKeyFromInput, clearApiKey, getGroqApiKey,
-  testApiConnection
-} from './ai/index.js';
+import { showStartScreen } from './ui.js';
+import { showApiKeyStatus, loadApiKey } from './apiKey.svelte.js';
 import { initAvatar } from './avatar.js';
 import { warmVoicesIfNeeded, refreshVoicePackStatus } from './voicePack.svelte.js';
 import { abortRecognition, releaseMic } from './stt.js';
@@ -21,14 +14,11 @@ import {
 } from './session.svelte.js';
 import { assistantHistory } from './assistant.svelte.js';
 import { handleFileImport } from './import.js';
-import {
-  initAuth, onAuthChange,
-  signInWithEmail, signInWithGoogle, signOut
-} from './auth.js';
-import { registerSettingsSync, onLogin, onLogout } from './sync.js';
+import { initAuth, onAuthChange } from './auth.js';
+import { registerSettingsSync, onLogin } from './sync.js';
 import { syncFromRemote, resetToLocal } from './history.svelte.js';
 import { decks, loadActiveDeckIntoSession, adoptSyncedDecks } from './decks.svelte.js';
-import { updateQuotaDisplay } from './quota.js';
+import { updateQuotaDisplay } from './quota.svelte.js';
 import { initTheme, toggleTheme, applyTheme } from './theme.js';
 
 // The Settings tab's preference controls are bound in Settings.svelte
@@ -43,44 +33,9 @@ function restartApp() {
   updateQuotaDisplay();
 }
 
-// Reflect the stored API key into the Settings input. Safe to call
-// repeatedly — used on boot and after a login pull ('settings-synced').
-// (The other Settings controls follow prefs.svelte.js reactively.)
-function applySettingsToUI() {
-  const savedKey = getGroqApiKey();
-  const input = /** @type {HTMLInputElement} */ (document.getElementById('api-key-input'));
-  if (input) input.value = savedKey || '';
-  updateAIStatusChip();
-}
-
-// ─────────────────────────────────────────────
-// ACCOUNT / AUTH UI
-// ─────────────────────────────────────────────
-
-function setAccountStatus(msg, type = 'info') {
-  const el = document.getElementById('account-status-msg');
-  if (!el) return;
-  el.textContent = msg || '';
-  el.className = 'import-status' + (type ? ' ' + type : '');
-}
-
-function updateAccountUI(user) {
-  const signedOut = document.getElementById('account-signed-out');
-  const signedIn = document.getElementById('account-signed-in');
-  const emailDisplay = document.getElementById('account-email-display');
-  const barStatus = document.getElementById('account-bar-status');
-
-  if (user) {
-    signedOut?.classList.add('hidden');
-    signedIn?.classList.remove('hidden');
-    if (emailDisplay) emailDisplay.textContent = user.email || 'your account';
-    if (barStatus) barStatus.textContent = '🔒 Synced as ' + (user.email || 'your account');
-  } else {
-    signedOut?.classList.remove('hidden');
-    signedIn?.classList.add('hidden');
-    if (barStatus) barStatus.textContent = '🔓 Not signed in — practice saves to this device only';
-  }
-}
+// The Settings tab (Account & Sync, API key, preferences), the account menu
+// and the AI status chip render from reactive state: profile.svelte.js (who
+// is signed in), apiKey.svelte.js, quota.svelte.js and prefs.svelte.js.
 
 // ─────────────────────────────────────────────
 // BOOTSTRAP
@@ -101,6 +56,7 @@ export function initApp() {
     remove(KEYS.API_KEY);
     showApiKeyStatus('Previous provider removed. Please save a Groq API key (starts with gsk_).', 'info');
   }
+  loadApiKey();
 
   const TTS_DEFAULT = 'browser';
   if (!get(KEYS.TTS_DEFAULT_FLAG)) {
@@ -110,7 +66,6 @@ export function initApp() {
     set(KEYS.TTS_MODE, TTS_DEFAULT);
   }
 
-  applySettingsToUI();
   initPrefs();
   refreshVoicePackStatus();
 
@@ -122,10 +77,6 @@ export function initApp() {
   bind('btn-theme-toggle', toggleTheme);
   bind('btn-restart-app', restartApp);
   bind('btn-end-session', endSession);
-  bind('btn-save-api', saveApiKeyFromInput);
-  bind('btn-test-api', testApiConnection);
-  bind('btn-clear-api', clearApiKey);
-  bind('btn-toggle-key', toggleKeyVisibility);
   // btn-start-practice is wired inside Dashboard.svelte (onclick={startPractice},
   // kept synchronous for the mobile audio unlock).
   bind('btn-toggle-question', toggleQuestionText);
@@ -140,33 +91,6 @@ export function initApp() {
   bind('btn-rerecord', rerecordAnswer);
   bind('btn-next', nextQuestion);
   bind('btn-skip', skipQuestion);
-
-  // ── Account / auth ──
-  // (the account menu's "Account & sync settings" button is wired inside
-  // Shell.svelte — it just switches to the Settings tab)
-  bind('btn-send-magic-link', async () => {
-    const email = /** @type {HTMLInputElement} */ (document.getElementById('account-email-input'))?.value.trim();
-    if (!email) { setAccountStatus('Please enter your email address.', 'error'); return; }
-    setAccountStatus('Sending magic link…', 'info');
-    const { error } = await signInWithEmail(email);
-    if (error) setAccountStatus('❌ ' + error.message, 'error');
-    else setAccountStatus('✅ Check your inbox for the sign-in link.', 'success');
-  });
-  bind('btn-google-signin', async () => {
-    const { error } = await signInWithGoogle();
-    if (error) setAccountStatus('❌ ' + error.message, 'error');
-  });
-  bind('btn-sign-out', async () => {
-    await signOut();
-    onLogout();
-    setAccountStatus('Signed out.', 'info');
-  });
-
-  // Magic-link form: Enter should send the link, not reload the page.
-  document.getElementById('magic-link-form')?.addEventListener('submit', (e) => {
-    e.preventDefault();
-    document.getElementById('btn-send-magic-link')?.click();
-  });
 
   const fileInput = document.getElementById('file-input');
   if (fileInput) fileInput.addEventListener('change', handleFileImport);
@@ -185,7 +109,8 @@ export function initApp() {
   // and theme (the synced choice may differ from this device's).
   // (prefs.svelte.js re-reads the preference controls on the same event.)
   window.addEventListener('settings-synced', () => {
-    applySettingsToUI();
+    loadApiKey(); // a synced BYO key may differ from this device's
+    updateQuotaDisplay();
     initAvatar();
     applyTheme();
     refreshVoicePackStatus(); // synced TTS mode / speaker may differ
@@ -211,8 +136,6 @@ export function initApp() {
   // Restore session, react to auth changes, and run the login sync once.
   let lastUserId = null;
   const handleUser = (user) => {
-    updateAccountUI(user);
-    updateAIStatusChip();
     updateQuotaDisplay();
     const uid = user?.id ?? null;
     if (uid && uid !== lastUserId) {
