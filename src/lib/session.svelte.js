@@ -20,6 +20,7 @@ import {
   startVoicevoxWarmup, VOICEVOX_STOCK_PHRASES, unlockAudioForMobile, getVoicePackStatus
 } from './tts.js';
 import { requestVoicePackConfirmation } from './voicePackPrompt.svelte.js';
+import { openFinalOverlay, scheduleFinalOverlayFade } from './finalOverlay.svelte.js';
 import {
   initRecognizer, startListening, abortRecognition,
   startAIRecording, stopAIRecording, getLiveTranscript,
@@ -881,41 +882,20 @@ async function showResults(choice, { skipProgression = false } = {}) {
   }
 }
 
-async function showFinalOverlay(pct, choice) {
-  const overlay = document.getElementById('final-score-overlay');
-  const icon = document.getElementById('final-score-icon');
-  const text = document.getElementById('final-score-text');
+function showFinalOverlay(pct, choice) {
+  const passed = pct >= 75;
+  openFinalOverlay({
+    score: session.score,
+    total: session.qa.length,
+    passed,
+    message: choice?.en || (passed ? 'Great job!' : 'Keep practicing!'),
+  });
 
-  if (overlay && icon && text) {
-    const passed = pct >= 75;
-    icon.textContent = passed ? '🎉' : '💪';
-
-    const choiceEn = choice?.en || (passed ? 'Great job!' : 'Keep practicing!');
-    text.innerHTML = `<div style="font-size: 1.5rem; font-weight: bold; margin-bottom: 4px;">${session.score} / ${session.qa.length}</div>
-                     <div style="font-size: 1.1rem; color: var(--muted);">${choiceEn}</div>`;
-
-    overlay.style.display = '';
-    overlay.classList.remove('hidden');
-    overlay.style.opacity = '1';
-
-    const choiceJp = choice?.jp || '';
-    if (choiceJp) {
-      speakFeedback(choiceJp, () => {
-        setTimeout(() => {
-          overlay.style.opacity = '0';
-          setTimeout(() => {
-            overlay.classList.add('hidden');
-          }, 1000);
-        }, 2000);
-      }, true);
-    } else {
-      // Ensure overlay disappears even if no audio is played
-      setTimeout(() => {
-        overlay.style.opacity = '0';
-        setTimeout(() => {
-          overlay.classList.add('hidden');
-        }, 1000);
-      }, 3000);
-    }
+  // Fade out 2s after the spoken feedback ends, or after 3s with no audio.
+  const choiceJp = choice?.jp || '';
+  if (choiceJp) {
+    speakFeedback(choiceJp, () => scheduleFinalOverlayFade(2000), true);
+  } else {
+    scheduleFinalOverlayFade(3000);
   }
 }

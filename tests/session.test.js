@@ -9,6 +9,7 @@ import * as settings from '../src/lib/settings.js';
 import * as flags from '../src/lib/sessionFlags.js';
 import * as tts from '../src/lib/tts.js';
 import * as stt from '../src/lib/stt.js';
+import { finalOverlay, closeFinalOverlay } from '../src/lib/finalOverlay.svelte.js';
 
 vi.mock('../src/lib/ui.js', () => ({
   setStatus: vi.fn(),
@@ -107,10 +108,6 @@ describe('Session Flow Integration Tests', () => {
       <div id="score-display"></div>
       <div id="score-bar"></div>
       <div id="score-message"></div>
-      <div id="final-score-overlay" class="hidden">
-        <div id="final-score-icon"></div>
-        <div id="final-score-text"></div>
-      </div>
       <div id="results-list"></div>
     `;
 
@@ -233,6 +230,26 @@ describe('Session Flow Integration Tests', () => {
 
     // Since current was 0 and length was 1, it should have called handleFinishPractice
     expect(ui.showResultsScreen).toHaveBeenCalled();
+  });
+
+  it('shows the Session Complete overlay with the score when a session ends', async () => {
+    closeFinalOverlay();
+    setQA([{ q: 'Q1', a: 'A1', r: 'R1' }, { q: 'Q2', a: 'A2', r: 'R2' }]);
+    setCurrent(1);
+    setScore(2);
+    setResults([
+      { q: 'Q1', a: 'A1', transcript: 'A1', correct: true },
+      { q: 'Q2', a: 'A2', transcript: 'A2', correct: true },
+    ]);
+
+    await nextQuestion();
+    await vi.waitFor(() => expect(finalOverlay.visible).toBe(true));
+
+    expect(finalOverlay.score).toBe(2);
+    expect(finalOverlay.total).toBe(2);
+    expect(finalOverlay.passed).toBe(true);
+    expect(finalOverlay.message).not.toBe('');
+    closeFinalOverlay();
   });
 
   it('should handle skipping questions correctly', async () => {

@@ -4,7 +4,7 @@
   // decks.svelte.js's createDeck/importDeck). A `deck` prop = edit mode,
   // pre-filled from that deck and funneling through updateDeck/deleteDeck
   // instead. Reuses the global .modal / .modal-card chrome (see the
-  // bug-report modal in +page.svelte).
+  // bug-report modal in BugReportModal.svelte).
   import { get, KEYS } from '$lib/settings.js';
   import { createDeck, updateDeck, deleteDeck, MAX_DECK_QUESTIONS } from '$lib/decks.svelte.js';
   import { showImportStatus } from '$lib/ui.js';
