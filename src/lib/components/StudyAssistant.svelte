@@ -13,6 +13,8 @@
   /** @type {HTMLDivElement} */ let historyBox;
 
   let input = $state('');
+  /** @type {ReturnType<typeof setTimeout> | undefined} */
+  let transitionTimer;
 
   onMount(() => {
     const cleanups = [
@@ -20,7 +22,10 @@
       makeDraggable(panel, header),
       makeResizable(panel, resizer),
     ];
-    return () => cleanups.forEach((fn) => fn());
+    return () => {
+      clearTimeout(transitionTimer);
+      cleanups.forEach((fn) => fn());
+    };
   });
 
   async function toggle() {
@@ -31,8 +36,12 @@
     assistant.open = true;
     await tick();
     // Position once visible so the real size is used and the on-screen clamp works.
-    positionPanelAboveButton(panel, floatBtn, { width: 360, height: 500 });
-    setTimeout(() => { panel.style.transition = ''; }, 10);
+    const el = panel;
+    if (!el) return;
+    positionPanelAboveButton(el, floatBtn, { width: 360, height: 500 });
+    // Re-enable the open/close transition once the jump to the new spot has painted.
+    clearTimeout(transitionTimer);
+    transitionTimer = setTimeout(() => { el.style.transition = ''; }, 10);
   }
 
   function send() {
