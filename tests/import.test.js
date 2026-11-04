@@ -21,7 +21,6 @@ vi.mock('../src/lib/parser.js', () => ({
   parseJSON: vi.fn(),
   parseCSV: vi.fn(),
   parseExcel: vi.fn(),
-  ensureXLSXLoaded: vi.fn().mockResolvedValue(true),
 }));
 
 describe('Data Import Tests', () => {
@@ -90,6 +89,43 @@ describe('Data Import Tests', () => {
     expect(parser.parseCSV).toHaveBeenCalledWith(content);
     expect(decksModule.importDeck).toHaveBeenCalledWith(mockQA, 'test.csv');
     expect(ui.showImportStatus).toHaveBeenCalledWith(expect.stringContaining('Successfully imported'), 'success');
+  });
+
+  it('should import an .xlsx file through the async Excel parser', async () => {
+    const buffer = new ArrayBuffer(8);
+    const event = createMockEvent('deck.xlsx', 'x');
+    const mockQA = [{ q: 'Hi', a: 'Konnichiwa' }];
+    parser.parseExcel.mockResolvedValue(mockQA);
+
+    let done;
+    const finished = new Promise((r) => { done = r; });
+    vi.stubGlobal('FileReader', class {
+      readAsArrayBuffer() {
+        Promise.resolve(this.onload({ target: { result: buffer } })).then(done);
+      }
+    });
+
+    await handleFileImport(event);
+    await finished;
+
+    expect(parser.parseExcel).toHaveBeenCalledWith(buffer);
+    expect(decksModule.importDeck).toHaveBeenCalledWith(mockQA, 'deck.xlsx');
+    expect(ui.showImportStatus).toHaveBeenCalledWith(expect.stringContaining('Successfully imported 1 question'), 'success');
+  });
+
+  it('should reject legacy .xls files with a re-save hint', async () => {
+    const event = createMockEvent('old.xls', 'x');
+    const readSpy = vi.fn();
+    vi.stubGlobal('FileReader', class {
+      readAsArrayBuffer() { readSpy(); }
+      readAsText() { readSpy(); }
+    });
+
+    await handleFileImport(event);
+
+    expect(readSpy).not.toHaveBeenCalled();
+    expect(parser.parseExcel).not.toHaveBeenCalled();
+    expect(ui.showImportStatus).toHaveBeenCalledWith(expect.stringContaining('.xlsx'), 'error');
   });
 
   it('should handle unsupported file formats', async () => {

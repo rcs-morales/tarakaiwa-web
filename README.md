@@ -74,7 +74,7 @@ npm test
 
 1. **Configure AI**: Paste your Groq API key into the AI Settings area and save it.
 2. **Adjust settings**: Choose the speech engine, TTS mode, grading strictness, and voice.
-3. **Import data**: Import Japanese Q&A data in JSON, CSV, or Excel format.
+3. **Import data**: Import Japanese Q&A data in JSON, CSV, or Excel (.xlsx) format.
 4. **Practice**: Start a session and the app will prompt you, record your response, and give feedback.
 5. **Use the translation or assistant tools**: Open the translation panel for quick phrase practice or the study assistant for grammar help.
 

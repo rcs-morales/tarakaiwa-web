@@ -1,5 +1,5 @@
 import {
-  parseJSON, parseCSV, parseExcel, ensureXLSXLoaded
+  parseJSON, parseCSV, parseExcel
 } from './parser.js';
 import { showImportStatus } from './ui.js';
 import { importDeck, MAX_DECK_QUESTIONS } from './decks.svelte.js';
@@ -14,15 +14,21 @@ export async function handleFileImport(event) {
 
   const reader = new FileReader();
   const fileName = file.name.toLowerCase();
-  const isExcel = fileName.endsWith('.xlsx') || fileName.endsWith('.xls');
+  const isExcel = fileName.endsWith('.xlsx');
+  const isLegacyExcel = fileName.endsWith('.xls');
+
+  if (isLegacyExcel) {
+    showImportStatus('❌ Import failed: old .xls files aren\'t supported. In Excel, use File → Save As → Excel Workbook (.xlsx) or CSV, then import that file.', 'error');
+    event.target.value = '';
+    return;
+  }
 
   reader.onload = async (e) => {
     try {
       let qa;
 
       if (isExcel) {
-        await ensureXLSXLoaded();
-        qa = parseExcel(e.target.result);
+        qa = await parseExcel(e.target.result);
       } else {
         const content = e.target.result;
         if (fileName.endsWith('.json')) {
@@ -30,7 +36,7 @@ export async function handleFileImport(event) {
         } else if (fileName.endsWith('.csv') || fileName.endsWith('.txt')) {
           qa = parseCSV(content);
         } else {
-          throw new Error('Unsupported file format. Use JSON, CSV, or Excel.');
+          throw new Error('Unsupported file format. Use JSON, CSV, or Excel (.xlsx).');
         }
       }
 

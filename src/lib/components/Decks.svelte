@@ -34,7 +34,7 @@
       ＋ Create a deck
     </button>
   </div>
-  <input type="file" id="file-input" accept=".json,.csv,.txt,.xlsx,.xls" class="hidden" />
+  <input type="file" id="file-input" accept=".json,.csv,.txt,.xlsx" class="hidden" />
   <div class="import-status" id="import-status"></div>
 
   {#if showCreate}

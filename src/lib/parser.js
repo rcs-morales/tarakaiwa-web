@@ -1,4 +1,4 @@
-import * as XLSX from 'xlsx';
+import { readSheet } from 'read-excel-file/universal';
 import { KATAKANA_HIRAGANA_MAP, MONTH_READ, DAY_READ, KANJI_DIGIT, KANJI_MAP, LESSON_KANJI_MAP, SINGLE_KANJI_READ } from './data.js';
 import { get, KEYS } from './settings.js';
 
@@ -99,62 +99,55 @@ export function parseCSV(content) {
   return qa;
 }
 
-export function parseExcel(arrayBuffer) {
+/**
+ * Parse the first sheet of an .xlsx workbook into Q&A pairs.
+ * @param {ArrayBuffer} arrayBuffer
+ */
+export async function parseExcel(arrayBuffer) {
+  let data;
   try {
-    const workbook = XLSX.read(arrayBuffer, { type: 'array' });
-    if (!workbook.SheetNames.length) {
-      throw new Error('Excel file is empty');
-    }
-
-    const sheetName = workbook.SheetNames[0];
-    const worksheet = workbook.Sheets[sheetName];
-    const data = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-
-    if (data.length < 2) {
-      throw new Error('Excel sheet must have at least 2 rows (header + 1 data row)');
-    }
-
-    const headerLine = data[0];
-    if (headerLine.length < 2) {
-      throw new Error('Excel sheet must have at least 2 columns');
-    }
-
-    let qIdx = 0, aIdx = 1;
-    const header = headerLine.map(h => String(h || '').toLowerCase().trim());
-
-    const qHeaders = ['q', 'question', 'ques', 'prompt'];
-    const aHeaders = ['a', 'answer', 'ans', 'response'];
-
-    for (let i = 0; i < header.length; i++) {
-      if (qHeaders.includes(header[i])) qIdx = i;
-      if (aHeaders.includes(header[i])) aIdx = i;
-    }
-
-    const qa = [];
-    for (let i = 1; i < data.length; i++) {
-      const row = data[i];
-      if (row.length > Math.max(qIdx, aIdx)) {
-        const q = String(row[qIdx] || '').trim();
-        const a = String(row[aIdx] || '').trim();
-        if (q && a) {
-          qa.push({ q, a });
-        }
-      }
-    }
-
-    if (qa.length === 0) {
-      throw new Error('No valid Q&A pairs found in Excel sheet');
-    }
-
-    return qa;
+    data = await readSheet(arrayBuffer);
   } catch (e) {
     throw new Error('Excel parse error: ' + e.message);
   }
-}
 
-// XLSX is now a bundled npm dependency; kept for API compatibility with import.js.
-export function ensureXLSXLoaded() {
-  return Promise.resolve();
+  if (!data || data.length < 2) {
+    throw new Error('Excel parse error: Excel sheet must have at least 2 rows (header + 1 data row)');
+  }
+
+  const headerLine = data[0];
+  if (headerLine.length < 2) {
+    throw new Error('Excel parse error: Excel sheet must have at least 2 columns');
+  }
+
+  let qIdx = 0, aIdx = 1;
+  const header = headerLine.map(h => String(h ?? '').toLowerCase().trim());
+
+  const qHeaders = ['q', 'question', 'ques', 'prompt'];
+  const aHeaders = ['a', 'answer', 'ans', 'response'];
+
+  for (let i = 0; i < header.length; i++) {
+    if (qHeaders.includes(header[i])) qIdx = i;
+    if (aHeaders.includes(header[i])) aIdx = i;
+  }
+
+  const qa = [];
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    if (row.length > Math.max(qIdx, aIdx)) {
+      const q = String(row[qIdx] ?? '').trim();
+      const a = String(row[aIdx] ?? '').trim();
+      if (q && a) {
+        qa.push({ q, a });
+      }
+    }
+  }
+
+  if (qa.length === 0) {
+    throw new Error('Excel parse error: No valid Q&A pairs found in Excel sheet');
+  }
+
+  return qa;
 }
 
 export function katakanaToHiragana(s) {
