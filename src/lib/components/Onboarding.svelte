@@ -43,7 +43,7 @@
   // Advanced select so the imperative wiring stays in agreement.
   function applyLevelAndContinue() {
     set(KEYS.JLPT_LEVEL, level);
-    const sel = document.getElementById('jlpt-level-select');
+    const sel = /** @type {HTMLSelectElement} */ (document.getElementById('jlpt-level-select'));
     if (sel) sel.value = level;
     step = 2;
   }

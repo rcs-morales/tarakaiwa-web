@@ -360,7 +360,6 @@ function romajiToHiragana(text) {
     dya: 'ぢゃ', dyu: 'ぢゅ', dyo: 'ぢょ',
     bya: 'びゃ', byu: 'びゅ', byo: 'びょ',
     pya: 'ぴゃ', pyu: 'ぴゅ', pyo: 'ぴょ',
-    kya: 'きゃ', kyu: 'きゅ', kyo: 'きょ',
     n: 'ん'
   };
 

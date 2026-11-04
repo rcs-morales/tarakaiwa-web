@@ -15,16 +15,16 @@ export function initDB() {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
 
     request.onerror = (event) => {
-      console.error('IndexedDB error:', event.target.error);
-      reject(event.target.error);
+      console.error('IndexedDB error:', request.error);
+      reject(request.error);
     };
 
     request.onsuccess = (event) => {
-      resolve(event.target.result);
+      resolve(request.result);
     };
 
     request.onupgradeneeded = (event) => {
-      const db = event.target.result;
+      const db = request.result;
       if (!db.objectStoreNames.contains(STORE_NAME)) {
         db.createObjectStore(STORE_NAME);
       }

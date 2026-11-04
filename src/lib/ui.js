@@ -185,7 +185,7 @@ export function showApiKeyStatus(message, type) {
   }
 }
 export function toggleKeyVisibility() {
-  const input = document.getElementById('api-key-input');
+  const input = /** @type {HTMLInputElement} */ (document.getElementById('api-key-input'));
   if (!input) return;
   input.type = input.type === 'password' ? 'text' : 'password';
 }

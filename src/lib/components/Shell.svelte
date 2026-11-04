@@ -76,7 +76,7 @@
           onclick={() => (menuOpen = !menuOpen)}
         >
           {#if profile.user}
-            <img class="account-avatar" src={avatarSrc()} alt="" onerror={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = DEFAULT_AVATAR; }} />
+            <img class="account-avatar" src={avatarSrc()} alt="" onerror={(e) => { const img = /** @type {HTMLImageElement} */ (e.currentTarget); img.onerror = null; img.src = DEFAULT_AVATAR; }} />
           {:else}
             👤
           {/if}

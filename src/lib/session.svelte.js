@@ -615,7 +615,7 @@ export function editTranscript() {
 }
 
 export function saveEditedTranscript() {
-  const textarea = document.getElementById('transcript-edit-input');
+  const textarea = /** @type {HTMLTextAreaElement} */ (document.getElementById('transcript-edit-input'));
   if (!textarea) return;
 
   const edited = textarea.value.trim();
@@ -660,6 +660,7 @@ export async function checkAnswer() {
 
   setStatus('checking', '🤖 AI is checking your answer…');
 
+  /** @type {Awaited<ReturnType<typeof gradeWithAI>> | Awaited<ReturnType<typeof isCorrectLocal>>} */
   let gradeResult = await gradeWithAI(item.q, item.a, raw, session.jlptLevel);
   if (!gradeResult) {
     const rateLimited = getLastGradingErrorReason() === 'RATE_LIMIT';

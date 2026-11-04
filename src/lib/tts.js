@@ -212,7 +212,7 @@ export async function preloadVoicevoxAudio(text) {
  * Batch-preload an array of text strings for Voicevox TTS.
  * Uses a concurrency limit to avoid 429 rate limiting from api.tts.quest.
  * @param {string[]} texts - Array of text strings to preload
- * @param {(completed: number, total: number) => void} onProgress - Progress callback
+ * @param {(completed: number, total: number, message?: string) => void} onProgress - Progress callback (optional status message while rate limited)
  * @param {{ cancelled: boolean }} signal - Cancellation signal (set .cancelled = true to stop)
  * @returns {Promise<void>}
  */
@@ -409,8 +409,8 @@ async function speakWithVoicevox(text, onEnd, context, rate = 1) {
 }
 
 export function saveVoicevoxSpeaker() {
-  const select = document.getElementById('voicevox-speaker-select');
-  const input = document.getElementById('voicevox-speaker-input');
+  const select = /** @type {HTMLSelectElement} */ (document.getElementById('voicevox-speaker-select'));
+  const input = /** @type {HTMLInputElement} */ (document.getElementById('voicevox-speaker-input'));
   if (select && select.value) {
     set(KEYS.VOICEVOX_SPEAKER, select.value);
     if (input) input.value = select.value;

@@ -10,8 +10,8 @@ export async function handleAssistantQuery(query) {
   if (!query) return;
 
   const historyBox = document.getElementById('ai-chat-history');
-  const inputField = document.getElementById('ai-chat-input');
-  const sendBtn = document.getElementById('btn-ai-send');
+  const inputField = /** @type {HTMLInputElement} */ (document.getElementById('ai-chat-input'));
+  const sendBtn = /** @type {HTMLButtonElement} */ (document.getElementById('btn-ai-send'));
 
   appendAiMessage('user', query);
 
@@ -121,7 +121,7 @@ export function initAiPanelInteractivity() {
   let isResizing = false;
   let startWidth = 0, startHeight = 0, startX = 0, startY = 0;
 
-  resizer.addEventListener('mousedown', (e) => {
+  resizer.addEventListener('mousedown', (/** @type {MouseEvent} */ e) => {
     isResizing = true;
     e.preventDefault();
     e.stopPropagation();
