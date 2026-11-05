@@ -3,6 +3,7 @@ import { toggleSpeaking } from './avatar.js';
 import { AVATAR_MODELS } from './data.js';
 import { get, KEYS } from './settings.js';
 import { getAudio, saveAudio } from './db.js';
+import { showVoicevoxLoading, hideVoicevoxLoading } from './voicevoxLoading.svelte.js';
 
 let channels = {
   practice: { audio: null, url: null, onEnd: null },
@@ -294,34 +295,32 @@ export async function preloadAllVoicevoxAudio(texts, onProgress, signal) {
   await Promise.all(workers);
 }
 
-function showVoicevoxLoading() {
-  if (document.getElementById('vv-loading-overlay')) return;
-  const overlay = document.createElement('div');
-  overlay.id = 'vv-loading-overlay';
-  overlay.className = 'vv-loading-overlay';
-  overlay.innerHTML = `
-    <div class="vv-loading-card">
-      <div class="vv-spinner"></div>
-      <h3>☁️ Loading Cloud Voice…</h3>
-      <p>Preparing audio from Voicevox. This may take a few seconds.</p>
-    </div>
-  `;
-  document.body.appendChild(overlay);
-}
-
-function hideVoicevoxLoading() {
-  const overlay = document.getElementById('vv-loading-overlay');
-  if (overlay) overlay.remove();
+/**
+ * Show the loading overlay if a VOICEVOX fetch takes longer than 2.5s.
+ * Returns a function that ends this fetch's wait (safe to call twice), so
+ * overlapping fetches each take down only their own share of the overlay.
+ */
+function delayVoicevoxLoading() {
+  let shown = false;
+  const timer = setTimeout(() => {
+    shown = true;
+    showVoicevoxLoading();
+  }, 2500);
+  return () => {
+    clearTimeout(timer);
+    if (shown) {
+      shown = false;
+      hideVoicevoxLoading();
+    }
+  };
 }
 
 async function speakWithVoicevox(text, onEnd, context, rate = 1) {
   const chan = channels[context];
-  // Only show the loading overlay if the fetch takes longer than 2.5s
-  const loadingTimer = setTimeout(() => showVoicevoxLoading(), 2500);
+  const doneLoading = delayVoicevoxLoading();
   try {
     const blob = await preloadVoicevoxAudio(text);
-    clearTimeout(loadingTimer);
-    hideVoicevoxLoading();
+    doneLoading();
     if (!blob) throw new Error("Could not fetch Voicevox audio");
 
     // A previous call on this channel that cancelSpeech() cut short may
@@ -393,8 +392,7 @@ async function speakWithVoicevox(text, onEnd, context, rate = 1) {
       finish();
     });
   } catch (err) {
-    clearTimeout(loadingTimer);
-    hideVoicevoxLoading();
+    doneLoading();
     console.error(`Voicevox TTS failed [${context}]:`, err);
     if (onEnd) onEnd();
   }

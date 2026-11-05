@@ -1,6 +1,7 @@
 import './live2d-shim.js';
 import { AVATAR_MODELS } from './data.js';
 import { get, KEYS } from './settings.js';
+import { avatarView, voicevoxCharacterFor, getAvatarCanvasHost } from './avatarView.svelte.js';
 
 let live2dModel = null;
 let live2dApp = null;
@@ -8,6 +9,9 @@ let isAvatarSpeaking = false;
 let avatarMotionTimer = null;
 let avatarMotionIndex = 0;
 let originalShouldRequestIdleMotion = null;
+// Bumped by every initAvatar() call, so a slow Live2D load that a newer call
+// (or a switch to VOICEVOX) superseded doesn't land on top of it.
+let initGeneration = 0;
 
 export function getAvatarModelName() {
   return get(KEYS.AVATAR_MODEL);
@@ -61,59 +65,47 @@ function keepAvatarFocusCentered() {
   }
 }
 
+function destroyLive2D() {
+  if (live2dApp) {
+    // removeView: true also takes the canvas out of the host element.
+    live2dApp.destroy(true, { children: true, texture: true, baseTexture: true });
+    live2dApp = null;
+  }
+  live2dModel = null;
+}
+
+// The avatar frame (Practice.svelte) renders from avatarView: the VOICEVOX
+// character image, or the Live2D canvas this mounts into the canvas host.
 export async function initAvatar() {
-  const container = document.getElementById('avatar-container');
-  if (!container) return;
+  const host = getAvatarCanvasHost();
+  if (!host) return;
+  const generation = ++initGeneration;
 
   const ttsMode = get(KEYS.TTS_MODE);
 
   if (ttsMode === 'voicevox') {
-    if (live2dApp) {
-      live2dApp.destroy(true, { children: true, texture: true, baseTexture: true });
-      live2dApp = null;
-      live2dModel = null;
-    }
-
-    container.classList.add('voicevox-mode');
-
-    const speakerId = get(KEYS.VOICEVOX_SPEAKER);
-    const speakerMap = {
-      '3': 'zundamon',
-      '2': 'shikoku_metan',
-      '8': 'kasukabe_tsumugi',
-      '46': 'sayo',
-      '13': 'aoyama_ryusei',
-      '12': 'shirakami_kotarou',
-      '11': 'kurono_takehiro'
-    };
-
-    const charName = speakerMap[speakerId] || 'zundamon';
-    const isSquare = charName === 'kyushu_sora';
-
-    container.innerHTML = `
-      <img src="assets/${charName}.png" class="voicevox-avatar ${isSquare ? 'avatar-square' : ''}" id="vv-avatar-img" onerror="this.onerror=null; this.src='assets/zundamon.png';" alt="${charName}">
-    `;
-    console.log('Voicevox static avatar initialized with local image:', charName);
+    destroyLive2D();
+    avatarView.character = voicevoxCharacterFor(get(KEYS.VOICEVOX_SPEAKER));
+    avatarView.mode = 'voicevox';
     return;
   }
 
-  container.classList.remove('voicevox-mode');
+  avatarView.mode = 'live2d';
 
   const avatarConfig = getAvatarModelConfig();
 
   try {
-    if (live2dApp) {
-      live2dApp.destroy(true, { children: true, texture: true, baseTexture: true });
-    }
-    container.innerHTML = '';
+    destroyLive2D();
+    host.replaceChildren();
 
-    live2dApp = new PIXI.Application({
+    const app = new PIXI.Application({
       width: 400,
       height: 400,
       backgroundAlpha: 0,
       antialias: true,
     });
-    container.appendChild(live2dApp.view);
+    live2dApp = app;
+    host.appendChild(app.view);
 
     const modelPaths = avatarConfig.paths;
 
@@ -131,6 +123,13 @@ export async function initAvatar() {
       throw new Error('Failed to load Live2D model from all configured paths.');
     }
 
+    if (generation !== initGeneration) {
+      // A newer initAvatar() took over while this model loaded (and has
+      // already torn down this call's app).
+      model.destroy();
+      return;
+    }
+
     live2dModel = model;
     if (avatarConfig.disablePointerTracking) {
       model.autoInteract = false;
@@ -145,14 +144,14 @@ export async function initAvatar() {
     }
     motionManager && motionManager.stopAllMotions();
 
-    live2dApp.stage.addChild(model);
+    app.stage.addChild(model);
 
     const scale = avatarConfig.scale || 0.32;
     const yOffset = avatarConfig.yOffset || 0.7;
 
     model.scale.set(scale);
     model.anchor.set(0.5, 0.5);
-    model.position.set(live2dApp.screen.width / 2, live2dApp.screen.height * yOffset);
+    model.position.set(app.screen.width / 2, app.screen.height * yOffset);
 
     model.internalModel.on('beforeModelUpdate', () => {
       keepAvatarFocusCentered();
@@ -251,15 +250,7 @@ export function startAvatarMotionLoop() {
 
 export function toggleSpeaking(speaking) {
   isAvatarSpeaking = speaking;
-
-  const img = document.getElementById('vv-avatar-img');
-  if (img) {
-    if (speaking) {
-      img.classList.add('bouncing');
-    } else {
-      img.classList.remove('bouncing');
-    }
-  }
+  avatarView.speaking = !!speaking; // the VOICEVOX image bounces
 
   const motionManager = live2dModel && live2dModel.internalModel && live2dModel.internalModel.motionManager;
   const state = motionManager && motionManager.state;

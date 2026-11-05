@@ -84,17 +84,8 @@ export function showMicWarning(visible) {
   practiceView.micWarning = !!visible;
 }
 
-export function showImportStatus(message, type) {
-  const statusDiv = document.getElementById('import-status');
-  if (!statusDiv) return;
-  statusDiv.textContent = message;
-  statusDiv.className = 'import-status ' + type;
-  if (type !== 'info') {
-    setTimeout(() => {
-      statusDiv.className = 'import-status';
-    }, 5000);
-  }
-}
+// The Decks tab's import status line lives in deckImport.svelte.js.
+export { showImportStatus } from './deckImport.svelte.js';
 
 
 // The Practice tab shows one of three screens (Dashboard / Practice /

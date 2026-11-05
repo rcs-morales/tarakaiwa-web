@@ -1,9 +1,10 @@
 <script>
   // Decks tab (Phase 5d step 5) — pick which deck to practice, or import a
   // new one. Reads/writes the reactive multi-deck list in decks.svelte.js;
-  // #file-input stays wired imperatively (app.js binds its 'change' handler
-  // by id, same as before).
+  // the import file input and its status line come from deckImport.svelte.js.
   import { allDecks, decks, setActiveDeck, bestScoreForDeck } from '$lib/decks.svelte.js';
+  import { deckImport, deckFileInput, pickDeckFile } from '$lib/deckImport.svelte.js';
+  import { handleFileImport } from '$lib/import.js';
   import DeckFormModal from './DeckFormModal.svelte';
   import { prefs, setShuffle } from '$lib/prefs.svelte.js';
 
@@ -17,10 +18,6 @@
   );
   let showCreate = $state(false);
   let editingDeck = $state(null);
-
-  function triggerImport() {
-    document.getElementById('file-input')?.click();
-  }
 </script>
 
 <div class="decks-screen">
@@ -28,15 +25,22 @@
   <p class="decks-subtitle">Pick a deck to practice, or add your own.</p>
 
   <div class="decks-add-row">
-    <button type="button" class="decks-import-card" onclick={triggerImport}>
+    <button type="button" class="decks-import-card" onclick={pickDeckFile}>
       ＋ Import a deck
     </button>
     <button type="button" class="decks-import-card" onclick={() => (showCreate = true)}>
       ＋ Create a deck
     </button>
   </div>
-  <input type="file" id="file-input" accept=".json,.csv,.txt,.xlsx" class="hidden" />
-  <div class="import-status" id="import-status"></div>
+  <input
+    type="file"
+    id="file-input"
+    accept=".json,.csv,.txt,.xlsx"
+    class="hidden"
+    use:deckFileInput
+    onchange={handleFileImport}
+  />
+  <div class="import-status {deckImport.status.type}" id="import-status" role="status">{deckImport.status.message}</div>
 
   {#if showCreate}
     <DeckFormModal onclose={() => (showCreate = false)} />
