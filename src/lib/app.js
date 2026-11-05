@@ -3,13 +3,12 @@ import { initAvatar } from './avatar.js';
 import { warmVoicesIfNeeded, refreshVoicePackStatus } from './voicePack.svelte.js';
 import { get, set, remove, KEYS } from './settings.js';
 import { initPrefs } from './prefs.svelte.js';
-import { handleFileImport } from './import.js';
 import { initAuth, onAuthChange } from './auth.js';
 import { registerSettingsSync, onLogin } from './sync.js';
 import { syncFromRemote, resetToLocal } from './history.svelte.js';
 import { decks, loadActiveDeckIntoSession, adoptSyncedDecks } from './decks.svelte.js';
 import { updateQuotaDisplay } from './quota.svelte.js';
-import { initTheme, toggleTheme, applyTheme } from './theme.js';
+import { initTheme, applyTheme } from './theme.svelte.js';
 
 // The Settings tab's preference controls are bound in Settings.svelte
 // (prefs.svelte.js, voicePack.svelte.js); the voice pack warmup and status
@@ -54,18 +53,11 @@ export function initApp() {
   initPrefs();
   refreshVoicePackStatus();
 
-  const bind = (id, fn) => {
-    const el = document.getElementById(id);
-    if (el) el.addEventListener('click', fn);
-  };
-
-  bind('btn-theme-toggle', toggleTheme);
-  // btn-start-practice is wired inside Dashboard.svelte (onclick={startPractice},
-  // kept synchronous for the mobile audio unlock); the practice screen's own
-  // controls inside Practice.svelte.
-
-  const fileInput = document.getElementById('file-input');
-  if (fileInput) fileInput.addEventListener('change', handleFileImport);
+  // The theme toggle lives in Shell.svelte (theme.svelte.js); the deck file
+  // input in Decks.svelte (deckImport.svelte.js). btn-start-practice is wired
+  // inside Dashboard.svelte (onclick={startPractice}, kept synchronous for the
+  // mobile audio unlock); the practice screen's own controls inside
+  // Practice.svelte.
 
   // The AI Study Assistant and Speak-in-Japanese panels are Svelte components
   // (StudyAssistant.svelte, TranslateTool.svelte).

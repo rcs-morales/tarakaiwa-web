@@ -1,11 +1,13 @@
 <script>
   // In-session practice screen (Phase 5c, restyled 5d). Everything renders
   // from practiceView / session state: screen switch, status line, progress,
-  // control buttons, question card, transcript and result card. The Live2D
-  // canvas mounts into #avatar-container (avatar.js), which must never unmount
-  // — the screen hides with a class, never an {#if}.
+  // control buttons, question card, transcript and result card. The avatar
+  // frame renders from avatarView: the VOICEVOX image here, the Live2D canvas
+  // mounted by avatar.js into the canvas host, which must never unmount — the
+  // screen hides with a class, never an {#if}.
   import { XP_PER_CORRECT } from '$lib/gamification.svelte.js';
   import { practiceView } from '$lib/practiceView.svelte.js';
+  import { avatarView, avatarCanvasHost, DEFAULT_VOICEVOX_CHARACTER } from '$lib/avatarView.svelte.js';
   import {
     session, endSession, finishRecording, checkAnswer, editTranscript, saveEditedTranscript,
     cancelEditTranscript, rerecordAnswer, nextQuestion, skipQuestion, revealAnswerHint,
@@ -18,6 +20,13 @@
   const show = $derived(practiceView.buttons);
   const card = $derived(practiceView.question);
   const questionText = $derived(session.qa[session.current]?.q ?? '—');
+
+  // A missing character image falls back to Zundamon (once).
+  function onCharacterImageError(/** @type {Event} */ e) {
+    const img = /** @type {HTMLImageElement} */ (e.currentTarget);
+    const fallback = `assets/${DEFAULT_VOICEVOX_CHARACTER}.png`;
+    if (!img.src.endsWith(fallback)) img.src = fallback;
+  }
 
   const translateLabel = $derived(
     card.translate.loading ? '⏳ Translating…' : card.translate.open && card.translate.ok ? '🌐 Hide Translation' : '🌐 Translate'
@@ -73,7 +82,19 @@
 
   <div class="practice-stage">
     <div class="avatar-frame">
-      <div id="avatar-container"></div>
+      <div id="avatar-container" class:voicevox-mode={avatarView.mode === 'voicevox'}>
+        {#if avatarView.mode === 'voicevox'}
+          <img
+            src="assets/{avatarView.character}.png"
+            class="voicevox-avatar"
+            class:bouncing={avatarView.speaking}
+            id="vv-avatar-img"
+            alt={avatarView.character}
+            onerror={onCharacterImageError}
+          />
+        {/if}
+        <div class="avatar-canvas-host" use:avatarCanvasHost></div>
+      </div>
     </div>
   </div>
 
@@ -223,6 +244,11 @@
 </div>
 
 <style>
+  /* Lays the Live2D canvas out as a direct child of #avatar-container. */
+  .avatar-canvas-host {
+    display: contents;
+  }
+
   /* ── Session header: round ✕ · progress bar · mono count ── */
   .session-header {
     display: flex;

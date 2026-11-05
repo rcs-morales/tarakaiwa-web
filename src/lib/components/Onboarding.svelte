@@ -11,6 +11,7 @@
   import { setTab } from '$lib/shell.svelte.js';
   import { WHATS_NEW_VERSION } from '$lib/whatsNew.js';
   import { setJlptLevel } from '$lib/prefs.svelte.js';
+  import { pickDeckFile } from '$lib/deckImport.svelte.js';
 
   let open = $state(false);
   let step = $state(1);
@@ -47,8 +48,8 @@
   }
 
   function importDeck() {
-    // Reuse the Decks tab's file input — import.js already listens to it.
-    document.getElementById('file-input')?.click();
+    // Opens the Decks tab's file input (it handles the import).
+    pickDeckFile();
   }
 
   async function sendMagicLink() {

@@ -15,6 +15,7 @@
   import TranslateTool from '$lib/components/TranslateTool.svelte';
   import FinalScoreOverlay from '$lib/components/FinalScoreOverlay.svelte';
   import BugReportModal from '$lib/components/BugReportModal.svelte';
+  import VoicevoxLoadingOverlay from '$lib/components/VoicevoxLoadingOverlay.svelte';
   import { shell } from '$lib/shell.svelte.js';
 
   onMount(initApp);
@@ -63,6 +64,7 @@
 
 <FinalScoreOverlay />
 <BugReportModal />
+<VoicevoxLoadingOverlay />
 
 <!-- ── Floating study tools ── -->
 <TranslateTool />
