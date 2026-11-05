@@ -426,18 +426,24 @@ describe('Answer card (transcript + result)', () => {
   });
 
   it('edits the transcript: an empty edit is refused, Cancel keeps the original', () => {
+    // Swap only alert. (vi.unstubAllGlobals() would also drop the window stub
+    // the flow tests above install, under async work they may leave running.)
+    const originalAlert = globalThis.alert;
     const alert = vi.fn();
-    vi.stubGlobal('alert', alert);
-    stt.getLiveTranscript.mockReturnValue('original');
-    editTranscript();
-    practiceView.answer.transcript.editText = '   ';
-    saveEditedTranscript();
-    expect(alert).toHaveBeenCalled();
-    expect(stt.setLiveTranscript).not.toHaveBeenCalled();
+    globalThis.alert = alert;
+    try {
+      stt.getLiveTranscript.mockReturnValue('original');
+      editTranscript();
+      practiceView.answer.transcript.editText = '   ';
+      saveEditedTranscript();
+      expect(alert).toHaveBeenCalled();
+      expect(stt.setLiveTranscript).not.toHaveBeenCalled();
 
-    cancelEditTranscript();
-    expect(ui.showTranscript).toHaveBeenCalledWith('original', true);
-    vi.unstubAllGlobals();
+      cancelEditTranscript();
+      expect(ui.showTranscript).toHaveBeenCalledWith('original', true);
+    } finally {
+      globalThis.alert = originalAlert;
+    }
   });
 
   it('fills the translation lines after Check Answer', async () => {
