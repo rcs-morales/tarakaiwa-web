@@ -3,7 +3,9 @@ import { translateToJapaneseWithAI } from '../src/lib/ai/index.js';
 import { toFuriganaHtml } from '../src/lib/parser.js';
 import {
   translate, translateAndSpeak, toggleMic, replayJapaneseAudio, closeTranslateTool,
+  SOURCE_LANGUAGES, speechLanguageFor,
 } from '../src/lib/translate.svelte.js';
+import { transcribeForTool } from '../src/lib/ai/index.js';
 
 describe('translateToJapaneseWithAI Unit Tests', () => {
   let realTranslateToJapanese;
@@ -258,5 +260,75 @@ describe('Translate tool mic', () => {
     expect(translate.open).toBe(false);
     expect(translate.recording).toBe(false);
     expect(trackStop).toHaveBeenCalled();
+  });
+});
+
+describe('Translate tool listening language', () => {
+  beforeEach(() => {
+    resetTranslate();
+    vi.clearAllMocks();
+    Object.defineProperty(navigator, 'mediaDevices', {
+      configurable: true,
+      value: { getUserMedia: vi.fn(async () => ({ getTracks: () => [{ stop: vi.fn() }] })) },
+    });
+  });
+
+  it('has a recognition locale and Whisper code for every source language', () => {
+    for (const lang of SOURCE_LANGUAGES) {
+      const { locale, whisper } = speechLanguageFor(lang);
+      expect(locale, lang).toMatch(/^[a-z]{2,3}-[A-Z]{2}$/);
+      expect(whisper, lang).toMatch(/^[a-z]{2}$/);
+    }
+    expect(speechLanguageFor('Klingon')).toEqual(speechLanguageFor('English'));
+  });
+
+  it.each([
+    ['English', 'en-US'], ['Filipino', 'fil-PH'], ['Spanish', 'es-ES'],
+    ['French', 'fr-FR'], ['Chinese', 'zh-CN'], ['Korean', 'ko-KR'],
+  ])('browser recognition listens in %s as %s', async (lang, locale) => {
+    let recognizer;
+    class MockSpeechRecognition {
+      constructor() { recognizer = this; }
+      start() { this.onstart?.(); }
+      stop() { this.onend?.(); }
+    }
+    window.SpeechRecognition = MockSpeechRecognition;
+    translate.sourceLang = lang;
+
+    await toggleMic();
+    expect(recognizer.lang).toBe(locale);
+    await toggleMic();
+  });
+
+  it('passes the source language to Whisper when browser recognition is unavailable', async () => {
+    window.SpeechRecognition = undefined;
+    window.webkitSpeechRecognition = undefined;
+    translate.sourceLang = 'Korean';
+    vi.mocked(transcribeForTool).mockResolvedValue('안녕하세요');
+
+    // Minimal MediaRecorder: records, then hands back one chunk on stop.
+    class FakeRecorder {
+      static isTypeSupported() { return true; }
+      constructor() { this.state = 'inactive'; this.mimeType = 'audio/webm'; }
+      start() { this.state = 'recording'; this.onstart?.(); }
+      stop() {
+        this.state = 'inactive';
+        this.ondataavailable?.({ data: new Blob(['audio'], { type: 'audio/webm' }) });
+        this.onstop?.();
+      }
+    }
+    // Swap only MediaRecorder (unstubAllGlobals would also drop other suites' stubs).
+    const originalRecorder = globalThis.MediaRecorder;
+    globalThis.MediaRecorder = FakeRecorder;
+    try {
+      await toggleMic(); // start (Whisper fallback)
+      expect(translate.recording).toBe(true);
+      await toggleMic(); // stop → transcribe
+
+      expect(transcribeForTool).toHaveBeenCalledWith(expect.any(Blob), 'ko');
+      expect(translate.input).toBe('안녕하세요');
+    } finally {
+      globalThis.MediaRecorder = originalRecorder;
+    }
   });
 });

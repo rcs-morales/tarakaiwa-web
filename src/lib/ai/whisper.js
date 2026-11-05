@@ -23,7 +23,13 @@ export function getLastWhisperErrorReason() {
  * @param {Blob} audioBlob
  * @returns {Promise<string|null>}
  */
-export async function transcribeForTool(audioBlob) {
+/**
+ * Transcribe a phrase for the Speak-in-Japanese tool.
+ * @param {Blob} audioBlob
+ * @param {string} [language] ISO 639-1 code of what was spoken (e.g. 'en',
+ *   'es'); improves accuracy on short phrases. Omit to let Whisper detect it.
+ */
+export async function transcribeForTool(audioBlob, language) {
   const route = await resolveAIRoute();
   if (!route) return null;
   if (!audioBlob || audioBlob.size === 0) return null;
@@ -33,6 +39,7 @@ export async function transcribeForTool(audioBlob) {
 
   formData.append('file', audioBlob, fileName);
   formData.append('model', 'whisper-large-v3-turbo');
+  if (language) formData.append('language', language);
   formData.append('temperature', '0');
   formData.append('response_format', 'json');
 

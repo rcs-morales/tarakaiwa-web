@@ -5,7 +5,26 @@ import { translateToJapaneseWithAI, hasAIAccess, transcribeForTool } from './ai/
 import { speakQuestion, cancelSpeech } from './tts.js';
 import { get, set, KEYS } from './settings.js';
 
-export const SOURCE_LANGUAGES = ['English', 'Filipino', 'Spanish', 'French', 'Chinese', 'Korean'];
+/**
+ * Source languages the tool translates from, with how to listen for each:
+ * `locale` for browser speech recognition (BCP 47), `whisper` for the Whisper
+ * fallback (ISO 639-1; Whisper calls Filipino "Tagalog").
+ */
+export const SPEECH_LANGUAGES = {
+  English: { locale: 'en-US', whisper: 'en' },
+  Filipino: { locale: 'fil-PH', whisper: 'tl' },
+  Spanish: { locale: 'es-ES', whisper: 'es' },
+  French: { locale: 'fr-FR', whisper: 'fr' },
+  Chinese: { locale: 'zh-CN', whisper: 'zh' },
+  Korean: { locale: 'ko-KR', whisper: 'ko' },
+};
+
+export const SOURCE_LANGUAGES = Object.keys(SPEECH_LANGUAGES);
+
+/** How to listen for a source language (English for anything unknown). */
+export function speechLanguageFor(/** @type {string} */ lang) {
+  return SPEECH_LANGUAGES[lang] ?? SPEECH_LANGUAGES.English;
+}
 
 /** @typedef {{ japanese: string, romaji?: string, english?: string }} TranslateResult */
 /** @typedef {'' | 'info' | 'success' | 'error'} StatusType */
@@ -150,7 +169,8 @@ async function startBrowserListening() {
   stopBrowserRecognition();
   const r = new SpeechRecognition();
   recog = r;
-  r.lang = 'en-US';
+  // Listen in the language the learner is speaking (the picker's source).
+  r.lang = speechLanguageFor(translate.sourceLang).locale;
   r.continuous = true;
   r.interimResults = true;
 
@@ -249,7 +269,7 @@ async function stopWhisperRecording() {
   }
 
   setStatus('Transcribing speech…', 'info');
-  const transcript = await transcribeForTool(blob);
+  const transcript = await transcribeForTool(blob, speechLanguageFor(translate.sourceLang).whisper);
   if (!transcript) {
     setStatus('Could not transcribe audio. Type your phrase instead.', 'error');
     return;
