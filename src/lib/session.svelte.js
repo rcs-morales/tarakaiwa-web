@@ -22,6 +22,7 @@ import {
 import { requestVoicePackConfirmation } from './voicePackPrompt.svelte.js';
 import { openFinalOverlay, scheduleFinalOverlayFade } from './finalOverlay.svelte.js';
 import { assistantHistory } from './assistant.svelte.js';
+import { practiceView, resetQuestionCard } from './practiceView.svelte.js';
 import {
   initRecognizer, startListening, abortRecognition,
   startAIRecording, stopAIRecording, getLiveTranscript,
@@ -136,26 +137,8 @@ export async function startPractice() {
 export async function loadQuestion() {
   clearHintTimer();
   const item = session.qa[session.current];
-  const qText = document.getElementById('question-text');
-  qText.textContent = item.q;
-  qText.style.display = 'none';
-  const toggleBtn = document.getElementById('btn-toggle-question');
-  if (toggleBtn) {
-    toggleBtn.textContent = '👁 Show Text';
-    toggleBtn.classList.remove('highlight-pulse');
-  }
-
-  const translateRow = document.getElementById('translate-row');
-  const translateResult = document.getElementById('translate-result');
-  const translateLink = document.getElementById('btn-translate');
-  if (translateRow) translateRow.style.display = 'none';
-  if (translateResult) { translateResult.textContent = ''; translateResult.classList.remove('visible'); }
-  if (translateLink) { translateLink.textContent = '🌐 Translate'; translateLink.classList.remove('loading'); }
-
-  const romajiResult = document.getElementById('romaji-result');
-  const romajiLink = document.getElementById('btn-romaji');
-  if (romajiResult) { romajiResult.textContent = ''; romajiResult.classList.remove('visible'); }
-  if (romajiLink) { romajiLink.textContent = '🔤 Romaji'; romajiLink.classList.remove('loading'); }
+  // Question text hidden, Translate/Romaji closed, no expected-answer box.
+  resetQuestionCard();
 
   showAnswerTranslation('');
 
@@ -169,11 +152,6 @@ export async function loadQuestion() {
   showBtn('btn-save-edit', false);
   showBtn('btn-cancel-edit', false);
   showBtn('btn-skip',     true);
-
-  const targetBox = document.getElementById('target-answer-box');
-  if (targetBox) {
-    targetBox.style.display = 'none';
-  }
 
   cancelSpeech('practice');
   setStatus('speaking', 'Preparing…');
@@ -193,23 +171,11 @@ export async function loadQuestion() {
   }
 }
 
+/** "👁 Show Text": show or hide the question text (and its Translate / Romaji row). */
 export function toggleQuestionText() {
-  const qText = document.getElementById('question-text');
-  const btn = document.getElementById('btn-toggle-question');
-  const translateRow = document.getElementById('translate-row');
-  if (!qText || !btn) return;
-
-  btn.classList.remove('highlight-pulse');
-
-  if (qText.style.display === 'none') {
-    qText.style.display = 'block';
-    btn.textContent = '👁 Hide Text';
-    if (translateRow) translateRow.style.display = 'block';
-  } else {
-    qText.style.display = 'none';
-    btn.textContent = '👁 Show Text';
-    if (translateRow) translateRow.style.display = 'none';
-  }
+  const card = practiceView.question;
+  card.pulse = false;
+  card.textVisible = !card.textVisible;
 }
 
 // Maps translateWithAI's failure reason to something more useful than a
@@ -228,49 +194,43 @@ const translationCache = new Map();
 export async function translateQuestion() {
   const item = session.qa[session.current];
   if (!item) return;
+  const tr = practiceView.question.translate;
+  if (tr.loading) return;
 
-  const link = document.getElementById('btn-translate');
-  const result = document.getElementById('translate-result');
-  if (!link || !result) return;
-
-  if (link.classList.contains('loading')) return;
-
-  if (result.classList.contains('visible')) {
-    result.classList.remove('visible');
-    link.textContent = '🌐 Translate';
+  if (tr.open) {
+    tr.open = false;
     return;
   }
 
   if (translationCache.has(item.q)) {
-    result.textContent = translationCache.get(item.q);
-    result.classList.add('visible');
-    link.textContent = '🌐 Hide Translation';
+    Object.assign(tr, { open: true, ok: true, text: translationCache.get(item.q), fallbackUrl: '' });
     return;
   }
 
   if (!hasAIAccess()) {
     const query = encodeURIComponent(item.q);
-    const url = `https://translate.google.com/?sl=ja&tl=en&text=${query}&op=translate`;
-    result.innerHTML = `⚠️ AI Translation unavailable. <a href="${url}" target="_blank" style="color: var(--teal); text-decoration: underline;">Translate on Google Translate ↗</a>`;
-    result.classList.add('visible');
+    Object.assign(tr, {
+      open: true, ok: false, text: '⚠️ AI Translation unavailable.',
+      fallbackUrl: `https://translate.google.com/?sl=ja&tl=en&text=${query}&op=translate`,
+    });
     return;
   }
 
-  link.textContent = '⏳ Translating…';
-  link.classList.add('loading');
-
+  tr.loading = true;
   const translation = await translateWithAI(item.q);
-  link.classList.remove('loading');
+  // The learner may have moved on while this was loading — the card (and
+  // practiceView.question) now belongs to another question.
+  if (session.qa[session.current] !== item || practiceView.question.translate !== tr) return;
+  tr.loading = false;
 
   if (translation) {
     translationCache.set(item.q, translation);
-    result.textContent = translation;
-    result.classList.add('visible');
-    link.textContent = '🌐 Hide Translation';
+    Object.assign(tr, { open: true, ok: true, text: translation, fallbackUrl: '' });
   } else {
-    result.textContent = '❌ ' + (translationFailureReasonText() || 'Translation failed. Check your API key or try again.');
-    result.classList.add('visible');
-    link.textContent = '🌐 Translate';
+    Object.assign(tr, {
+      open: true, ok: false, fallbackUrl: '',
+      text: '❌ ' + (translationFailureReasonText() || 'Translation failed. Check your API key or try again.'),
+    });
   }
 }
 
@@ -279,47 +239,34 @@ const romajiCache = new Map();
 export async function getQuestionRomaji() {
   const item = session.qa[session.current];
   if (!item) return;
+  const rm = practiceView.question.romaji;
+  if (rm.loading) return;
 
-  const link = document.getElementById('btn-romaji');
-  const result = document.getElementById('romaji-result');
-  if (!link || !result) return;
-
-  if (link.classList.contains('loading')) return;
-
-  if (result.classList.contains('visible')) {
-    result.classList.remove('visible');
-    link.textContent = '🔤 Romaji';
+  if (rm.open) {
+    rm.open = false;
     return;
   }
 
   if (romajiCache.has(item.q)) {
-    result.textContent = romajiCache.get(item.q);
-    result.classList.add('visible');
-    link.textContent = '🔤 Hide Romaji';
+    Object.assign(rm, { open: true, ok: true, text: romajiCache.get(item.q) });
     return;
   }
 
   if (!hasAIAccess()) {
-    result.textContent = '⚠️ Romaji needs AI access — sign in or add a Groq key in Settings.';
-    result.classList.add('visible');
+    Object.assign(rm, { open: true, ok: false, text: '⚠️ Romaji needs AI access — sign in or add a Groq key in Settings.' });
     return;
   }
 
-  link.textContent = '⏳ Loading…';
-  link.classList.add('loading');
-
+  rm.loading = true;
   const romaji = await getRomajiWithAI(item.q);
-  link.classList.remove('loading');
+  if (session.qa[session.current] !== item || practiceView.question.romaji !== rm) return; // moved on meanwhile
+  rm.loading = false;
 
   if (romaji) {
     romajiCache.set(item.q, romaji);
-    result.textContent = romaji;
-    result.classList.add('visible');
-    link.textContent = '🔤 Hide Romaji';
+    Object.assign(rm, { open: true, ok: true, text: romaji });
   } else {
-    result.textContent = '❌ Romaji failed. Try again.';
-    result.classList.add('visible');
-    link.textContent = '🔤 Romaji';
+    Object.assign(rm, { open: true, ok: false, text: '❌ Romaji failed. Try again.' });
   }
 }
 
@@ -372,8 +319,7 @@ function scheduleHint(item, isAiMode) {
   hintPollTimer = setInterval(() => {
     if (session.qa[session.current] !== item) { clearHintTimer(); return; }
 
-    const targetBox = document.getElementById('target-answer-box');
-    if (targetBox && targetBox.style.display === 'block') { clearHintTimer(); return; } // tutorial/no-AI already showing it
+    if (practiceView.question.target.visible) { clearHintTimer(); return; } // tutorial/no-AI already showing it
 
     const current = getLiveTranscript();
     if (current !== hintLastTranscript) {
@@ -391,69 +337,47 @@ function scheduleHint(item, isAiMode) {
   }, HINT_POLL_MS);
 }
 
+/** "💡 Tap to Reveal Answer": show the expected answer, with romaji and a translation. */
 export function revealAnswerHint() {
   showBtn('btn-hint-prompt', false);
 
   const item = session.qa[session.current];
-  const targetBox = document.getElementById('target-answer-box');
-  if (!item || !targetBox || targetBox.style.display === 'block') return;
+  const target = practiceView.question.target;
+  if (!item || target.visible) return;
 
-  const label = document.getElementById('target-label');
-  if (label) label.textContent = '💡 Full Answer';
-  document.getElementById('target-answer-text').textContent = item.a;
+  Object.assign(target, { visible: true, kind: 'hint', answer: item.a, romaji: '', translation: '' });
+  // Async fills below are dropped if the learner has moved on by then.
+  const stillHere = () => session.qa[session.current] === item && practiceView.question.target === target;
 
-  const romajiEl = document.getElementById('target-romaji-text');
-  const transEl = document.getElementById('target-answer-trans');
-
-  if (romajiEl) {
-    if (item.r) {
-      romajiEl.textContent = item.r;
-    } else if (get(KEYS.SHOW_ROMAJI) !== '0' && hasAIAccess()) {
-      romajiEl.textContent = 'Loading romaji…';
-      getRomajiWithAI(item.a).then(romaji => { romajiEl.textContent = romaji || ''; });
-    } else {
-      romajiEl.textContent = '';
-    }
+  if (item.r) {
+    target.romaji = item.r;
+  } else if (get(KEYS.SHOW_ROMAJI) !== '0' && hasAIAccess()) {
+    target.romaji = 'Loading romaji…';
+    getRomajiWithAI(item.a).then(romaji => { if (stillHere()) target.romaji = romaji || ''; });
   }
-  if (transEl) {
-    if (get(KEYS.SHOW_EN_HINTS) !== '0' && hasAIAccess()) {
-      transEl.textContent = 'Translating…';
-      translateWithAI(item.a, item.q).then(t => { transEl.textContent = t || ''; });
-    } else {
-      transEl.textContent = '';
-    }
+  if (get(KEYS.SHOW_EN_HINTS) !== '0' && hasAIAccess()) {
+    target.translation = 'Translating…';
+    translateWithAI(item.a, item.q).then(t => { if (stillHere()) target.translation = t || ''; });
   }
-
-  targetBox.style.display = 'block';
 }
 
 async function beginListen() {
   const item = session.qa[session.current];
-  const targetBox = document.getElementById('target-answer-box');
-  if (targetBox) {
-    if (session.isDefaultDeck && item.r && session.current < 3 && get(KEYS.TUTORIAL_DONE) !== '1') {
-      const label = document.getElementById('target-label');
-      if (label) label.textContent = '🎯 Tutorial Mode (' + (session.current + 1) + '/3) Please say the sample answer clearly:';
-      document.getElementById('target-answer-text').textContent = item.a;
-      document.getElementById('target-romaji-text').textContent = item.r;
-      targetBox.style.display = 'block';
-    } else if (session.current >= 3 && !hasAIAccess()) {
-      const label = document.getElementById('target-label');
-      if (label) {
-        label.innerHTML = '⚠️ AI Grading Not Configured<br><span style="font-size:0.75rem; font-weight:normal; color:var(--teal);">Showing answer key. Sign in or add a Groq key in settings for flexible answers and feedback!</span>';
-      }
-      document.getElementById('target-answer-text').textContent = item.a;
-      document.getElementById('target-romaji-text').textContent = item.r || '';
-      targetBox.style.display = 'block';
-    }
+  const target = practiceView.question.target;
+  if (session.isDefaultDeck && item.r && session.current < 3 && get(KEYS.TUTORIAL_DONE) !== '1') {
+    Object.assign(target, {
+      visible: true, kind: 'tutorial', tutorialStep: session.current + 1,
+      answer: item.a, romaji: item.r, translation: '',
+    });
+  } else if (session.current >= 3 && !hasAIAccess()) {
+    Object.assign(target, { visible: true, kind: 'answerKey', answer: item.a, romaji: item.r || '', translation: '' });
   }
 
   // First-time hints (tutorial box above + Show Text pulse) are one-time:
   // once the third question's hints have been shown, the flag turns them off
   // for all future sessions — on any deck.
   if (session.current < 3 && get(KEYS.TUTORIAL_DONE) !== '1') {
-    const toggleBtn = document.getElementById('btn-toggle-question');
-    if (toggleBtn) toggleBtn.classList.add('highlight-pulse');
+    practiceView.question.pulse = true;
     if (session.current === 2) set(KEYS.TUTORIAL_DONE, '1');
   }
 

@@ -1,8 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   session, setQA, setCurrent, setScore, setResults,
-  startPractice, checkAnswer, nextQuestion, skipQuestion, endSession
+  startPractice, checkAnswer, nextQuestion, skipQuestion, endSession,
+  toggleQuestionText, translateQuestion, getQuestionRomaji, revealAnswerHint,
 } from '../src/lib/session.svelte.js';
+import { practiceView, resetQuestionCard } from '../src/lib/practiceView.svelte.js';
 import * as ui from '../src/lib/ui.js';
 import * as ai from '../src/lib/ai/index.js';
 import * as settings from '../src/lib/settings.js';
@@ -92,21 +94,7 @@ describe('Session Flow Integration Tests', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     document.body.innerHTML = `
-      <div id="question-text"></div>
-      <button id="btn-toggle-question"></button>
-      <div id="translate-row"></div>
-      <div id="translate-result"></div>
-      <button id="btn-translate"></button>
-      <button id="btn-next"></button>
       <div id="result-badge"></div>
-      <div id="warning-box"></div>
-      <div id="target-answer-box">
-        <div id="target-label"></div>
-        <div id="target-answer-text"></div>
-        <div id="target-romaji-text"></div>
-      </div>
-      <div id="progress-bar"></div>
-      <div id="progress-label"></div>
       <div id="score-display"></div>
       <div id="score-bar"></div>
       <div id="score-message"></div>
@@ -143,7 +131,8 @@ describe('Session Flow Integration Tests', () => {
     await startPractice();
 
     expect(ui.showPracticeScreen).toHaveBeenCalled();
-    expect(document.getElementById('question-text').textContent).toBe('Question 1');
+    expect(session.qa[session.current].q).toBe('Question 1'); // Practice.svelte renders it
+    expect(practiceView.question.textVisible).toBe(false);
     expect(session.current).toBe(0); // Practice.svelte renders "Question 1 / 2" from this
     expect(ui.showMicWarning).toHaveBeenCalledWith(false);
   });
@@ -289,5 +278,122 @@ describe('Session Flow Integration Tests', () => {
   it('setQA defaults jlptLevel to N5 when not provided', () => {
     setQA([{ q: 'Q1', a: 'A1' }]);
     expect(session.jlptLevel).toBe('N5');
+  });
+});
+
+describe('Question card', () => {
+  const QA = [{ q: 'Q1', a: 'A1' }, { q: 'Q2', a: 'A2', r: 'a ni' }];
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setQA(QA.map((x) => ({ ...x })));
+    setCurrent(0);
+    resetQuestionCard();
+    ai.hasAIAccess.mockReturnValue(true);
+    ai.getLastTranslationErrorReason.mockReturnValue(null);
+    settings.get.mockReturnValue(null);
+  });
+
+  /** Move to the next question the way loadQuestion does for the card. */
+  function moveOn() {
+    setCurrent(1);
+    resetQuestionCard();
+  }
+
+  it('Show Text toggles the text and stops the first-time pulse', () => {
+    practiceView.question.pulse = true;
+    toggleQuestionText();
+    expect(practiceView.question.textVisible).toBe(true);
+    expect(practiceView.question.pulse).toBe(false);
+    toggleQuestionText();
+    expect(practiceView.question.textVisible).toBe(false);
+  });
+
+  it('translates the question, toggles it, and reuses the cached result', async () => {
+    ai.translateWithAI.mockResolvedValue('What is your name?');
+    setQA([{ q: 'お名前は？', a: 'A' }]);
+
+    await translateQuestion();
+    expect(practiceView.question.translate).toMatchObject({ open: true, ok: true, loading: false, text: 'What is your name?' });
+
+    await translateQuestion(); // tap again hides it
+    expect(practiceView.question.translate.open).toBe(false);
+
+    await translateQuestion(); // cached — no second request
+    expect(practiceView.question.translate.open).toBe(true);
+    expect(ai.translateWithAI).toHaveBeenCalledTimes(1);
+  });
+
+  it('offers a Google Translate link without AI access', async () => {
+    ai.hasAIAccess.mockReturnValue(false);
+    setQA([{ q: 'お元気ですか', a: 'A' }]);
+    await translateQuestion();
+    const tr = practiceView.question.translate;
+    expect(tr).toMatchObject({ open: true, ok: false });
+    expect(tr.fallbackUrl).toBe('https://translate.google.com/?sl=ja&tl=en&text=' + encodeURIComponent('お元気ですか') + '&op=translate');
+    expect(ai.translateWithAI).not.toHaveBeenCalled();
+  });
+
+  it('explains why a translation failed', async () => {
+    ai.translateWithAI.mockResolvedValue(null);
+    ai.getLastTranslationErrorReason.mockReturnValue('RATE_LIMIT');
+    setQA([{ q: 'Q-fail', a: 'A' }]);
+    await translateQuestion();
+    expect(practiceView.question.translate).toMatchObject({ open: true, ok: false });
+    expect(practiceView.question.translate.text).toContain('Shared daily quota reached');
+  });
+
+  it('drops a translation that arrives after moving to the next question', async () => {
+    let resolve;
+    ai.translateWithAI.mockImplementation(() => new Promise((r) => { resolve = r; }));
+    setQA([{ q: 'Q-slow-1', a: 'A1' }, { q: 'Q-slow-2', a: 'A2' }]);
+
+    const pending = translateQuestion();
+    expect(practiceView.question.translate.loading).toBe(true);
+    moveOn();
+    resolve('Translation of question 1');
+    await pending;
+
+    expect(practiceView.question.translate).toMatchObject({ open: false, loading: false, text: '' });
+  });
+
+  it('gets romaji, and drops a late romaji after moving on', async () => {
+    ai.getRomajiWithAI.mockResolvedValueOnce('onamae wa');
+    setQA([{ q: 'Q-r1', a: 'A1' }, { q: 'Q-r2', a: 'A2' }]);
+    await getQuestionRomaji();
+    expect(practiceView.question.romaji).toMatchObject({ open: true, ok: true, text: 'onamae wa' });
+
+    resetQuestionCard();
+    setQA([{ q: 'Q-r3', a: 'A1' }, { q: 'Q-r4', a: 'A2' }]);
+    let resolve;
+    ai.getRomajiWithAI.mockImplementation(() => new Promise((r) => { resolve = r; }));
+    const pending = getQuestionRomaji();
+    moveOn();
+    resolve('late romaji');
+    await pending;
+    expect(practiceView.question.romaji).toMatchObject({ open: false, text: '' });
+  });
+
+  it('reveals the answer with the deck romaji and an AI translation', async () => {
+    setCurrent(1); // Q2 has stored romaji
+    ai.translateWithAI.mockResolvedValue('Answer two');
+    revealAnswerHint();
+    const t = practiceView.question.target;
+    expect(t).toMatchObject({ visible: true, kind: 'hint', answer: 'A2', romaji: 'a ni', translation: 'Translating…' });
+    await vi.waitFor(() => expect(t.translation).toBe('Answer two'));
+    expect(ui.showBtn).toHaveBeenCalledWith('btn-hint-prompt', false);
+  });
+
+  it('does not let a late hint translation land on the next question', async () => {
+    let resolve;
+    ai.translateWithAI.mockImplementation(() => new Promise((r) => { resolve = r; }));
+    revealAnswerHint(); // Q1
+    const old = practiceView.question.target;
+    moveOn();
+    resolve('Answer one');
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(practiceView.question.target.translation).toBe('');
+    expect(old.translation).toBe('Translating…');
   });
 });

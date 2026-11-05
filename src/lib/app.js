@@ -3,7 +3,6 @@ import { initAvatar } from './avatar.js';
 import { warmVoicesIfNeeded, refreshVoicePackStatus } from './voicePack.svelte.js';
 import { get, set, remove, KEYS } from './settings.js';
 import { initPrefs } from './prefs.svelte.js';
-import { toggleQuestionText, translateQuestion, getQuestionRomaji } from './session.svelte.js';
 import { handleFileImport } from './import.js';
 import { initAuth, onAuthChange } from './auth.js';
 import { registerSettingsSync, onLogin } from './sync.js';
@@ -62,10 +61,8 @@ export function initApp() {
 
   bind('btn-theme-toggle', toggleTheme);
   // btn-start-practice is wired inside Dashboard.svelte (onclick={startPractice},
-  // kept synchronous for the mobile audio unlock).
-  bind('btn-toggle-question', toggleQuestionText);
-  bind('btn-translate', translateQuestion);
-  bind('btn-romaji', getQuestionRomaji);
+  // kept synchronous for the mobile audio unlock); the practice screen's own
+  // controls inside Practice.svelte.
 
   const fileInput = document.getElementById('file-input');
   if (fileInput) fileInput.addEventListener('change', handleFileImport);
