@@ -1,18 +1,9 @@
-import { showStartScreen } from './ui.js';
 import { showApiKeyStatus, loadApiKey } from './apiKey.svelte.js';
 import { initAvatar } from './avatar.js';
 import { warmVoicesIfNeeded, refreshVoicePackStatus } from './voicePack.svelte.js';
-import { abortRecognition, releaseMic } from './stt.js';
 import { get, set, remove, KEYS } from './settings.js';
 import { initPrefs } from './prefs.svelte.js';
-import {
-  toggleQuestionText, translateQuestion, getQuestionRomaji,
-  finishRecording, checkAnswer, rerecordAnswer, nextQuestion,
-  skipQuestion, endSession, session,
-  editTranscript, saveEditedTranscript, cancelEditTranscript,
-  revealAnswerHint
-} from './session.svelte.js';
-import { assistantHistory } from './assistant.svelte.js';
+import { toggleQuestionText, translateQuestion, getQuestionRomaji } from './session.svelte.js';
 import { handleFileImport } from './import.js';
 import { initAuth, onAuthChange } from './auth.js';
 import { registerSettingsSync, onLogin } from './sync.js';
@@ -25,13 +16,8 @@ import { initTheme, toggleTheme, applyTheme } from './theme.js';
 // (prefs.svelte.js, voicePack.svelte.js); the voice pack warmup and status
 // live in voicePack.svelte.js.
 
-function restartApp() {
-  abortRecognition();
-  releaseMic();
-  assistantHistory.splice(0, assistantHistory.length);
-  showStartScreen();
-  updateQuotaDisplay();
-}
+// The practice screen's controls (session buttons, status line, progress)
+// are bound in Practice.svelte / Results.svelte (practiceView.svelte.js).
 
 // The Settings tab (Account & Sync, API key, preferences), the account menu
 // and the AI status chip render from reactive state: profile.svelte.js (who
@@ -75,22 +61,11 @@ export function initApp() {
   };
 
   bind('btn-theme-toggle', toggleTheme);
-  bind('btn-restart-app', restartApp);
-  bind('btn-end-session', endSession);
   // btn-start-practice is wired inside Dashboard.svelte (onclick={startPractice},
   // kept synchronous for the mobile audio unlock).
   bind('btn-toggle-question', toggleQuestionText);
   bind('btn-translate', translateQuestion);
   bind('btn-romaji', getQuestionRomaji);
-  bind('btn-hint-prompt', revealAnswerHint);
-  bind('btn-submit', finishRecording);
-  bind('btn-check', checkAnswer);
-  bind('btn-edit-transcript', editTranscript);
-  bind('btn-save-edit', saveEditedTranscript);
-  bind('btn-cancel-edit', cancelEditTranscript);
-  bind('btn-rerecord', rerecordAnswer);
-  bind('btn-next', nextQuestion);
-  bind('btn-skip', skipQuestion);
 
   const fileInput = document.getElementById('file-input');
   if (fileInput) fileInput.addEventListener('change', handleFileImport);

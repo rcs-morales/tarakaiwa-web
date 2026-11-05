@@ -22,6 +22,8 @@ vi.mock('../src/lib/ui.js', () => ({
   updateCheckedTranslation: vi.fn(),
   showPracticeScreen: vi.fn(),
   showResultsScreen: vi.fn(),
+  showStartScreen: vi.fn(),
+  showMicWarning: vi.fn(),
   showVoicevoxPreloadModal: vi.fn().mockResolvedValue('skipped'),
   updateVoicevoxPreloadProgress: vi.fn(),
   hideVoicevoxPreloadModal: vi.fn(),
@@ -142,7 +144,8 @@ describe('Session Flow Integration Tests', () => {
 
     expect(ui.showPracticeScreen).toHaveBeenCalled();
     expect(document.getElementById('question-text').textContent).toBe('Question 1');
-    expect(document.getElementById('progress-label').textContent).toBe('Question 1 / 2');
+    expect(session.current).toBe(0); // Practice.svelte renders "Question 1 / 2" from this
+    expect(ui.showMicWarning).toHaveBeenCalledWith(false);
   });
 
   it('requests microphone access before Voicevox preloading in practice startup', async () => {

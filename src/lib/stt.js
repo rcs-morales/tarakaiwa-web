@@ -1,4 +1,5 @@
 import { setStatus, showTranscript, showBtn } from './ui.js';
+import { practiceView } from './practiceView.svelte.js';
 import { hasAIAccess } from './ai/index.js';
 import { getIsChecking } from './sessionFlags.js';
 
@@ -121,7 +122,7 @@ export async function startListening(onError, formatLiveTranscript) {
     } else {
       listening = false;
       const isSubmitting = getIsChecking();
-      if (liveTranscript && document.getElementById('btn-next')?.classList.contains('hidden') && !isSubmitting) {
+      if (liveTranscript && !practiceView.buttons.next && !isSubmitting) {
         showBtn('btn-submit', true);
         showBtn('btn-rerecord', true);
       }

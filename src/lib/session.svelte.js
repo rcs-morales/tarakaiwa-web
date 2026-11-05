@@ -1,8 +1,8 @@
 import {
   setStatus, showTranscript, showCheckedTranscript,
-  showResult, showResultPanel, showBtn,
+  showResult, showResultPanel, showBtn, showMicWarning,
   showAnswerTranslation, updateCheckedTranslation,
-  showPracticeScreen, showResultsScreen
+  showPracticeScreen, showResultsScreen, showStartScreen
 } from './ui.js';
 import {
   getGradingModel, hasAIAccess,
@@ -21,6 +21,7 @@ import {
 } from './tts.js';
 import { requestVoicePackConfirmation } from './voicePackPrompt.svelte.js';
 import { openFinalOverlay, scheduleFinalOverlayFade } from './finalOverlay.svelte.js';
+import { assistantHistory } from './assistant.svelte.js';
 import {
   initRecognizer, startListening, abortRecognition,
   startAIRecording, stopAIRecording, getLiveTranscript,
@@ -158,11 +159,8 @@ export async function loadQuestion() {
 
   showAnswerTranslation('');
 
-  const btnNext = document.getElementById('btn-next');
-  if (btnNext) btnNext.textContent = 'Next →';
-
   document.getElementById('result-badge').className = 'result-badge';
-  document.getElementById('warning-box').style.display = 'none';
+  showMicWarning(false);
   showTranscript('');
   showBtn('btn-submit',   false);
   showBtn('btn-next',     false);
@@ -176,11 +174,6 @@ export async function loadQuestion() {
   if (targetBox) {
     targetBox.style.display = 'none';
   }
-
-  const pct = (session.current / session.qa.length) * 100;
-  document.getElementById('progress-bar').style.width = pct + '%';
-  document.getElementById('progress-label').textContent =
-    'Question ' + (session.current + 1) + ' / ' + session.qa.length;
 
   cancelSpeech('practice');
   setStatus('speaking', 'Preparing…');
@@ -471,9 +464,7 @@ async function beginListen() {
   if (useWhisper) {
     const started = await startAIRecording((err) => {
       setStatus('', 'Error: ' + err);
-      if (err.includes('permission')) {
-        document.getElementById('warning-box').style.display = 'block';
-      }
+      if (err.includes('permission')) showMicWarning(true);
       showBtn('btn-rerecord', true);
       showBtn('btn-skip',     true);
     });
@@ -484,9 +475,7 @@ async function beginListen() {
       try {
         startListening((err) => {
           setStatus('', 'Error: ' + err);
-          if (err.includes('permission')) {
-            document.getElementById('warning-box').style.display = 'block';
-          }
+          if (err.includes('permission')) showMicWarning(true);
           showBtn('btn-rerecord', true);
           showBtn('btn-skip',     true);
         }, formatLiveTranscript);
@@ -505,9 +494,7 @@ async function beginListen() {
     }
     startListening((err) => {
       setStatus('', 'Error: ' + err);
-      if (err.includes('permission')) {
-        document.getElementById('warning-box').style.display = 'block';
-      }
+      if (err.includes('permission')) showMicWarning(true);
       showBtn('btn-rerecord', true);
       showBtn('btn-skip',     true);
     }, formatLiveTranscript);
@@ -747,13 +734,7 @@ export async function checkAnswer() {
     setStatus('', gradeResult.correct ? 'Correct! 🎉' : 'Incorrect. Review the feedback.');
   });
 
-  const btnNext = document.getElementById('btn-next');
-  if (btnNext) {
-    showBtn('btn-next', true);
-    if (session.current === session.qa.length - 1) {
-      btnNext.textContent = 'Finish Practice';
-    }
-  }
+  showBtn('btn-next', true); // labelled "Finish Practice" on the last question
   showBtn('btn-rerecord', false);
   showBtn('btn-check',    false);
   showBtn('btn-skip',     false);
@@ -779,6 +760,15 @@ export async function rerecordAnswer() {
   showBtn('btn-save-edit', false);
   showBtn('btn-cancel-edit', false);
   speakThenListen(item);
+}
+
+/** Leave the Results screen for the start screen (✕ and "もう一度 · Again"). */
+export function restartApp() {
+  abortRecognition();
+  releaseMic();
+  assistantHistory.splice(0, assistantHistory.length);
+  showStartScreen();
+  updateQuotaDisplay();
 }
 
 export async function nextQuestion() {
