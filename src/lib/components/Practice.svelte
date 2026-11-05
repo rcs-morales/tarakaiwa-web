@@ -1,7 +1,7 @@
 <script>
   // In-session practice screen (Phase 5c, restyled 5d). The screen switch,
-  // status line, progress and control buttons render from practiceView /
-  // session state. The question card, transcript and result card are still
+  // status line, progress, control buttons and question card render from
+  // practiceView / session state. The transcript and result card are still
   // filled in imperatively by id (session.svelte.js, ui.js, stt.js), and the
   // Live2D canvas mounts into #avatar-container, which must never unmount
   // (the screen hides with a class, never an {#if}).
@@ -10,12 +10,27 @@
   import {
     session, endSession, finishRecording, checkAnswer, editTranscript, saveEditedTranscript,
     cancelEditTranscript, rerecordAnswer, nextQuestion, skipQuestion, revealAnswerHint,
+    toggleQuestionText, translateQuestion, getQuestionRomaji,
   } from '$lib/session.svelte.js';
 
   const total = $derived(session.qa.length);
   const progressPct = $derived(total ? (session.current / total) * 100 : 0);
   const isLastQuestion = $derived(total > 0 && session.current === total - 1);
   const show = $derived(practiceView.buttons);
+  const card = $derived(practiceView.question);
+  const questionText = $derived(session.qa[session.current]?.q ?? '—');
+
+  const translateLabel = $derived(
+    card.translate.loading ? '⏳ Translating…' : card.translate.open && card.translate.ok ? '🌐 Hide Translation' : '🌐 Translate'
+  );
+  const romajiLabel = $derived(
+    card.romaji.loading ? '⏳ Loading…' : card.romaji.open && card.romaji.ok ? '🔤 Hide Romaji' : '🔤 Romaji'
+  );
+
+  /** Keyboard access for the span "links" (Enter / Space). */
+  function activate(/** @type {KeyboardEvent} */ e, /** @type {() => void} */ fn) {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fn(); }
+  }
 </script>
 
 <div id="screen-practice" class:hidden={practiceView.screen !== 'practice'}>
@@ -35,16 +50,24 @@
 
   <div class="question-label practice-question-row">
     <span>Question</span>
-    <button class="btn btn-secondary practice-toggle-btn" id="btn-toggle-question">👁 Show Text</button>
+    <button class="btn btn-secondary practice-toggle-btn" id="btn-toggle-question"
+      class:highlight-pulse={card.pulse} onclick={toggleQuestionText}>{card.textVisible ? '👁 Hide Text' : '👁 Show Text'}</button>
   </div>
-  <div class="question-text" id="question-text" style="display: none;">—</div>
-  <div class="translate-row" id="translate-row" style="display: none;">
+  <div class="question-text" id="question-text" style:display={card.textVisible ? 'block' : 'none'}>{questionText}</div>
+  <div class="translate-row" id="translate-row" style:display={card.textVisible ? 'block' : 'none'}>
     <div class="translate-actions">
-      <span class="translate-link" id="btn-translate">🌐 Translate</span>
-      <span class="translate-link" id="btn-romaji">🔤 Romaji</span>
+      <span class="translate-link" id="btn-translate" role="button" tabindex="0" class:loading={card.translate.loading}
+        onclick={translateQuestion} onkeydown={(e) => activate(e, translateQuestion)}>{translateLabel}</span>
+      <span class="translate-link" id="btn-romaji" role="button" tabindex="0" class:loading={card.romaji.loading}
+        onclick={getQuestionRomaji} onkeydown={(e) => activate(e, getQuestionRomaji)}>{romajiLabel}</span>
     </div>
-    <div class="translate-result" id="translate-result"></div>
-    <div class="translate-result" id="romaji-result"></div>
+    <div class="translate-result" id="translate-result" class:visible={card.translate.open}>
+      {card.translate.text}
+      {#if card.translate.fallbackUrl}
+        <a href={card.translate.fallbackUrl} target="_blank" rel="noopener" style="color: var(--teal); text-decoration: underline;">Translate on Google Translate ↗</a>
+      {/if}
+    </div>
+    <div class="translate-result" id="romaji-result" class:visible={card.romaji.open}>{card.romaji.text}</div>
   </div>
 
   <div class="warning-box" id="warning-box" style:display={practiceView.micWarning ? 'block' : null}>
@@ -59,11 +82,19 @@
 
   <button class="hint-prompt-btn" id="btn-hint-prompt" class:hidden={!show.hintPrompt} onclick={revealAnswerHint}>💡 Taking a While? Tap to Reveal Answer</button>
 
-  <div class="target-answer-box" id="target-answer-box">
-    <div class="target-label" id="target-label">🎯 Expected Answer</div>
-    <div id="target-answer-text">—</div>
-    <div id="target-romaji-text" class="target-romaji">—</div>
-    <div id="target-answer-trans" class="trans-small"></div>
+  <div class="target-answer-box" id="target-answer-box" style:display={card.target.visible ? 'block' : null}>
+    <div class="target-label" id="target-label">
+      {#if card.target.kind === 'tutorial'}
+        🎯 Tutorial Mode ({card.target.tutorialStep}/3) Please say the sample answer clearly:
+      {:else if card.target.kind === 'answerKey'}
+        ⚠️ AI Grading Not Configured<br /><span style="font-size:0.75rem; font-weight:normal; color:var(--teal);">Showing answer key. Sign in or add a Groq key in settings for flexible answers and feedback!</span>
+      {:else}
+        💡 Full Answer
+      {/if}
+    </div>
+    <div id="target-answer-text">{card.target.answer}</div>
+    <div id="target-romaji-text" class="target-romaji">{card.target.romaji}</div>
+    <div id="target-answer-trans" class="trans-small">{card.target.translation}</div>
   </div>
 
   <div class="transcript-box" id="transcript-box">
