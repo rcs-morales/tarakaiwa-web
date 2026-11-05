@@ -1,8 +1,7 @@
 <script>
   // Practice tab dashboard (Phase 5c) — the landing screen inside the
   // Practice panel. Renders from reactive state (session deck, history
-  // stats); the #ai-status-chip text is still written imperatively by
-  // ai/groqClient.js, so its ids must stay.
+  // stats, AI access from the saved key and the signed-in user).
   import StatCard from './StatCard.svelte';
   import LevelCard from './LevelCard.svelte';
   import { session, startPractice } from '$lib/session.svelte.js';
@@ -10,6 +9,8 @@
   import { computeDailyGoal } from '$lib/gamification.svelte.js';
   import { prefs } from '$lib/prefs.svelte.js';
   import { openBugReport } from '$lib/bugReport.svelte.js';
+  import { apiKey } from '$lib/apiKey.svelte.js';
+  import { profile } from '$lib/profile.svelte.js';
 
   const stats = $derived(computeStats(history.entries));
   const daily = $derived(computeDailyGoal(history.entries, prefs.dailyGoal));
@@ -19,6 +20,9 @@
   // The active deck's own level (session.svelte.js) — reactive by construction,
   // no localStorage re-read/event plumbing needed.
   const jlptLevel = $derived(session.jlptLevel || 'N5');
+
+  // A BYO key wins; otherwise signed-in users go through the shared proxy.
+  const aiStatus = $derived(apiKey.saved ? 'Groq Active' : profile.user ? 'Active (signed in)' : 'Not configured');
 
   function greeting() {
     const h = new Date().getHours();
@@ -77,7 +81,7 @@
         {/if}
       </span>
       <span class="chip">📈 {jlptLevel}</span>
-      <span class="chip chip-ai" id="ai-status-chip">🧠 AI: <span id="ai-status-text">Not configured</span></span>
+      <span class="chip chip-ai" id="ai-status-chip" class:active={aiStatus !== 'Not configured'}>🧠 AI: <span id="ai-status-text">{aiStatus}</span></span>
     </div>
   </div>
 

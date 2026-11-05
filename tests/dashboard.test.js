@@ -13,6 +13,9 @@ vi.mock('$lib/session.svelte.js', () => ({
 
 import Dashboard from '../src/lib/components/Dashboard.svelte';
 import { history, recordSession } from '../src/lib/history.svelte.js';
+import { apiKey } from '../src/lib/apiKey.svelte.js';
+import { profile } from '../src/lib/profile.svelte.js';
+import { tick } from 'svelte';
 
 describe('Practice dashboard', () => {
   beforeEach(() => {
@@ -69,9 +72,34 @@ describe('Practice dashboard', () => {
     expect(screen.getAllByText('Today')).toHaveLength(2);
   });
 
-  it('keeps the imperative AI-status chip nodes in the DOM', () => {
-    const { container } = render(Dashboard);
-    expect(container.querySelector('#ai-status-chip')).not.toBeNull();
-    expect(container.querySelector('#ai-status-text')).not.toBeNull();
+  describe('AI status chip', () => {
+    beforeEach(() => {
+      apiKey.saved = '';
+      profile.user = null;
+    });
+
+    it('is inactive with no key and no account', () => {
+      const { container } = render(Dashboard);
+      expect(container.querySelector('#ai-status-text').textContent).toBe('Not configured');
+      expect(container.querySelector('#ai-status-chip').classList.contains('active')).toBe(false);
+    });
+
+    it('is active when signed in without a key', () => {
+      profile.user = { id: 'u1' };
+      const { container } = render(Dashboard);
+      expect(container.querySelector('#ai-status-text').textContent).toBe('Active (signed in)');
+      expect(container.querySelector('#ai-status-chip').classList.contains('active')).toBe(true);
+    });
+
+    it('prefers the saved key, and follows it being cleared', async () => {
+      profile.user = { id: 'u1' };
+      apiKey.saved = 'gsk_x';
+      const { container } = render(Dashboard);
+      expect(container.querySelector('#ai-status-text').textContent).toBe('Groq Active');
+
+      apiKey.saved = '';
+      await tick();
+      expect(container.querySelector('#ai-status-text').textContent).toBe('Active (signed in)');
+    });
   });
 });

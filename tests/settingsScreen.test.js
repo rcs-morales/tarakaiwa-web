@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen } from '@testing-library/svelte';
 import { fireEvent, waitFor } from '@testing-library/dom';
+import { tick } from 'svelte';
 
 vi.mock('$lib/avatarUpload.js', () => ({
   uploadAvatar: vi.fn(),
@@ -24,36 +25,35 @@ vi.mock('$lib/tts.js', async (importOriginal) => ({
 vi.mock('$lib/sync.js', async (importOriginal) => ({
   ...(await importOriginal()),
   deleteAllSessionResults: vi.fn(async () => false),
+  onLogout: vi.fn(),
 }));
 vi.mock('$lib/auth.js', async (importOriginal) => ({
   ...(await importOriginal()),
   getCurrentUser: vi.fn(() => null),
+  signInWithEmail: vi.fn(async () => ({ error: null })),
+  signInWithGoogle: vi.fn(async () => ({ error: null })),
+  signOut: vi.fn(async () => {}),
+}));
+vi.mock('$lib/quota.svelte.js', async (importOriginal) => ({
+  ...(await importOriginal()),
+  updateQuotaDisplay: vi.fn(async () => {}),
 }));
 
 import Settings from '../src/lib/components/Settings.svelte';
 import { initAvatar } from '$lib/avatar.js';
 import { preloadAllVoicevoxAudio } from '$lib/tts.js';
 import { deleteAllSessionResults } from '$lib/sync.js';
-import { getCurrentUser } from '$lib/auth.js';
+import { getCurrentUser, signInWithEmail, signInWithGoogle, signOut } from '$lib/auth.js';
+import { onLogout } from '$lib/sync.js';
+import { quota, updateQuotaDisplay } from '$lib/quota.svelte.js';
+import { apiKey, loadApiKey } from '../src/lib/apiKey.svelte.js';
+import { account } from '../src/lib/account.svelte.js';
 import { voicePack } from '../src/lib/voicePack.svelte.js';
 import { history, recordSession } from '../src/lib/history.svelte.js';
 import { initPrefs, prefs } from '../src/lib/prefs.svelte.js';
 import { get, KEYS } from '../src/lib/settings.js';
 import { uploadAvatar, removeAvatar } from '$lib/avatarUpload.js';
 import { profile } from '../src/lib/profile.svelte.js';
-
-// The ids the imperative modules (app.js, quota.js, groqClient.js) still
-// look up for the Account and API-key sections — all must exist even while
-// the Advanced disclosure is collapsed.
-const WIRED_IDS = [
-  'setup-step-account', 'account-signed-out', 'account-signed-in',
-  'account-email-input', 'account-email-display', 'account-status-msg',
-  'magic-link-form', 'btn-send-magic-link', 'btn-google-signin', 'btn-sign-out',
-  'setup-step-api-key', 'api-key-form', 'api-key-input', 'btn-toggle-key',
-  'btn-save-api', 'btn-test-api', 'btn-clear-api', 'api-key-status',
-  'quota-panel', 'quota-chat-count', 'quota-chat-fill',
-  'quota-whisper-count', 'quota-whisper-fill',
-];
 
 describe('Settings screen', () => {
   beforeEach(() => {
@@ -70,6 +70,15 @@ describe('Settings screen', () => {
     vi.mocked(getCurrentUser).mockReset().mockReturnValue(null);
     vi.mocked(preloadAllVoicevoxAudio).mockReset();
     voicePack.status = '—';
+    vi.mocked(signInWithEmail).mockReset().mockResolvedValue({ error: null });
+    vi.mocked(signInWithGoogle).mockReset().mockResolvedValue({ error: null });
+    vi.mocked(signOut).mockReset().mockResolvedValue(undefined);
+    vi.mocked(onLogout).mockReset();
+    vi.mocked(updateQuotaDisplay).mockReset();
+    account.status = { message: '', type: '' };
+    apiKey.status = { message: '', type: '' };
+    loadApiKey();
+    quota.usage = null;
     voicePack.downloading = false;
     voicePack.progress = 0;
     removeAvatar.mockReset().mockResolvedValue(undefined);
@@ -79,14 +88,12 @@ describe('Settings screen', () => {
     vi.unstubAllGlobals();
   });
 
-  it('keeps every imperatively wired element id in the DOM while collapsed', () => {
+  it('collapses the Advanced disclosure with CSS, keeping its sections mounted', () => {
     const { container } = render(Settings);
-    for (const id of WIRED_IDS) {
-      expect(container.querySelector(`#${id}`), `#${id} missing`).not.toBeNull();
+    expect(container.querySelector('.advanced-body').classList.contains('open')).toBe(false);
+    for (const id of ['setup-step-account', 'setup-step-api-key', 'setup-step-settings', 'setup-step-reset']) {
+      expect(container.querySelector('#' + id), id).not.toBeNull();
     }
-    // collapsed via CSS class, never unmounted
-    const body = container.querySelector('.advanced-body');
-    expect(body.classList.contains('open')).toBe(false);
   });
 
   it('opens and closes the Advanced disclosure', async () => {
@@ -371,6 +378,162 @@ describe('Settings screen', () => {
 
       await waitFor(() => expect(container.querySelector('#reset-progress-status').textContent)
         .toContain('All progress has been reset'));
+    });
+  });
+
+  describe('account & sync', () => {
+    it('shows the sign-in form while signed out', () => {
+      const { container } = render(Settings);
+      expect(container.querySelector('#account-signed-out')).not.toBeNull();
+      expect(container.querySelector('#account-signed-in')).toBeNull();
+    });
+
+    it('asks for an email before sending a magic link', async () => {
+      const { container } = render(Settings);
+      await fireEvent.click(container.querySelector('#btn-send-magic-link'));
+      const status = container.querySelector('#account-status-msg');
+      expect(status.textContent).toBe('Please enter your email address.');
+      expect(status.classList.contains('error')).toBe(true);
+      expect(signInWithEmail).not.toHaveBeenCalled();
+    });
+
+    it('sends a magic link from the button and from Enter in the field', async () => {
+      const { container } = render(Settings);
+      const input = container.querySelector('#account-email-input');
+      await fireEvent.input(input, { target: { value: '  me@example.com ' } });
+
+      await fireEvent.click(container.querySelector('#btn-send-magic-link'));
+      await waitFor(() => expect(container.querySelector('#account-status-msg').textContent)
+        .toBe('✅ Check your inbox for the sign-in link.'));
+      expect(signInWithEmail).toHaveBeenCalledWith('me@example.com');
+
+      await fireEvent.submit(container.querySelector('#magic-link-form'));
+      expect(signInWithEmail).toHaveBeenCalledTimes(2);
+    });
+
+    it('shows the sign-in error', async () => {
+      vi.mocked(signInWithGoogle).mockResolvedValue({ error: { message: 'popup blocked' } });
+      const { container } = render(Settings);
+      await fireEvent.click(container.querySelector('#btn-google-signin'));
+      await waitFor(() => expect(container.querySelector('#account-status-msg').textContent).toBe('❌ popup blocked'));
+    });
+
+    it('shows who is signed in and signs out', async () => {
+      profile.user = { id: 'u1', email: 'me@example.com' };
+      const { container } = render(Settings);
+      expect(container.querySelector('#account-signed-out')).toBeNull();
+      expect(container.querySelector('#account-email-display').textContent).toBe('me@example.com');
+
+      await fireEvent.click(container.querySelector('#btn-sign-out'));
+      await waitFor(() => expect(container.querySelector('#account-status-msg').textContent).toBe('Signed out.'));
+      expect(signOut).toHaveBeenCalled();
+      expect(onLogout).toHaveBeenCalled();
+    });
+  });
+
+  describe('API key', () => {
+    it('shows the stored key, hidden until toggled', async () => {
+      localStorage.setItem('api_key', 'gsk_stored');
+      loadApiKey();
+      const { container } = render(Settings);
+      const input = container.querySelector('#api-key-input');
+      expect(input.value).toBe('gsk_stored');
+      expect(input.type).toBe('password');
+
+      await fireEvent.click(container.querySelector('#btn-toggle-key'));
+      expect(input.type).toBe('text');
+    });
+
+    it('rejects a non-Groq key', async () => {
+      const { container } = render(Settings);
+      await fireEvent.input(container.querySelector('#api-key-input'), { target: { value: 'sk-openai' } });
+      await fireEvent.click(container.querySelector('#btn-save-api'));
+      expect(container.querySelector('#api-key-status').textContent).toContain('Keys start with gsk_');
+      expect(localStorage.getItem('api_key')).toBeNull();
+    });
+
+    it('saves a cleaned-up key (button or Enter) and refreshes the quota', async () => {
+      const { container } = render(Settings);
+      const input = container.querySelector('#api-key-input');
+      await fireEvent.input(input, { target: { value: ' gsk_abc 123\n' } });
+
+      await fireEvent.submit(container.querySelector('#api-key-form'));
+
+      expect(localStorage.getItem('api_key')).toBe('gsk_abc123');
+      expect(localStorage.getItem('api_provider')).toBe('groq');
+      expect(input.value).toBe('gsk_abc123');
+      const status = container.querySelector('#api-key-status');
+      expect(status.textContent).toBe('✅ Groq API key saved!');
+      expect(status.classList.contains('success')).toBe(true);
+      expect(updateQuotaDisplay).toHaveBeenCalled();
+    });
+
+    it('clears the key', async () => {
+      localStorage.setItem('api_key', 'gsk_stored');
+      localStorage.setItem('api_provider', 'groq');
+      loadApiKey();
+      const { container } = render(Settings);
+
+      await fireEvent.click(container.querySelector('#btn-clear-api'));
+
+      expect(localStorage.getItem('api_key')).toBeNull();
+      expect(container.querySelector('#api-key-input').value).toBe('');
+      expect(container.querySelector('#api-key-status').textContent).toContain('API key cleared');
+      expect(updateQuotaDisplay).toHaveBeenCalled();
+    });
+
+    it('tests the typed key against Groq', async () => {
+      const fetchMock = vi.fn(async () => ({ ok: false, status: 401 }));
+      vi.stubGlobal('fetch', fetchMock);
+      const { container } = render(Settings);
+      await fireEvent.input(container.querySelector('#api-key-input'), { target: { value: 'gsk_bad' } });
+
+      await fireEvent.click(container.querySelector('#btn-test-api'));
+
+      await waitFor(() => expect(container.querySelector('#api-key-status').textContent)
+        .toBe('❌ Invalid API key. Please check your key.'));
+      expect(fetchMock.mock.calls[0][1].headers.Authorization).toBe('Bearer gsk_bad');
+    });
+
+    it('hides a success message after 5s, but not a newer one early', async () => {
+      vi.useFakeTimers();
+      try {
+        const { container } = render(Settings);
+        const input = container.querySelector('#api-key-input');
+        await fireEvent.input(input, { target: { value: 'gsk_one' } });
+        await fireEvent.click(container.querySelector('#btn-save-api'));
+        vi.advanceTimersByTime(4000);
+        await fireEvent.input(input, { target: { value: 'nope' } });
+        await fireEvent.click(container.querySelector('#btn-save-api')); // newer error message
+
+        vi.advanceTimersByTime(1500); // the first message's 5s have passed
+        await tick();
+        expect(container.querySelector('#api-key-status').textContent).toContain('Keys start with gsk_');
+
+        vi.advanceTimersByTime(4000);
+        await tick();
+        expect(container.querySelector('#api-key-status').textContent).toBe('');
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+  });
+
+  describe('shared quota panel', () => {
+    it('is hidden without shared-quota usage', () => {
+      const { container } = render(Settings);
+      expect(container.querySelector('#quota-panel').classList.contains('hidden')).toBe(true);
+    });
+
+    it('shows usage bars, amber past 80% and red when spent', () => {
+      quota.usage = { chatRequests: 170, whisperSeconds: 600.4 };
+      const { container } = render(Settings);
+      expect(container.querySelector('#quota-panel').classList.contains('hidden')).toBe(false);
+      expect(container.querySelector('#quota-chat-count').textContent).toBe('170 / 200');
+      expect(container.querySelector('#quota-chat-fill').style.width).toBe('85%');
+      expect(container.querySelector('#quota-chat-fill').style.background).toBe('var(--warn)');
+      expect(container.querySelector('#quota-whisper-count').textContent).toBe('601s / 600s');
+      expect(container.querySelector('#quota-whisper-fill').style.background).toBe('var(--wrong)');
     });
   });
 });

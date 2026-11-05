@@ -10,7 +10,7 @@ import {
   translateWithAI, getRomajiWithAI, getLastGradingErrorReason, getLastWhisperErrorReason,
   getLastTranslationErrorReason
 } from './ai/index.js';
-import { updateQuotaDisplay } from './quota.js';
+import { updateQuotaDisplay } from './quota.svelte.js';
 import { get, set, KEYS } from './settings.js';
 import { saveSessionResult } from './sync.js';
 import { recordSession } from './history.svelte.js';

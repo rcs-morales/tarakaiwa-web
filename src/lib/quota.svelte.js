@@ -1,6 +1,7 @@
 // Quota indicator — shows the user's daily shared quota usage when signed in
 // without a BYO key. Fetches current usage from the RPC (read-only, allowed
-// for authenticated users).
+// for authenticated users). Rendered by Shell.svelte (account menu chip) and
+// Settings.svelte (usage bars).
 
 import { supabaseClient } from './supabase.js';
 import { hasAIAccess, hasGroqApiKey } from './ai/index.js';
@@ -66,52 +67,33 @@ export function isQuotaLow(usage) {
   return chatUsagePercent > 80 || whisperUsagePercent > 80;
 }
 
-/** Paint one usage bar (fill width + count + color state) by key. */
-function updateQuotaMeter(key, used, limit, unit) {
-  const fill = document.getElementById(`quota-${key}-fill`);
-  const count = document.getElementById(`quota-${key}-count`);
-  const pct = Math.min(100, Math.round((used / limit) * 100));
-  if (fill) {
-    fill.style.width = `${pct}%`;
-    // green normally, amber past 80%, red when spent
-    fill.style.background = pct >= 100 ? 'var(--wrong)'
-      : pct > 80 ? 'var(--warn)'
-      : 'var(--success)';
-  }
-  if (count) count.textContent = `${used}${unit} / ${limit}${unit}`;
-}
+export const quota = $state({
+  /** @type {{ chatRequests: number, whisperSeconds: number } | null} */
+  usage: null,
+});
 
 /**
- * Refresh both quota indicators from a single usage fetch: the compact text
- * chip in the account menu and the usage bars in Settings. Both are hidden
- * when the shared quota doesn't apply (signed out, or a BYO key is saved).
+ * Usage bar for one counter: fill width and colour (green normally, amber
+ * past 80%, red when spent).
+ * @param {number} used
+ * @param {number} limit
+ */
+export function quotaMeter(used, limit) {
+  const pct = Math.min(100, Math.round((used / limit) * 100));
+  const color = pct >= 100 ? 'var(--wrong)' : pct > 80 ? 'var(--warn)' : 'var(--success)';
+  return { pct, color };
+}
+
+let latestRequest = 0;
+
+/**
+ * Refresh the shared-quota usage shown in the account menu chip and the
+ * Settings usage bars. Both hide when the shared quota doesn't apply
+ * (signed out, or a BYO key is saved). Overlapping refreshes (e.g. a sign-out
+ * while one is in flight) keep only the latest result.
  */
 export async function updateQuotaDisplay() {
-  const quotaChip = document.getElementById('quota-chip');
-  const quotaText = document.getElementById('quota-text');
-  const quotaPanel = document.getElementById('quota-panel');
-
+  const request = ++latestRequest;
   const usage = await fetchQuotaUsage();
-
-  // Compact chip in the 👤 account menu
-  if (quotaChip && quotaText) {
-    if (!usage) {
-      quotaChip.classList.add('hidden');
-    } else {
-      quotaChip.classList.remove('hidden');
-      quotaText.textContent = formatQuotaDisplay(usage);
-      quotaChip.style.color = isQuotaLow(usage) ? 'var(--warn)' : 'var(--muted)';
-    }
-  }
-
-  // Usage bars in Settings → AI grading
-  if (quotaPanel) {
-    if (!usage) {
-      quotaPanel.classList.add('hidden');
-    } else {
-      quotaPanel.classList.remove('hidden');
-      updateQuotaMeter('chat', usage.chatRequests, CHAT_DAILY_LIMIT, '');
-      updateQuotaMeter('whisper', Math.ceil(usage.whisperSeconds), WHISPER_DAILY_LIMIT, 's');
-    }
-  }
+  if (request === latestRequest) quota.usage = usage;
 }

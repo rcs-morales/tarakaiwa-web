@@ -2,11 +2,10 @@
   // Settings tab (Phase 5f) — beginner-friendly grouped preferences per the
   // Kaiwa Quest handoff: profile card, learning-aid toggles, practice card
   // (speed slider + daily-goal stepper), with every other control tucked
-  // into the Advanced disclosure. The preference controls are bound to
-  // prefs.svelte.js / voicePack.svelte.js. The Account and API-key sections
-  // are still driven imperatively by id (app.js, quota.js, groqClient.js),
-  // so the disclosure hides with CSS only — its contents are always in the
-  // DOM, never behind an {#if}.
+  // into the Advanced disclosure. Everything renders from reactive state:
+  // prefs.svelte.js / voicePack.svelte.js (preferences), account.svelte.js +
+  // profile.user (Account & Sync), apiKey.svelte.js and quota.svelte.js
+  // (AI grading).
   import { history, resetProgress } from '$lib/history.svelte.js';
   import { computeXP } from '$lib/gamification.svelte.js';
   import {
@@ -21,6 +20,9 @@
   import { deleteAllSessionResults } from '$lib/sync.js';
   import { getCurrentUser } from '$lib/auth.js';
   import { profile, DEFAULT_AVATAR, avatarSrc, applyAvatarChange } from '$lib/profile.svelte.js';
+  import { account, sendMagicLink, continueWithGoogle, signOutAccount } from '$lib/account.svelte.js';
+  import { apiKey, saveApiKey, testApiKey, clearApiKey } from '$lib/apiKey.svelte.js';
+  import { quota, quotaMeter, CHAT_DAILY_LIMIT, WHISPER_DAILY_LIMIT } from '$lib/quota.svelte.js';
   import AvatarModal from './AvatarModal.svelte';
 
   const xp = $derived(computeXP(history.entries));
@@ -49,11 +51,12 @@
     avatarModalOpen = true;
   }
 
-  // Single source of truth for signing out is the handler app.js bound to
-  // #btn-sign-out (sign out + sync teardown + status message).
-  function signOut() {
-    document.getElementById('btn-sign-out')?.click();
-  }
+  let email = $state('');
+  let showKey = $state(false);
+
+  const chatMeter = $derived(quota.usage ? quotaMeter(quota.usage.chatRequests, CHAT_DAILY_LIMIT) : null);
+  const whisperUsed = $derived(quota.usage ? Math.ceil(quota.usage.whisperSeconds) : 0);
+  const whisperMeter = $derived(quota.usage ? quotaMeter(whisperUsed, WHISPER_DAILY_LIMIT) : null);
 
   /** @param {string} mode */
   function changeTtsMode(mode) {
@@ -211,26 +214,30 @@
         the app works fully offline without an account.
       </p>
 
-      <div id="account-signed-out">
-        <form class="api-key-row" id="magic-link-form" style="margin-top: 8px;">
-          <input type="email" id="account-email-input" class="api-key-input"
-            placeholder="you@example.com" autocomplete="email" />
-        </form>
-        <div class="import-buttons" style="margin-top: 8px;">
-          <button class="btn btn-import" id="btn-send-magic-link">📧 Send Magic Link</button>
-          <button class="btn btn-secondary" id="btn-google-signin">Continue with Google</button>
+      {#if profile.user}
+        <div id="account-signed-in" style="margin-top: 8px;">
+          <p style="font-size: 0.9rem;">Signed in as <strong id="account-email-display">{profile.user.email || 'your account'}</strong></p>
+          <button class="btn btn-secondary" id="btn-sign-out" style="margin-top: 8px;" onclick={signOutAccount}>Sign Out</button>
         </div>
-        <p style="font-size: 0.72rem; color: var(--muted); margin-top: 6px;">
-          We'll email you a one-time sign-in link — no password required.
-        </p>
-      </div>
+      {:else}
+        <div id="account-signed-out">
+          <!-- Enter in the email field sends the link instead of reloading the page. -->
+          <form class="api-key-row" id="magic-link-form" style="margin-top: 8px;"
+            onsubmit={(e) => { e.preventDefault(); sendMagicLink(email); }}>
+            <input type="email" id="account-email-input" class="api-key-input"
+              placeholder="you@example.com" autocomplete="email" bind:value={email} />
+          </form>
+          <div class="import-buttons" style="margin-top: 8px;">
+            <button class="btn btn-import" id="btn-send-magic-link" onclick={() => sendMagicLink(email)}>📧 Send Magic Link</button>
+            <button class="btn btn-secondary" id="btn-google-signin" onclick={continueWithGoogle}>Continue with Google</button>
+          </div>
+          <p style="font-size: 0.72rem; color: var(--muted); margin-top: 6px;">
+            We'll email you a one-time sign-in link — no password required.
+          </p>
+        </div>
+      {/if}
 
-      <div id="account-signed-in" class="hidden" style="margin-top: 8px;">
-        <p style="font-size: 0.9rem;">Signed in as <strong id="account-email-display">—</strong></p>
-        <button class="btn btn-secondary" id="btn-sign-out" style="margin-top: 8px;">Sign Out</button>
-      </div>
-
-      <div class="import-status" id="account-status-msg"></div>
+      <div class="import-status {account.status.type}" id="account-status-msg">{account.status.message}</div>
     </div>
 
     <!-- AI Grading (Groq) -->
@@ -243,22 +250,22 @@
         Get a free API key at <a href="https://console.groq.com/keys" target="_blank" style="color: var(--teal);">Groq
           Console</a> or <a href="groq-guide.html" style="color: var(--teal); text-decoration: underline;">follow our setup guide</a>.
       </p>
-      <form class="api-key-row" id="api-key-form">
-        <input type="password" id="api-key-input" class="api-key-input" placeholder="Paste your API key here…"
-          autocomplete="off" />
+      <!-- Enter in the key field saves it instead of reloading the page. -->
+      <form class="api-key-row" id="api-key-form" onsubmit={(e) => { e.preventDefault(); saveApiKey(); }}>
+        <input type={showKey ? 'text' : 'password'} id="api-key-input" class="api-key-input" placeholder="Paste your API key here…"
+          autocomplete="off" bind:value={apiKey.input} />
         <button type="button" class="btn btn-secondary btn-sm" id="btn-toggle-key"
-          title="Show/hide key">👁</button>
+          title="Show/hide key" onclick={() => (showKey = !showKey)}>👁</button>
       </form>
       <div class="import-buttons" style="margin-top: 8px;">
-        <button class="btn btn-import" id="btn-save-api">Save Key</button>
-        <button class="btn btn-secondary" id="btn-test-api">Test Connection</button>
-        <button class="btn btn-secondary" id="btn-clear-api">Clear Key</button>
+        <button class="btn btn-import" id="btn-save-api" onclick={saveApiKey}>Save Key</button>
+        <button class="btn btn-secondary" id="btn-test-api" onclick={testApiKey}>Test Connection</button>
+        <button class="btn btn-secondary" id="btn-clear-api" onclick={clearApiKey}>Clear Key</button>
       </div>
-      <div class="import-status" id="api-key-status"></div>
+      <div class="import-status {apiKey.status.type}" id="api-key-status">{apiKey.status.message}</div>
 
-      <!-- Shared daily quota — shown only when signed in without a BYO key;
-           populated by quota.js updateQuotaDisplay(). -->
-      <div id="quota-panel" class="quota-panel hidden">
+      <!-- Shared daily quota — shown only when signed in without a BYO key. -->
+      <div id="quota-panel" class="quota-panel" class:hidden={!quota.usage}>
         <div class="quota-panel-head">
           <span class="quota-panel-title">📊 Today's shared quota</span>
           <span class="quota-panel-note">resets daily</span>
@@ -266,16 +273,18 @@
         <div class="quota-meter">
           <div class="quota-meter-label">
             <span>💬 Chat requests</span>
-            <span id="quota-chat-count" class="quota-meter-count">—</span>
+            <span id="quota-chat-count" class="quota-meter-count">{quota.usage ? `${quota.usage.chatRequests} / ${CHAT_DAILY_LIMIT}` : '—'}</span>
           </div>
-          <div class="quota-bar-track"><div id="quota-chat-fill" class="quota-bar-fill"></div></div>
+          <div class="quota-bar-track"><div id="quota-chat-fill" class="quota-bar-fill"
+            style:width={chatMeter ? `${chatMeter.pct}%` : null} style:background={chatMeter?.color}></div></div>
         </div>
         <div class="quota-meter">
           <div class="quota-meter-label">
             <span>🎤 Speech seconds</span>
-            <span id="quota-whisper-count" class="quota-meter-count">—</span>
+            <span id="quota-whisper-count" class="quota-meter-count">{quota.usage ? `${whisperUsed}s / ${WHISPER_DAILY_LIMIT}s` : '—'}</span>
           </div>
-          <div class="quota-bar-track"><div id="quota-whisper-fill" class="quota-bar-fill"></div></div>
+          <div class="quota-bar-track"><div id="quota-whisper-fill" class="quota-bar-fill"
+            style:width={whisperMeter ? `${whisperMeter.pct}%` : null} style:background={whisperMeter?.color}></div></div>
         </div>
         <p class="quota-panel-hint">
           Shared allowance for signed-in users without a key. Add your own Groq key above to use your personal allowance instead.
@@ -399,7 +408,7 @@
   </div>
 
   {#if profile.user}
-    <button class="btn btn-secondary signout-btn" onclick={signOut}>サインアウト · Sign out</button>
+    <button class="btn btn-secondary signout-btn" onclick={signOutAccount}>サインアウト · Sign out</button>
   {/if}
 </div>
 

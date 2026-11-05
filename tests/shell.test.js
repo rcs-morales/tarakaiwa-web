@@ -14,6 +14,7 @@ vi.mock('$lib/avatarUpload.js', () => ({
 
 import Shell from '../src/lib/components/Shell.svelte';
 import { shell, setTab, TABS } from '../src/lib/shell.svelte.js';
+import { quota } from '../src/lib/quota.svelte.js';
 import { fetchAvatarUrl } from '$lib/avatarUpload.js';
 
 describe('App Shell', () => {
@@ -45,14 +46,32 @@ describe('App Shell', () => {
     expect(shell.tab).toBe('practice');
   });
 
-  it('always renders the account status and quota nodes for imperative updates', () => {
+  it('shows the signed-out status line and no quota chip by default', () => {
+    quota.usage = null;
     const { container } = render(Shell);
-    // app.js (updateAccountUI) and quota.js (updateQuotaDisplay) write to
-    // these by id — they must exist even while the menu is closed.
-    expect(container.querySelector('#account-bar-status')).not.toBeNull();
-    expect(container.querySelector('#quota-chip')).not.toBeNull();
-    expect(container.querySelector('#quota-text')).not.toBeNull();
+    expect(container.querySelector('#account-bar-status').textContent.trim())
+      .toBe('🔓 Not signed in — practice saves to this device only');
+    expect(container.querySelector('#quota-chip')).toBeNull();
     expect(container.querySelector('#btn-theme-toggle')).not.toBeNull();
+  });
+
+  it('shows who is signed in', async () => {
+    mockGetCurrentUser.mockReturnValue({ id: 'u1', email: 'me@example.com' });
+    const { container } = render(Shell);
+    await waitFor(() => expect(container.querySelector('#account-bar-status').textContent.trim())
+      .toBe('🔒 Synced as me@example.com'));
+  });
+
+  it('shows the shared-quota chip, amber when running low', async () => {
+    quota.usage = { chatRequests: 20, whisperSeconds: 100 };
+    const { container } = render(Shell);
+    const chip = container.querySelector('#quota-chip');
+    expect(chip.textContent).toBe('💬 180/200 chat • 🎤 500s/600s');
+    expect(chip.style.color).toBe('var(--muted)');
+
+    quota.usage = { chatRequests: 190, whisperSeconds: 100 };
+    await waitFor(() => expect(container.querySelector('#quota-chip').style.color).toBe('var(--warn)'));
+    quota.usage = null;
   });
 
   it('opens the account menu and jumps to Settings from it', async () => {

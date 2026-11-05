@@ -1,14 +1,14 @@
 <script>
   // App shell (Phase 5b): slim top bar with the brand, desktop tab nav,
   // theme toggle and the account/quota menu; bottom tab bar on mobile.
-  // The account menu's status nodes (#account-bar-status, #quota-chip) are
-  // always rendered (toggled with CSS) because app.js and quota.js write to
-  // them imperatively by id.
+  // The account menu shows who is signed in (profile.svelte.js) and the
+  // shared-quota chip (quota.svelte.js).
   import { onMount } from 'svelte';
   import { shell, setTab, TABS } from '$lib/shell.svelte.js';
   import { history, computeStats } from '$lib/history.svelte.js';
   import { computeXP } from '$lib/gamification.svelte.js';
   import { profile, DEFAULT_AVATAR, avatarSrc, watchProfile } from '$lib/profile.svelte.js';
+  import { quota, formatQuotaDisplay, isQuotaLow } from '$lib/quota.svelte.js';
 
   let { children } = $props();
 
@@ -82,8 +82,15 @@
           {/if}
         </button>
         <div class="account-menu" class:open={menuOpen}>
-          <div class="account-menu-status" id="account-bar-status">🔓 Not signed in — practice saves to this device only</div>
-          <div class="account-menu-quota hidden" id="quota-chip"><span id="quota-text"></span></div>
+          <div class="account-menu-status" id="account-bar-status">
+            {profile.user
+              ? '🔒 Synced as ' + (profile.user.email || 'your account')
+              : '🔓 Not signed in — practice saves to this device only'}
+          </div>
+          {#if quota.usage}
+            <div class="account-menu-quota" id="quota-chip"
+              style:color={isQuotaLow(quota.usage) ? 'var(--warn)' : 'var(--muted)'}><span id="quota-text">{formatQuotaDisplay(quota.usage)}</span></div>
+          {/if}
           <button class="account-menu-action" id="btn-account-open" onclick={goToAccountSettings}>👤 Account &amp; sync settings</button>
         </div>
       </div>
@@ -290,10 +297,6 @@
     margin-top: 8px;
     padding-top: 8px;
     border-top: 1px solid var(--border-light);
-  }
-
-  .account-menu-quota.hidden {
-    display: none;
   }
 
   .account-menu-action {
