@@ -3,8 +3,9 @@ import {
   session, setQA, setCurrent, setScore, setResults,
   startPractice, checkAnswer, nextQuestion, skipQuestion, endSession,
   toggleQuestionText, translateQuestion, getQuestionRomaji, revealAnswerHint,
+  editTranscript, saveEditedTranscript, cancelEditTranscript,
 } from '../src/lib/session.svelte.js';
-import { practiceView, resetQuestionCard } from '../src/lib/practiceView.svelte.js';
+import { practiceView, resetQuestionCard, resetAnswerCard } from '../src/lib/practiceView.svelte.js';
 import * as ui from '../src/lib/ui.js';
 import * as ai from '../src/lib/ai/index.js';
 import * as settings from '../src/lib/settings.js';
@@ -16,12 +17,11 @@ import { finalOverlay, closeFinalOverlay } from '../src/lib/finalOverlay.svelte.
 vi.mock('../src/lib/ui.js', () => ({
   setStatus: vi.fn(),
   showTranscript: vi.fn(),
+  showTranscriptIndicator: vi.fn(),
   showCheckedTranscript: vi.fn(),
   showResult: vi.fn(),
   showResultPanel: vi.fn(),
   showBtn: vi.fn(),
-  showAnswerTranslation: vi.fn(),
-  updateCheckedTranslation: vi.fn(),
   showPracticeScreen: vi.fn(),
   showResultsScreen: vi.fn(),
   showStartScreen: vi.fn(),
@@ -395,5 +395,82 @@ describe('Question card', () => {
     await Promise.resolve();
     expect(practiceView.question.target.translation).toBe('');
     expect(old.translation).toBe('Translating…');
+  });
+});
+
+describe('Answer card (transcript + result)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setQA([{ q: 'Q1', a: 'A1' }, { q: 'Q2', a: 'A2' }]);
+    setCurrent(0);
+    setResults([]);
+    resetAnswerCard();
+    flags.getIsChecking.mockReturnValue(false);
+    ai.hasAIAccess.mockReturnValue(true);
+    ai.getLastTranslationErrorReason.mockReturnValue(null);
+    ai.gradeWithAI.mockResolvedValue({ correct: true, score: 100, general_feedback: 'ok', source: 'groq' });
+    settings.get.mockReturnValue(null);
+    stt.getLiveTranscript.mockReturnValue('A1');
+  });
+
+  it('edits the transcript: Save uses the edited text', () => {
+    stt.getLiveTranscript.mockReturnValue('えーわん');
+    editTranscript();
+    expect(practiceView.answer.transcript).toMatchObject({ mode: 'editing', editText: 'えーわん' });
+    expect(ui.showBtn).toHaveBeenCalledWith('btn-save-edit', true);
+
+    practiceView.answer.transcript.editText = '  A1  ';
+    saveEditedTranscript();
+    expect(stt.setLiveTranscript).toHaveBeenCalledWith('A1');
+    expect(ui.showTranscript).toHaveBeenCalledWith('A1', true);
+  });
+
+  it('edits the transcript: an empty edit is refused, Cancel keeps the original', () => {
+    const alert = vi.fn();
+    vi.stubGlobal('alert', alert);
+    stt.getLiveTranscript.mockReturnValue('original');
+    editTranscript();
+    practiceView.answer.transcript.editText = '   ';
+    saveEditedTranscript();
+    expect(alert).toHaveBeenCalled();
+    expect(stt.setLiveTranscript).not.toHaveBeenCalled();
+
+    cancelEditTranscript();
+    expect(ui.showTranscript).toHaveBeenCalledWith('original', true);
+    vi.unstubAllGlobals();
+  });
+
+  it('fills the translation lines after Check Answer', async () => {
+    ai.translateWithAI.mockImplementation(async (text) => (text === 'A1' ? 'Answer one' : 'You said one'));
+    stt.getLiveTranscript.mockReturnValue('heard');
+    await checkAnswer();
+    await vi.waitFor(() => expect(practiceView.answer.result.expTrans.text).toBe('Answer one'));
+    expect(practiceView.answer.transcript.checked.userTrans.text).toBe('You said: You said one');
+  });
+
+  it('offers Google Translate links without AI access', async () => {
+    ai.hasAIAccess.mockReturnValue(false);
+    ai.isCorrectLocal.mockResolvedValue({ correct: false, source: 'local', feedback: 'no', hints: [] });
+    ai.gradeWithAI.mockResolvedValue(null);
+    stt.getLiveTranscript.mockReturnValue('こんにちは');
+    await checkAnswer();
+    const user = practiceView.answer.transcript.checked.userTrans;
+    expect(user.linkText).toBe('Translate what you said on Google Translate ↗');
+    expect(user.linkUrl).toContain(encodeURIComponent('こんにちは'));
+    expect(practiceView.answer.result.expTrans.linkText).toBe('Translate expected answer on Google Translate ↗');
+  });
+
+  it('drops translations that arrive after moving to the next question', async () => {
+    let resolveUser;
+    ai.translateWithAI.mockImplementation(() => new Promise((r) => { resolveUser = r; }));
+    await checkAnswer();
+    const oldCard = practiceView.answer;
+    // learner moves on: loadQuestion resets the card for Q2
+    setCurrent(1);
+    resetAnswerCard();
+    resolveUser('late translation');
+    await Promise.resolve(); await Promise.resolve();
+    expect(practiceView.answer.transcript.checked.userTrans.text).toBe('');
+    expect(oldCard.transcript.checked.userTrans.text).toBe('Translating your answer...');
   });
 });

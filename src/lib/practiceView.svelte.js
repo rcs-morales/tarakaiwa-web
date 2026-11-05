@@ -1,8 +1,9 @@
 // View state for the Practice tab's three screens: which one is showing, the
-// in-session status line, control-button visibility and mic warning (changed
-// through the ui.js helpers — showStartScreen / setStatus / showBtn …), and
-// the question card (changed by session.svelte.js). Dashboard, Practice and
-// Results render from it.
+// in-session status line, control-button visibility, mic warning, transcript
+// and result card (changed through the ui.js helpers — showStartScreen /
+// setStatus / showBtn / showTranscript / showResult …), and the question card
+// (changed by session.svelte.js). Dashboard, Practice and Results render
+// from it.
 
 /** @typedef {'start' | 'practice' | 'results'} PracticeScreen */
 /** @typedef {'' | 'speaking' | 'listening' | 'checking'} StatusState */
@@ -40,6 +41,7 @@ export const practiceView = $state({
   /** "Microphone access is required…" box. */
   micWarning: false,
   question: newQuestionCard(),
+  answer: newAnswerCard(),
 });
 
 /**
@@ -78,4 +80,54 @@ function newQuestionCard() {
 /** Clear the question card for a new question. */
 export function resetQuestionCard() {
   practiceView.question = newQuestionCard();
+}
+
+/**
+ * @typedef {{ text: string, linkUrl: string, linkText: string }} TransLine
+ *   A translation line: text, optionally followed by a Google Translate link
+ *   (when AI isn't available or the AI translation failed).
+ */
+
+/** @returns {TransLine} */
+export function transLine(text = '', linkUrl = '', linkText = '') {
+  return { text, linkUrl, linkText };
+}
+
+/**
+ * @typedef {'empty' | 'text' | 'recording' | 'transcribing' | 'editing' | 'checked'} TranscriptMode
+ *   empty: placeholder; text: live/heard transcript; recording / transcribing:
+ *   AI-mode indicators; editing: the fix-a-mistake textarea; checked: after
+ *   Check Answer (heard text, the reading that was graded, "You said …").
+ */
+
+function newAnswerCard() {
+  return {
+    transcript: {
+      /** @type {TranscriptMode} */
+      mode: 'empty',
+      text: '',
+      /** Highlighted border while listening / reviewing. */
+      active: false,
+      /** Textarea contents while editing. */
+      editText: '',
+      checked: { heard: '', reading: '', userTrans: transLine() },
+    },
+    result: {
+      /** showResult() filled it in for this question. */
+      shown: false,
+      /** showResultPanel() — hidden while it's being refilled. */
+      panel: true,
+      correct: false,
+      answer: '',
+      romaji: '',
+      expTrans: transLine(),
+      /** @type {any} The grade result (AI or local) the feedback is rendered from. */
+      grade: null,
+    },
+  };
+}
+
+/** Clear the transcript and result card for a new question. */
+export function resetAnswerCard() {
+  practiceView.answer = newAnswerCard();
 }
