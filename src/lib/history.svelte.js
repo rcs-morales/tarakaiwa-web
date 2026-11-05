@@ -14,6 +14,16 @@ import { fetchSessionHistory } from './sync.js';
 
 const MAX_ENTRIES = 100;
 
+/**
+ * @typedef {object} HistoryEntry  One finished practice run.
+ * @property {string} at  ISO timestamp
+ * @property {number} score
+ * @property {number} total
+ * @property {string} jlpt
+ * @property {string | null} deckId  null for the built-in Sample deck
+ */
+
+/** @returns {HistoryEntry[]} */
 function loadLocal() {
   try {
     const raw = get(KEYS.SESSION_HISTORY);
@@ -27,8 +37,12 @@ function loadLocal() {
 /** Reactive history view, newest first: [{ at, score, total, jlpt, deckId }] */
 export const history = $state({ entries: loadLocal() });
 
-/** Record a finished run (always local; cloud insert is sync.js's job). */
+/**
+ * Record a finished run (always local; cloud insert is sync.js's job).
+ * @param {{ score: number, total: number, jlpt: string, deckId?: string | null }} run
+ */
 export function recordSession({ score, total, jlpt, deckId = null }) {
+  /** @type {HistoryEntry} */
   const entry = { at: new Date().toISOString(), score, total, jlpt, deckId };
   const local = [entry, ...loadLocal()].slice(0, MAX_ENTRIES);
   set(KEYS.SESSION_HISTORY, JSON.stringify(local));
@@ -57,7 +71,8 @@ export function resetProgress() {
   history.entries = [];
 }
 
-/** yyyy-mm-dd in local time — streaks are calendar days where the user lives. */
+/** yyyy-mm-dd in local time — streaks are calendar days where the user lives.
+ * @param {string | number | Date} date */
 function dayKey(date) {
   const d = new Date(date);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -69,6 +84,7 @@ function dayKey(date) {
  * - avgPct: mean score percentage over the most recent 30 runs
  * - streakDays: consecutive practice days ending today, or yesterday (an
  *   unbroken streak isn't lost until a full day is missed)
+ * @param {HistoryEntry[]} entries
  */
 export function computeStats(entries) {
   const sessions = entries.length;
@@ -93,8 +109,12 @@ export function computeStats(entries) {
  * Best score percentage for one deck across recorded history, or null when
  * that deck has never been played. `deckId` matches the null-for-Sample-deck
  * convention used throughout (session.activeDeckId, decks.svelte.js).
+ * @param {HistoryEntry[]} entries
+ * @param {string | null} deckId
+ * @returns {number | null}
  */
 export function bestScoreForDeck(entries, deckId) {
+  /** @type {number | null} */
   let best = null;
   for (const e of entries) {
     if (e.deckId !== deckId || !e.total) continue;

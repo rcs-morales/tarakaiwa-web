@@ -88,8 +88,8 @@ export function initApp() {
 
   // The deck list was merged with the cloud on login — adopt it and reload
   // whichever deck is active (its qa may have changed on another device).
-  window.addEventListener('deck-list-synced', (/** @type {CustomEvent} */ e) => {
-    const list = e.detail?.list;
+  window.addEventListener('deck-list-synced', (e) => {
+    const list = /** @type {CustomEvent} */ (e).detail?.list;
     if (!Array.isArray(list)) return;
     adoptSyncedDecks(list);
     loadActiveDeckIntoSession();
@@ -98,8 +98,9 @@ export function initApp() {
   });
 
   // Restore session, react to auth changes, and run the login sync once.
+  /** @type {string | null} */
   let lastUserId = null;
-  const handleUser = (user) => {
+  const handleUser = (/** @type {{ id: string } | null | undefined} */ user) => {
     updateQuotaDisplay();
     const uid = user?.id ?? null;
     if (uid && uid !== lastUserId) {

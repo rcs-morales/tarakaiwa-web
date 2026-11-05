@@ -4,7 +4,7 @@
     "allowJs": true,
     "checkJs": true,
     "skipLibCheck": true,
-    "strict": false
+    "strict": true
   },
   // App code only for now; test files rely heavily on loosely-typed mocks.
   "include": [

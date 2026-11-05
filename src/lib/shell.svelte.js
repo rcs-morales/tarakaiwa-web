@@ -16,6 +16,7 @@ export const TABS = [
 
 export const shell = $state({ tab: 'practice' });
 
+/** @param {string} id  one of TABS' ids (others are ignored) */
 export function setTab(id) {
   if (TABS.some(t => t.id === id)) shell.tab = id;
 }

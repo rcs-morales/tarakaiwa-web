@@ -9,10 +9,15 @@
 
 import { supabaseClient } from './supabase.js';
 
+/** @typedef {import('@supabase/supabase-js').User} User */
+/** @typedef {(user: User | null) => void} AuthListener */
+
+/** @type {import('@supabase/supabase-js').Session | null} */
 let currentSession = null;
+/** @type {Set<AuthListener>} */
 const listeners = new Set();
 
-/** @returns {import('@supabase/supabase-js').User | null} */
+/** @returns {User | null} */
 export function getCurrentUser() {
   return currentSession?.user ?? null;
 }
@@ -52,6 +57,7 @@ export async function getFreshAccessToken() {
 /**
  * Subscribe to auth changes. The callback fires immediately is NOT implied —
  * call getCurrentUser() for the current value. Returns an unsubscribe fn.
+ * @param {AuthListener} cb
  */
 export function onAuthChange(cb) {
   listeners.add(cb);
@@ -89,6 +95,7 @@ export async function initAuth() {
 /**
  * Send a passwordless magic-link / OTP email. The link returns the user to the
  * current origin, where supabase-js (detectSessionInUrl) completes sign-in.
+ * @param {string} email
  */
 export async function signInWithEmail(email) {
   return supabaseClient.auth.signInWithOtp({

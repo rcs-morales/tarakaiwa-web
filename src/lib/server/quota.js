@@ -11,6 +11,9 @@ export const WHISPER_DAILY_LIMIT = 600;   // whisper-seconds per day
  * so the app keeps working — the quota only protects the shared Groq key, it's
  * not a security boundary.
  *
+ * @param {import('./auth.js').ServerEnv} env
+ * @param {string} userId
+ * @param {{ chat?: number, whisperSeconds?: number }} [amounts]
  * @returns {Promise<{ allowed: boolean }>}
  */
 export async function reserveQuota(env, userId, { chat = 0, whisperSeconds = 0 } = {}) {
@@ -19,7 +22,7 @@ export async function reserveQuota(env, userId, { chat = 0, whisperSeconds = 0 }
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+        apikey: env.SUPABASE_SERVICE_ROLE_KEY ?? '',
         Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
       },
       body: JSON.stringify({

@@ -1,6 +1,10 @@
 // ─────────────────────────────────────────────
 // Q&A DATA (from QAdatabase.xlsx)
 // ─────────────────────────────────────────────
+
+/** @typedef {{ q: string, a: string, r?: string }} QAItem  One question: q (spoken), a (expected answer), r (romaji). */
+
+/** @type {QAItem[]} */
 export const DEFAULT_QA = [
   {
     q: "まいにち　なんで　しごとへ　いきますか。",
@@ -54,11 +58,26 @@ export const DEFAULT_QA = [
   },
 ];
 
+/** @type {Record<string, string>} */
 export const GROQ_GRADING_MODELS = {
   balanced: 'openai/gpt-oss-120b',
   fast: 'openai/gpt-oss-20b',
 };
 
+/**
+ * @typedef {object} AvatarModel
+ * @property {string} label
+ * @property {'male' | 'female'} voiceProfile
+ * @property {string[]} [browserVoiceHints]
+ * @property {string[]} mouthParamIds
+ * @property {string[]} paths
+ * @property {number} scale
+ * @property {number} yOffset
+ * @property {boolean} [disablePointerTracking]
+ * @property {boolean} [disableRandomMotions]
+ */
+
+/** @type {Record<string, AvatarModel>} */
 export const AVATAR_MODELS = {
   simple: {
     label: 'Simple',
@@ -110,6 +129,7 @@ export const AVATAR_MODELS = {
   }
 };
 
+/** @type {Record<string, string>} */
 export const KATAKANA_HIRAGANA_MAP = {
   'ア': 'あ', 'イ': 'い', 'ウ': 'う', 'エ': 'え', 'オ': 'お',
   'カ': 'か', 'キ': 'き', 'ク': 'く', 'ケ': 'け', 'コ': 'こ',
@@ -145,10 +165,12 @@ export const DAY_READ = [
   'にじゅうろくにち', 'にじゅうしちにち', 'にじゅうはちにち', 'にじゅうくにち',
   'さんじゅうにち', 'さんじゅういちにち'
 ];
+/** @type {Record<string, number>} */
 export const KANJI_DIGIT = {
   '０': 0, '１': 1, '２': 2, '３': 3, '４': 4, '５': 5, '６': 6, '７': 7, '８': 8, '９': 9,
   '一': 1, '二': 2, '三': 3, '四': 4, '五': 5, '六': 6, '七': 7, '八': 8, '九': 9, '十': 10
 };
+/** @type {[string, string][]} Phrase → reading. */
 export const KANJI_MAP = [
   ['お父さん', 'おとうさん'],
   ['父さん', 'とうさん'],
@@ -314,6 +336,7 @@ export const KANJI_MAP = [
   ['走', 'はし'],
 ];
 
+/** @type {[string, string][]} */
 export const LESSON_KANJI_MAP = [
   ['ありがとうございます', 'ありがとうございます'],
   ['九月十二日', 'くがつじゅうににち'],
@@ -370,6 +393,7 @@ export const LESSON_KANJI_MAP = [
   ['人', 'ひと'],
 ];
 
+/** @type {Record<string, string>} */
 export const SINGLE_KANJI_READ = {
   '近': 'ちか', '休': 'やす', '安': 'やす', '忙': 'いそ', '上': 'じょう', '手': 'て',
   '素': 'そ', '敵': 'てき', '物': 'もの', '価': 'か', '昼': 'ひる', '御': 'ご', '飯': 'はん',

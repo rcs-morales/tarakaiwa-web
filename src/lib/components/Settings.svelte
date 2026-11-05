@@ -109,6 +109,7 @@
       : { message: '✅ All progress has been reset.', type: 'success' };
   }
 
+  /** @type {{ name: import('$lib/prefs.svelte.js').AidName, jp: string, en: string, hint: string }[]} */
   const AIDS = [
     { name: 'furigana', jp: 'ふりがな', en: 'Furigana', hint: 'Kana readings above kanji' },
     { name: 'romaji', jp: 'ローマ字', en: 'Romaji', hint: 'Latin letters under the expected answer' },

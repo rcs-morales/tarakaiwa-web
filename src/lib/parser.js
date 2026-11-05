@@ -2,6 +2,9 @@ import { readSheet } from 'read-excel-file/universal';
 import { KATAKANA_HIRAGANA_MAP, MONTH_READ, DAY_READ, KANJI_DIGIT, KANJI_MAP, LESSON_KANJI_MAP, SINGLE_KANJI_READ } from './data.js';
 import { get, KEYS } from './settings.js';
 
+/** @typedef {import('./data.js').QAItem} QAItem */
+
+/** @param {string} content @returns {QAItem[]} */
 export function parseJSON(content) {
   try {
     const data = JSON.parse(content);
@@ -28,17 +31,20 @@ export function parseJSON(content) {
 
     return qa;
   } catch (e) {
-    throw new Error('JSON parse error: ' + e.message);
+    throw new Error('JSON parse error: ' + (e instanceof Error ? e.message : String(e)));
   }
 }
 
+/** @param {string} content @returns {QAItem[]} */
 export function parseCSV(content) {
   const lines = content.trim().split('\n');
   if (lines.length < 2) {
     throw new Error('CSV must have at least 2 rows (header + 1 data row)');
   }
 
+  /** @param {string} line */
   function parseCSVLine(line) {
+    /** @type {string[]} */
     const result = [];
     let current = '';
     let inQuotes = false;
@@ -108,7 +114,7 @@ export async function parseExcel(arrayBuffer) {
   try {
     data = await readSheet(arrayBuffer);
   } catch (e) {
-    throw new Error('Excel parse error: ' + e.message);
+    throw new Error('Excel parse error: ' + (e instanceof Error ? e.message : String(e)));
   }
 
   if (!data || data.length < 2) {
@@ -150,6 +156,7 @@ export async function parseExcel(arrayBuffer) {
   return qa;
 }
 
+/** @param {string} s */
 export function katakanaToHiragana(s) {
   let result = '';
   for (let i = 0; i < s.length; i++) {
@@ -159,6 +166,7 @@ export function katakanaToHiragana(s) {
   return result;
 }
 
+/** Parse Arabic, full-width or kanji digits (一〜十). @param {string} s */
 export function toInt(s) {
   s = s.replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0));
   if (/^\d+$/.test(s)) return parseInt(s, 10);
@@ -172,20 +180,25 @@ export function toInt(s) {
   return cur || 0;
 }
 
+/** @type {[string, string][] | null} */
 let _allKanjiMapCache = null;
+/** Every phrase → reading pair, deduplicated, longest phrase first. */
 export function getAllKanjiMap() {
   if (_allKanjiMapCache) return _allKanjiMapCache;
   const seen = new Set();
-  _allKanjiMapCache = [];
+  /** @type {[string, string][]} */
+  const pairs = [];
   for (const pair of [...KANJI_MAP, ...LESSON_KANJI_MAP]) {
     if (seen.has(pair[0])) continue;
     seen.add(pair[0]);
-    _allKanjiMapCache.push(pair);
+    pairs.push(pair);
   }
-  _allKanjiMapCache.sort((a, b) => b[0].length - a[0].length);
-  return _allKanjiMapCache;
+  pairs.sort((a, b) => b[0].length - a[0].length);
+  _allKanjiMapCache = pairs;
+  return pairs;
 }
 
+/** @param {string} s @param {number} [passes] */
 export function applyKanjiMap(s, passes) {
   const map = getAllKanjiMap();
   for (let p = 0; p < (passes || 2); p++) {
@@ -197,10 +210,12 @@ export function applyKanjiMap(s, passes) {
   return s;
 }
 
+/** @param {string} s */
 export function convertRemainingSingleKanji(s) {
   return s.replace(/[一-鿿㐀-䶿]/g, ch => SINGLE_KANJI_READ[ch] || ch);
 }
 
+/** @param {number} n */
 export function numberToHiragana(n) {
   if (n === 0) return 'ぜろ';
   const ones  = ['','いち','に','さん','し','ご','ろく','しち','はち','く'];
@@ -213,16 +228,19 @@ export function numberToHiragana(n) {
   return s || 'ぜろ';
 }
 
+/** @type {Record<number, string>} */
 const HITOTSU_COUNTERS = {
   1: 'ひとつ', 2: 'ふたつ', 3: 'みっつ', 4: 'よっつ', 5: 'いつつ',
   6: 'むっつ', 7: 'ななつ', 8: 'やっつ', 9: 'ここのつ', 10: 'とお'
 };
 
+/** @param {string} s @param {string | number} n */
 function replaceHitotsuCounter(s, n) {
   const v = typeof n === 'number' ? n : toInt(n);
   return (v >= 1 && v <= 10) ? HITOTSU_COUNTERS[v] : null;
 }
 
+/** Read a transcript as hiragana (numbers, counters, dates, known kanji). @param {string} s */
 export function transcriptToFurigana(s) {
   s = s.replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0));
   s = s.replace(/([0-9]+|[一二三四五六七八九十])つ/g, (_, n) => replaceHitotsuCounter(_, n) || _);
@@ -239,6 +257,7 @@ export function transcriptToFurigana(s) {
     const num = toInt(n);
     if (num <= 0) return _;
     // Special sound changes for the かげつ counter
+    /** @type {Record<number, string>} */
     const KAGETSU_SPECIAL = {
       1: 'いっかげつ', 6: 'ろっかげつ', 8: 'はっかげつ', 10: 'じゅっかげつ'
     };
@@ -257,6 +276,7 @@ export function transcriptToFurigana(s) {
   s = s.replace(/([0-9]+|[一二三四五六七八九十百千万]+)時間/g, (_, n) => {
     const num = toInt(n);
     if (num <= 0) return _;
+    /** @type {Record<number, string>} */
     const JIKAN_SPECIAL = { 1: 'いちじかん', 4: 'よじかん' };
     if (JIKAN_SPECIAL[num]) return JIKAN_SPECIAL[num];
     return numberToHiragana(num) + 'じかん';
@@ -265,6 +285,7 @@ export function transcriptToFurigana(s) {
   s = s.replace(/([0-9]+|[一二三四五六七八九十百千万]+)週間/g, (_, n) => {
     const num = toInt(n);
     if (num <= 0) return _;
+    /** @type {Record<number, string>} */
     const SHUUKAN_SPECIAL = { 1: 'いっしゅうかん' };
     if (SHUUKAN_SPECIAL[num]) return SHUUKAN_SPECIAL[num];
     return numberToHiragana(num) + 'しゅうかん';
@@ -273,6 +294,7 @@ export function transcriptToFurigana(s) {
   s = s.replace(/([0-9]+|[一二三四五六七八九十百千]+)時(?!間)/g, (_, n) => {
     const num = toInt(n);
     if (num < 1 || num > 24) return _;
+    /** @type {Record<number, string>} */
     const JI_SPECIAL = { 4: 'よじ', 7: 'しちじ', 9: 'くじ' };
     if (JI_SPECIAL[num]) return JI_SPECIAL[num];
     return numberToHiragana(num) + 'じ';
@@ -281,13 +303,14 @@ export function transcriptToFurigana(s) {
   s = s.replace(/([0-9]+|[一二三四五六七八九十百千万]+)回/g, (_, n) => {
     const num = toInt(n);
     if (num <= 0) return _;
+    /** @type {Record<number, string>} */
     const KAI_SPECIAL = { 1: 'いっかい', 6: 'ろっかい', 8: 'はっかい', 10: 'じゅっかい' };
     if (KAI_SPECIAL[num]) return KAI_SPECIAL[num];
     return numberToHiragana(num) + 'かい';
   });
   s = s.replace(/([0-9]+)年/g, (_, n) => {
     const digits = ['ぜろ','いち','に','さん','し','ご','ろく','なな','はち','く'];
-    return n.split('').map(d => digits[+d] || d).join('') + 'ねん';
+    return n.split('').map((/** @type {string} */ d) => digits[+d] || d).join('') + 'ねん';
   });
   s = s.replace(/[一二三四五六七八九十百千万]+/g, m => {
     const n = toInt(m);
@@ -302,6 +325,7 @@ export function transcriptToFurigana(s) {
   return s;
 }
 
+/** @param {string} raw @param {string} [answer] */
 export function transcriptToFuriganaForGrading(raw, answer) {
   let s = transcriptToFurigana(raw);
   const rawHasKanji = /[一-鿿㐀-䶿]/.test(raw);
@@ -316,6 +340,7 @@ export function transcriptToFuriganaForGrading(raw, answer) {
   return s;
 }
 
+/** @param {unknown} text */
 function escapeHtml(text) {
   return String(text)
     .replace(/&/g, '&amp;')
@@ -324,14 +349,17 @@ function escapeHtml(text) {
     .replace(/"/g, '&quot;');
 }
 
+/** @param {string} baseText */
 function shouldUseFuriganaFallback(baseText) {
   return /[0-9A-Za-z]/.test(baseText) || /[!-/:-@\[-`{-~]/.test(baseText);
 }
 
+/** @param {string} text */
 function romajiToHiragana(text) {
   const normalized = String(text || '').trim().toLowerCase();
   if (!normalized) return '';
 
+  /** @type {Record<string, string>} */
   const map = {
     a: 'あ', i: 'い', u: 'う', e: 'え', o: 'お',
     ka: 'か', ki: 'き', ku: 'く', ke: 'け', ko: 'こ',
@@ -394,6 +422,7 @@ function romajiToHiragana(text) {
   return result.replace(/ー+/g, 'ー');
 }
 
+/** @param {string} reading @param {number} count */
 function splitReadingIntoSegments(reading, count) {
   const normalized = String(reading || '').trim();
   if (!normalized || count <= 1) return [normalized];
@@ -411,14 +440,17 @@ function splitReadingIntoSegments(reading, count) {
   return segments.filter(Boolean);
 }
 
+/** @param {string} char */
 function isJapaneseKanji(char) {
   return /[一-龯]/u.test(char);
 }
 
+/** @param {string} baseText */
 function buildPlainTextMarkup(baseText) {
   return escapeHtml(String(baseText || '').trim());
 }
 
+/** @param {string} text @param {string} [readingHint] */
 export function toFuriganaHtml(text, readingHint = '') {
   let s = String(text || '');
 
@@ -439,6 +471,7 @@ export function toFuriganaHtml(text, readingHint = '') {
   const phrasePairs = [...KANJI_MAP, ...LESSON_KANJI_MAP]
     .sort((a, b) => b[0].length - a[0].length);
 
+  /** @type {{ placeholder: string, original: string, reading: string }[]} */
   const placeholders = [];
 
   // 1. Replace phrases from longest to shortest using a placeholder system
@@ -475,6 +508,7 @@ export function toFuriganaHtml(text, readingHint = '') {
   return s;
 }
 
+/** @param {string} s */
 export function formatLiveTranscript(s) {
   const level = get(KEYS.JLPT_LEVEL);
   if (level === 'N5') {
@@ -483,6 +517,7 @@ export function formatLiveTranscript(s) {
   return transcriptToFurigana(s);
 }
 
+/** @param {ArrayLike<{ transcript: string }>} result  a SpeechRecognitionResult */
 export function sttSegmentText(result) {
   return result[0].transcript;
 }

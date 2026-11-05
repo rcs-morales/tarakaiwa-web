@@ -5,7 +5,17 @@
   // reaching into Settings' own state directly. Reuses the app's global
   // .modal/.modal-card chrome (see DeckFormModal.svelte for the same pattern).
   import { uploadAvatar, removeAvatar, selectPresetAvatar, AVATAR_PRESETS } from '$lib/avatarUpload.js';
+  import { errorMessage } from '$lib/errors.js';
 
+  /**
+   * @type {{
+   *   initialSrc: string,
+   *   hasAvatar: boolean,
+   *   defaultAvatar: string,
+   *   onchange: (url: string | null) => void,
+   *   onclose: () => void,
+   * }}
+   */
   let { initialSrc, hasAvatar: initialHasAvatar, defaultAvatar, onchange, onclose } = $props();
 
   // Deliberate snapshot, not a sync bug: this modal is remounted fresh on
@@ -17,7 +27,9 @@
   let hasAvatar = $state(initialHasAvatar);
   let uploading = $state(false);
   let removing = $state(false);
-  let status = $state(null); // { text, type: 'success'|'error'|'info' } | null
+  /** @type {{ text: string, type: 'success' | 'error' | 'info' } | null} */
+  let status = $state(null);
+  /** @type {HTMLInputElement | undefined} */
   let fileInputEl;
 
   const busy = $derived(uploading || removing);
@@ -32,6 +44,11 @@
     fileInputEl?.click();
   }
 
+  /**
+   * @param {() => Promise<string>} op  resolves to the new avatar URL
+   * @param {string} pendingText
+   * @param {string} fallbackErrorText
+   */
   async function runAvatarOp(op, pendingText, fallbackErrorText) {
     if (busy) return;
     uploading = true;
@@ -44,12 +61,13 @@
       onchange(url);
     } catch (err) {
       console.error('avatar operation failed:', err);
-      status = { text: err.message || fallbackErrorText, type: 'error' };
+      status = { text: errorMessage(err, fallbackErrorText), type: 'error' };
     } finally {
       uploading = false;
     }
   }
 
+  /** @param {Event & { currentTarget: HTMLInputElement }} e */
   async function onFilePicked(e) {
     const file = e.currentTarget.files?.[0];
     e.currentTarget.value = ''; // allow re-picking the same file later
@@ -57,6 +75,7 @@
     await runAvatarOp(() => uploadAvatar(file), 'Uploading…', 'Upload failed.');
   }
 
+  /** @param {string} id */
   async function pickPreset(id) {
     await runAvatarOp(() => selectPresetAvatar(id), 'Setting avatar…', 'Could not set that avatar.');
   }
@@ -72,7 +91,7 @@
       onchange(null);
     } catch (err) {
       console.error('avatar remove failed:', err);
-      status = { text: err.message || 'Remove failed.', type: 'error' };
+      status = { text: errorMessage(err, 'Remove failed.'), type: 'error' };
     } finally {
       removing = false;
     }

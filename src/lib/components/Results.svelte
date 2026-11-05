@@ -25,6 +25,7 @@
   );
 
   // Same category → tag mapping the in-session badge uses (ui.js showResult).
+  /** @param {string | undefined} category */
   function tagClassFor(category) {
     const c = (category || '').toLowerCase();
     if (c.includes('sentence') || c.includes('completeness')) return 'rich-tag-sentence-structure';

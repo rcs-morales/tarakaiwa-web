@@ -4,7 +4,8 @@
 import { askStudyAssistant } from './ai/index.js';
 import { sanitizeHtml } from './sanitize.js';
 
-/** Conversation sent back to the model as context (capped at 20 messages). */
+/** Conversation sent back to the model as context (capped at 20 messages).
+ * @type {{ role: 'user' | 'assistant', content: string }[]} */
 export const assistantHistory = [];
 const MAX_HISTORY = 20;
 
@@ -20,6 +21,7 @@ export const assistant = $state({
   open: false,
 });
 
+/** @type {Record<string, string>} */
 const ERROR_MESSAGES = {
   MISSING_KEY: '❌ No API key found. Please add one in settings.',
   INVALID_KEY: '❌ Invalid API key. Please check your key in settings.',
@@ -52,7 +54,7 @@ export async function askAssistant(query) {
         assistantHistory.splice(0, assistantHistory.length - MAX_HISTORY);
       }
     } else {
-      reply.text = ERROR_MESSAGES[result?.error]
+      reply.text = ERROR_MESSAGES[result?.error ?? '']
         ?? `❌ API Error (${result?.error || 'Unknown'}). Please try again.`;
     }
   } catch {

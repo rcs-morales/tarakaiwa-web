@@ -4,6 +4,7 @@
 
 import { supabaseClient } from './supabase.js';
 import { get, KEYS } from './settings.js';
+import { errorMessage } from './errors.js';
 
 export const bugReport = $state({
   open: false,
@@ -76,7 +77,7 @@ export async function submitBugReport({ message, file }) {
     return true;
   } catch (err) {
     console.error('Bug report submission error:', err);
-    alert(`Error submitting report: ${err?.message || 'Unknown error'}. Please check your Supabase configuration.`);
+    alert(`Error submitting report: ${errorMessage(err, 'Unknown error')}. Please check your Supabase configuration.`);
     return false;
   } finally {
     bugReport.submitting = false;

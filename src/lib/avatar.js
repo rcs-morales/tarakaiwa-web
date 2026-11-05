@@ -3,24 +3,31 @@ import { AVATAR_MODELS } from './data.js';
 import { get, KEYS } from './settings.js';
 import { avatarView, voicevoxCharacterFor, getAvatarCanvasHost } from './avatarView.svelte.js';
 
+// PIXI and pixi-live2d-display are untyped globals here (see app.d.ts).
+/** @type {any} A Live2DModel */
 let live2dModel = null;
+/** @type {any} A PIXI.Application */
 let live2dApp = null;
 let isAvatarSpeaking = false;
+/** @type {ReturnType<typeof setTimeout> | null} */
 let avatarMotionTimer = null;
 let avatarMotionIndex = 0;
+/** @type {(() => boolean) | null} */
 let originalShouldRequestIdleMotion = null;
 // Bumped by every initAvatar() call, so a slow Live2D load that a newer call
 // (or a switch to VOICEVOX) superseded doesn't land on top of it.
 let initGeneration = 0;
 
 export function getAvatarModelName() {
-  return get(KEYS.AVATAR_MODEL);
+  return get(KEYS.AVATAR_MODEL) ?? 'simple';
 }
 
+/** @param {string} [name] */
 export function getAvatarModelConfig(name = getAvatarModelName()) {
   return AVATAR_MODELS[name] || AVATAR_MODELS.simple;
 }
 
+/** @param {number} value 0 (closed) – 1 (open) */
 function setAvatarMouthOpen(value) {
   const avatarConfig = getAvatarModelConfig();
   const coreModel = live2dModel && live2dModel.internalModel && live2dModel.internalModel.coreModel;
@@ -139,8 +146,9 @@ export async function initAvatar() {
 
     const motionManager = model.internalModel && model.internalModel.motionManager;
     if (motionManager && motionManager.state) {
-      originalShouldRequestIdleMotion = motionManager.state.shouldRequestIdleMotion.bind(motionManager.state);
-      motionManager.state.shouldRequestIdleMotion = () => !isAvatarSpeaking && originalShouldRequestIdleMotion();
+      const original = motionManager.state.shouldRequestIdleMotion.bind(motionManager.state);
+      originalShouldRequestIdleMotion = original;
+      motionManager.state.shouldRequestIdleMotion = () => !isAvatarSpeaking && original();
     }
     motionManager && motionManager.stopAllMotions();
 
@@ -237,7 +245,7 @@ export function startAvatarMotionLoop() {
 
     manager.stopAllMotions();
 
-    live2dModel.motion(group, 0).catch((error) => {
+    live2dModel.motion(group, 0).catch((/** @type {unknown} */ error) => {
       console.warn(`Failed to start avatar motion ${group}:`, error);
     });
 
@@ -248,6 +256,7 @@ export function startAvatarMotionLoop() {
   playNextMotion();
 }
 
+/** @param {boolean} speaking */
 export function toggleSpeaking(speaking) {
   isAvatarSpeaking = speaking;
   avatarView.speaking = !!speaking; // the VOICEVOX image bounces
@@ -255,8 +264,9 @@ export function toggleSpeaking(speaking) {
   const motionManager = live2dModel && live2dModel.internalModel && live2dModel.internalModel.motionManager;
   const state = motionManager && motionManager.state;
 
-  if (state && originalShouldRequestIdleMotion) {
-    state.shouldRequestIdleMotion = () => !isAvatarSpeaking && originalShouldRequestIdleMotion();
+  const original = originalShouldRequestIdleMotion;
+  if (state && original) {
+    state.shouldRequestIdleMotion = () => !isAvatarSpeaking && original();
   }
 
   if (!motionManager) {

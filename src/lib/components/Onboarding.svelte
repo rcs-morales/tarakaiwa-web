@@ -15,6 +15,7 @@
 
   let open = $state(false);
   let step = $state(1);
+  /** @type {import('$lib/auth.js').User | null} */
   let user = $state(null);
   let email = $state('');
   let authMsg = $state('');

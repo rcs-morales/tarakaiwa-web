@@ -5,6 +5,7 @@
 import { get, set, remove, KEYS } from './settings.js';
 import { getGradingModel } from './ai/groqClient.js';
 import { updateQuotaDisplay } from './quota.svelte.js';
+import { errorMessage } from './errors.js';
 
 /** @typedef {'' | 'info' | 'success' | 'error'} StatusType */
 
@@ -112,7 +113,7 @@ export async function testApiKey() {
       showApiKeyStatus('✅ Connected, got response: ' + text.substring(0, 50), 'success');
     }
   } catch (e) {
-    const msg = e?.message || String(e);
+    const msg = errorMessage(e);
     if (msg.includes('API_KEY_INVALID') || msg.includes('401')) {
       showApiKeyStatus('❌ Invalid API key. Please check your key.', 'error');
     } else if (msg.includes('429')) {

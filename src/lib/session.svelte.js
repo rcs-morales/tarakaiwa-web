@@ -35,10 +35,27 @@ import { formatLiveTranscript } from './parser.js';
 // One reactive object instead of module-level lets, so components (Dashboard,
 // Results, Onboarding) render from it directly. The imperative practice flow
 // below mutates it exactly as before.
+
+/** @typedef {import('./data.js').QAItem} QAItem */
+
+/**
+ * @typedef {object} SessionResult  One answered (or skipped) question.
+ * @property {string} q
+ * @property {string} a
+ * @property {string} transcript  what was heard, or '(skipped)' / '(not reached)'
+ * @property {boolean} correct
+ * @property {string} [furigana]  the reading that was graded
+ * @property {any} [gradeResult]  the AI or local grade
+ */
+
+/** @typedef {{ jp: string, en: string }} FinalPhrase  End-of-session praise or encouragement. */
+
 export const session = $state({
+  /** @type {QAItem[]} */
   qa: [],
   current: 0,
   score: 0,
+  /** @type {SessionResult[]} */
   results: [],
   // True only when qa is the built-in starter deck (tutorial mode +
   // sample-deck labeling key off this, not off the shape of the data).
@@ -46,6 +63,7 @@ export const session = $state({
   // The multi-deck list's active deck id (decks.svelte.js), or null for the
   // built-in Sample deck. Tags recorded sessions so scores can be shown
   // per-deck on the Decks screen.
+  /** @type {string | null} */
   activeDeckId: null,
   // The active deck's own jlptLevel (decks.svelte.js) — drives grading
   // strictness and recorded-history labeling. Not the global Settings
@@ -53,22 +71,31 @@ export const session = $state({
   jlptLevel: 'N5',
 });
 
+/**
+ * Load a deck into the session.
+ * @param {QAItem[]} newData
+ * @param {{ isDefault?: boolean, deckId?: string | null, jlptLevel?: string }} [options]
+ */
 export function setQA(newData, { isDefault = false, deckId = null, jlptLevel = 'N5' } = {}) {
   session.qa = newData;
   session.isDefaultDeck = isDefault;
   session.activeDeckId = deckId;
   session.jlptLevel = jlptLevel;
 }
+/** @param {number} val */
 export function setCurrent(val) {
   session.current = val;
 }
+/** @param {number} val */
 export function setScore(val) {
   session.score = val;
 }
+/** @param {SessionResult[]} val */
 export function setResults(val) {
   session.results = val;
 }
 
+/** @param {'correct' | 'incorrect'} type */
 function playSound(type) {
   const sounds = { correct: 'assets/sounds/correct.wav', incorrect: 'assets/sounds/incorrect.wav' };
   const audio = new Audio(sounds[type]);
@@ -177,12 +204,12 @@ export function toggleQuestionText() {
 // Maps translateWithAI's failure reason to something more useful than a
 // blanket "check your API key" — most failures aren't actually a bad key.
 function translationFailureReasonText() {
-  return {
+  return /** @type {Record<string, string>} */ ({
     RATE_LIMIT: 'Shared daily quota reached — try again later, or add your own Groq key in settings.',
     INVALID_KEY: 'Your Groq API key looks invalid — check it in settings.',
     NETWORK_ERROR: 'Couldn’t reach the translation service — check your connection and try again.',
     EMPTY_RESPONSE: 'The AI returned an empty translation — try again.',
-  }[getLastTranslationErrorReason()] || null;
+  })[getLastTranslationErrorReason() ?? ''] || null;
 }
 
 const translationCache = new Map();
@@ -266,6 +293,7 @@ export async function getQuestionRomaji() {
   }
 }
 
+/** @param {QAItem} item */
 function speakThenListen(item) {
   speakQuestion(item.q, () => {
     if (session.qa[session.current] !== item) return;
@@ -296,6 +324,7 @@ function speakThenListen(item) {
 const HINT_DELAY_MS = 3000;       // browser STT — real pause detection
 const HINT_DELAY_AI_MS = 4000;   // AI/Whisper — same but with no mid transcript updates, so it's just a flat delay.
 const HINT_POLL_MS = 400;
+/** @type {ReturnType<typeof setInterval> | null} */
 let hintPollTimer = null;
 let hintLastTranscript = '';
 let hintQuietSinceMs = 0;
@@ -306,6 +335,7 @@ function clearHintTimer() {
   showBtn('btn-hint-prompt', false);
 }
 
+/** @param {QAItem} item @param {boolean} isAiMode */
 function scheduleHint(item, isAiMode) {
   clearHintTimer();
   hintDelayMs = isAiMode ? HINT_DELAY_AI_MS : HINT_DELAY_MS;
@@ -382,7 +412,7 @@ async function beginListen() {
   let isAiMode = useWhisper;
 
   if (useWhisper) {
-    const started = await startAIRecording((err) => {
+    const started = await startAIRecording((/** @type {string} */ err) => {
       setStatus('', 'Error: ' + err);
       if (err.includes('permission')) showMicWarning(true);
       showBtn('btn-rerecord', true);
@@ -393,7 +423,7 @@ async function beginListen() {
       isAiMode = false; // fell back to browser recognition — it does stream live results
       setStatus('listening', '🌐 Browser recognition fallback (AI mic unavailable)');
       try {
-        startListening((err) => {
+        startListening((/** @type {string} */ err) => {
           setStatus('', 'Error: ' + err);
           if (err.includes('permission')) showMicWarning(true);
           showBtn('btn-rerecord', true);
@@ -412,7 +442,7 @@ async function beginListen() {
     if (sttMode === 'ai' && !hasAIAccess()) {
       setStatus('listening', '🌐 Browser recognition (sign in or save a Groq key for AI Whisper)');
     }
-    startListening((err) => {
+    startListening((/** @type {string} */ err) => {
       setStatus('', 'Error: ' + err);
       if (err.includes('permission')) showMicWarning(true);
       showBtn('btn-rerecord', true);
@@ -435,6 +465,7 @@ export async function finishRecording() {
   const sttMode = get(KEYS.STT_MODE) || 'ai';
   const item = session.qa[session.current];
 
+  /** @type {string | null} */
   let whisperFailReason = null;
   if (sttMode === 'ai' && hasAIAccess()) {
     setStatus('checking', '🤖 Transcribing audio…');
@@ -465,13 +496,13 @@ export async function finishRecording() {
   const raw = getLiveTranscript().trim();
 
   if (!raw || raw.startsWith('Transcribing')) {
-    const message = {
+    const message = /** @type {Record<string, string>} */ ({
       NO_RECORDING: 'No recording was captured — check microphone permissions and try again.',
       EMPTY_BLOB: 'No audio was captured — check your microphone permissions and try again.',
       EMPTY_TRANSCRIPT: 'Didn’t catch any speech in that recording — try speaking louder or closer to the mic, then re-record.',
       NETWORK_ERROR: 'Couldn’t reach the transcription service — check your connection and try again.',
       RATE_LIMIT: 'Shared daily quota reached — try again later, or add your own Groq key in settings.',
-    }[whisperFailReason] || 'Transcription failed or no speech captured — try re-recording.';
+    })[whisperFailReason ?? ''] || 'Transcription failed or no speech captured — try re-recording.';
     setStatus('', message);
     showBtn('btn-rerecord', true);
     showBtn('btn-skip',     true);
@@ -527,6 +558,7 @@ export function cancelEditTranscript() {
   exitEditMode(getLiveTranscript());
 }
 
+/** @param {string} text */
 function exitEditMode(text) {
   showTranscript(text, true);
   showBtn('btn-save-edit', false);
@@ -586,7 +618,7 @@ export async function checkAnswer() {
   // arrive after the learner has moved on are dropped.
   const card = practiceView.answer;
   const stillHere = () => session.qa[session.current] === item && practiceView.answer === card;
-  const googleUrl = (text) => `https://translate.google.com/?sl=ja&tl=en&text=${encodeURIComponent(text)}&op=translate`;
+  const googleUrl = (/** @type {string} */ text) => `https://translate.google.com/?sl=ja&tl=en&text=${encodeURIComponent(text)}&op=translate`;
 
   if (get(KEYS.SHOW_ROMAJI) !== '0') {
     if (item.r) {
@@ -743,6 +775,10 @@ async function handleFinishPractice() {
   showResults(choice, { skipProgression: false });
 }
 
+/**
+ * @param {FinalPhrase | undefined} choice  praise to show and speak (none for an ended session)
+ * @param {{ skipProgression?: boolean }} [options]
+ */
 async function showResults(choice, { skipProgression = false } = {}) {
   const synth = window.speechSynthesis;
   if (synth.speaking) synth.cancel();
@@ -773,6 +809,7 @@ async function showResults(choice, { skipProgression = false } = {}) {
   }
 }
 
+/** @param {number} pct @param {FinalPhrase | undefined} choice */
 function showFinalOverlay(pct, choice) {
   const passed = pct >= 75;
   openFinalOverlay({

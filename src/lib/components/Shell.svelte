@@ -20,12 +20,15 @@
   let totalXP = $derived(computeXP(history.entries).totalXP);
 
   let menuOpen = $state(false);
+  /** @type {HTMLElement | undefined} */
   let menuWrap;
 
+  /** @param {MouseEvent} e */
   function onWindowClick(e) {
-    if (menuOpen && menuWrap && !menuWrap.contains(e.target)) menuOpen = false;
+    if (menuOpen && menuWrap && !menuWrap.contains(/** @type {Node | null} */ (e.target))) menuOpen = false;
   }
 
+  /** @param {KeyboardEvent} e */
   function onWindowKeydown(e) {
     if (e.key === 'Escape') menuOpen = false;
   }

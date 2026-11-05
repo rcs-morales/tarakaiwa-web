@@ -17,6 +17,7 @@
     })).filter((g) => g.decks.length > 0)
   );
   let showCreate = $state(false);
+  /** @type {import('$lib/decks.svelte.js').Deck | null} */
   let editingDeck = $state(null);
 </script>
 
@@ -95,9 +96,6 @@
           onclick={() => setActiveDeck(d.id)}
         >
           <div class="deck-name">{d.name}</div>
-          {#if d.subtitle}
-            <div class="deck-subtitle">{d.subtitle}</div>
-          {/if}
           <div class="deck-chips">
             <span class="deck-chip">{d.qa.length} question{d.qa.length === 1 ? '' : 's'}</span>
             <span class="deck-chip">JLPT {d.jlptLevel}</span>

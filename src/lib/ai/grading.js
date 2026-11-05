@@ -9,11 +9,13 @@ import { createGrammarRuleHelper, analyzeAnswerCompleteness, isCorrectLocal, nor
 // Set when the most recent gradeWithAI() call failed due to a 429 (BYO key
 // rate limit, or shared-proxy daily quota) so the UI can show a clearer
 // message than the generic "AI unavailable" fallback text.
+/** @type {string | null} */
 let lastGradingErrorReason = null;
 export function getLastGradingErrorReason() {
   return lastGradingErrorReason;
 }
 
+/** @param {import('./localGrading.js').BreakdownItem} item */
 export function isScriptOrNumeralOnlyBreakdown(item) {
   if (!item.original || !item.corrected) return false;
   if (normalizeForGradingComparison(item.original) === normalizeForGradingComparison(item.corrected)) {
@@ -37,6 +39,7 @@ export function isScriptOrNumeralOnlyBreakdown(item) {
 // The model sometimes emits near-duplicate breakdown items when the transcript
 // contains repeated attempts at the same phrase (e.g. two mis-hearings both
 // corrected to the same target). Keep only the last item per correction.
+/** @param {unknown} breakdown @returns {import('./localGrading.js').BreakdownItem[]} */
 function dedupeBreakdown(breakdown) {
   if (!Array.isArray(breakdown)) return [];
   const seen = new Map();
@@ -48,6 +51,7 @@ function dedupeBreakdown(breakdown) {
   return [...seen.values()];
 }
 
+/** @param {string} rawText */
 export function parseAIGradingResponse(rawText) {
   let text = String(rawText || '').replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
   const startIdx = text.indexOf('{');
@@ -71,7 +75,7 @@ export function parseAIGradingResponse(rawText) {
     // Groq can occasionally truncate a long JSON string.
   }
 
-  const parseStringField = (key) => {
+  const parseStringField = (/** @type {string} */ key) => {
     const match = candidate.match(new RegExp('"' + key + '"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"', 's'));
     if (!match) return '';
     try {
@@ -80,11 +84,11 @@ export function parseAIGradingResponse(rawText) {
       return match[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\');
     }
   };
-  const parseBoolField = (key) => {
+  const parseBoolField = (/** @type {string} */ key) => {
     const match = candidate.match(new RegExp('"' + key + '"\\s*:\\s*(true|false)', 'i'));
     return match ? match[1].toLowerCase() === 'true' : null;
   };
-  const parseNumberField = (key) => {
+  const parseNumberField = (/** @type {string} */ key) => {
     const match = candidate.match(new RegExp('"' + key + '"\\s*:\\s*(-?\\d+(?:\\.\\d+)?)'));
     return match ? Number(match[1]) : null;
   };
@@ -110,6 +114,10 @@ export function parseAIGradingResponse(rawText) {
 
 /**
  * Post-process the raw AI grading result with local safety checks.
+ * @param {string} text  the model's reply
+ * @param {string} question
+ * @param {string} expectedAnswer
+ * @param {string} transcript
  */
 async function finalizeAIGradingResult(text, question, expectedAnswer, transcript) {
     const result = parseAIGradingResponse(text);
@@ -119,7 +127,7 @@ async function finalizeAIGradingResult(text, question, expectedAnswer, transcrip
     }
 
     // Strip garbled replacement/box/diamond characters the AI may still produce
-    const sanitize = (str) => (str || '')
+    const sanitize = (/** @type {string | undefined} */ str) => (str || '')
       .replace(/[\uFFFD\u25C6\u25A0\u25CF\u2022\u00A0\u3000]/g, ' ')
       .replace(/\s+/g, ' ')
       .trim();
@@ -129,7 +137,7 @@ async function finalizeAIGradingResult(text, question, expectedAnswer, transcrip
     const analyzeGrammar = createGrammarRuleHelper(transcriptToFurigana, katakanaToHiragana);
     const grammarSignals = analyzeGrammar(expectedAnswer, transcript);
     const completionSignals = analyzeAnswerCompleteness(question, expectedAnswer, transcript, transcriptToFurigana, katakanaToHiragana);
-    const detectTense = (text) => {
+    const detectTense = (/** @type {string} */ text) => {
       const normalized = transcriptToFurigana(String(text || '')).replace(/[\s\u3000]/g, '');
       const patterns = [
         { type: 'past', re: /(ました|でした|ていた|ていました|たこと|かった|だった)/g },
@@ -240,6 +248,10 @@ async function finalizeAIGradingResult(text, question, expectedAnswer, transcrip
 
 /**
  * Grade a student's spoken answer using the Groq AI, with local safety-net post-processing.
+ * @param {string} question
+ * @param {string} expectedAnswer
+ * @param {string} transcript
+ * @param {string} [level]  JLPT level
  */
 export async function gradeWithAI(question, expectedAnswer, transcript, level = 'N5') {
   lastGradingErrorReason = null;
@@ -274,8 +286,7 @@ export async function gradeWithAI(question, expectedAnswer, transcript, level = 
 
       if (/response_format|json_object|json_validate_failed/i.test(errText)) {
         console.log('Attempting fallback without json_object mode...');
-        const fallbackBody = { ...requestBody };
-        delete fallbackBody.response_format;
+        const { response_format: _jsonMode, ...fallbackBody } = requestBody;
         response = await fetch(route.chatUrl, {
           method: 'POST',
           headers,

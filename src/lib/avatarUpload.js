@@ -16,7 +16,9 @@ export const AVATAR_SIZE = 125;
 
 const ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/gif']);
 
-/** Throws an Error with a user-facing message if the file is unusable. */
+/** Throws an Error with a user-facing message if the file is unusable.
+ * @param {File | null | undefined} file
+ * @returns {asserts file is File} */
 export function validateImageFile(file) {
   if (!file) throw new Error('No file selected.');
   if (!ALLOWED_TYPES.has(file.type)) throw new Error('Please choose a JPG, PNG, or GIF image.');
@@ -27,6 +29,7 @@ export const MAX_OUTPUT_BYTES = 32 * 1024; // 32kb cap on the stored/uploaded bl
 
 const QUALITY_STEPS = [0.82, 0.65, 0.5, 0.35, 0.2];
 
+/** @param {HTMLCanvasElement} canvas @param {number} quality @returns {Promise<Blob>} */
 function encodeAtQuality(canvas, quality) {
   return new Promise((resolve, reject) => {
     canvas.toBlob(
@@ -47,6 +50,8 @@ function encodeAtQuality(canvas, quality) {
  * torso. Re-encodes at progressively lower quality until the blob is under
  * MAX_OUTPUT_BYTES; if even the lowest quality step is still over, returns
  * that last attempt rather than failing the upload.
+ * @param {Blob} file
+ * @param {number} [size]
  * @returns {Promise<Blob>}
  */
 export async function cropResizeToSquare(file, size = AVATAR_SIZE) {
@@ -59,14 +64,18 @@ export async function cropResizeToSquare(file, size = AVATAR_SIZE) {
   canvas.width = size;
   canvas.height = size;
   const ctx = canvas.getContext('2d');
+  if (!ctx) {
+    bitmap.close?.();
+    throw new Error('Image processing failed.');
+  }
   ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(bitmap, sx, sy, side, side, 0, 0, size, size);
   bitmap.close?.();
 
-  let blob;
-  for (const quality of QUALITY_STEPS) {
-    blob = await encodeAtQuality(canvas, quality);
+  let blob = await encodeAtQuality(canvas, QUALITY_STEPS[0]);
+  for (const quality of QUALITY_STEPS.slice(1)) {
     if (blob.size <= MAX_OUTPUT_BYTES) return blob;
+    blob = await encodeAtQuality(canvas, quality);
   }
   return blob;
 }
@@ -103,6 +112,8 @@ export const AVATAR_PRESETS = [
  * Upload `blob` to the signed-in `user`'s storage path (upsert) and write
  * `profiles.avatar_url`. Returns a cache-busted public URL. Throws on
  * failure — shared tail for both a custom upload and a preset pick.
+ * @param {Blob} blob
+ * @param {import('./auth.js').User} user
  * @returns {Promise<string>}
  */
 async function storeAvatarBlob(blob, user) {
@@ -131,6 +142,7 @@ async function storeAvatarBlob(blob, user) {
  * Full flow: validate → crop/resize → upload (upsert) → write profiles.avatar_url.
  * Returns a cache-busted public URL to display immediately. Throws on failure —
  * the caller shows the message via its own status UI.
+ * @param {File} file
  * @returns {Promise<string>}
  */
 export async function uploadAvatar(file) {
@@ -146,6 +158,7 @@ export async function uploadAvatar(file) {
  * Set one of the bundled character portraits (AVATAR_PRESETS) as the
  * signed-in user's avatar — fetches the bundled asset, resizes it through
  * the same pipeline as a custom upload, and stores it the same way.
+ * @param {string} id
  * @returns {Promise<string>}
  */
 export async function selectPresetAvatar(id) {
