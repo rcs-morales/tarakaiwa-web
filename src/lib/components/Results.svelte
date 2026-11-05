@@ -1,9 +1,9 @@
 <script>
   // Results screen (Phase 5c) — renders reactively from session state,
-  // replacing the old createElement builder in session.js. Visibility is
-  // still toggled imperatively (ui.js showResultsScreen → #screen-results),
-  // and #btn-restart-app is bound in app.js.
-  import { session } from '$lib/session.svelte.js';
+  // replacing the old createElement builder in session.js. Shown when
+  // practiceView.screen is 'results' (ui.js showResultsScreen).
+  import { session, restartApp } from '$lib/session.svelte.js';
+  import { practiceView } from '$lib/practiceView.svelte.js';
   import { history } from '$lib/history.svelte.js';
   import { computeDailyGoal, XP_PER_CORRECT, newlyEarnedBadges } from '$lib/gamification.svelte.js';
   import { prefs } from '$lib/prefs.svelte.js';
@@ -17,9 +17,6 @@
   const xpEarned = $derived(session.score * XP_PER_CORRECT);
   const daily = $derived(computeDailyGoal(history.entries, prefs.dailyGoal));
 
-  // Re-use the wired restart handler (bound to #btn-restart-app in app.js) for
-  // the header ✕ so there's a single source of truth for "leave results".
-  const leave = () => document.getElementById('btn-restart-app')?.click();
   const message = $derived(
     pct === 100 ? '🏆 Perfect score! Excellent work!' :
     pct >= 75   ? '✨ Great job! Almost there.' :
@@ -38,9 +35,9 @@
   }
 </script>
 
-<div id="screen-results" class="hidden">
+<div id="screen-results" class:hidden={practiceView.screen !== 'results'}>
   <div class="results-header">
-    <button class="session-end-btn" title="Close" aria-label="Close results" onclick={leave}>✕</button>
+    <button class="session-end-btn" title="Close" aria-label="Close results" onclick={restartApp}>✕</button>
     <div class="results-title">セッション完了 · Complete!</div>
     <span class="results-header-spacer" aria-hidden="true"></span>
   </div>
@@ -128,7 +125,7 @@
   <hr class="divider">
 
   <div class="btn-row results-actions">
-    <button class="btn btn-primary" id="btn-restart-app">もう一度 · Again</button>
+    <button class="btn btn-primary" id="btn-restart-app" onclick={restartApp}>もう一度 · Again</button>
   </div>
   <div class="results-footer">
     <button class="btn btn-secondary btn-sm btn-report-bug" onclick={openBugReport}>🐞 Report Bug</button>

@@ -11,6 +11,7 @@
   import { openBugReport } from '$lib/bugReport.svelte.js';
   import { apiKey } from '$lib/apiKey.svelte.js';
   import { profile } from '$lib/profile.svelte.js';
+  import { practiceView } from '$lib/practiceView.svelte.js';
 
   const stats = $derived(computeStats(history.entries));
   const daily = $derived(computeDailyGoal(history.entries, prefs.dailyGoal));
@@ -46,7 +47,7 @@
   const pctOf = (e) => (e.total ? Math.round((e.score / e.total) * 100) : 0);
 </script>
 
-<div id="screen-start">
+<div id="screen-start" class:hidden={practiceView.screen !== 'start'}>
   <LevelCard />
 
   <div class="dash-greeting">

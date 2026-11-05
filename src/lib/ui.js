@@ -1,13 +1,17 @@
+import { practiceView, BUTTON_IDS } from './practiceView.svelte.js';
+
 export function showAnswerTranslation(text) {
   const el = document.getElementById('answer-translation');
   if (el) el.innerHTML = text;
 }
 
+/**
+ * In-session status line: the pulse dot's state and the text beside it.
+ * @param {import('./practiceView.svelte.js').StatusState} state
+ * @param {string} text
+ */
 export function setStatus(state, text) {
-  const dot  = document.getElementById('pulse');
-  const stxt = document.getElementById('status-text');
-  if (dot) dot.className  = 'pulse-dot ' + (state || '');
-  if (stxt) stxt.textContent = text;
+  practiceView.status = { state: state || '', text };
 }
 
 export function showTranscript(text, active) {
@@ -191,9 +195,20 @@ function hintTagClass(category) {
   return 'rich-tag-default';
 }
 
+/**
+ * Show or hide one of the practice control buttons, by its element id.
+ * @param {string} id
+ * @param {boolean} visible
+ */
 export function showBtn(id, visible) {
-  const btn = document.getElementById(id);
-  if (btn) btn.classList.toggle('hidden', !visible);
+  const key = BUTTON_IDS[id];
+  if (key) practiceView.buttons[key] = !!visible;
+  else console.warn('showBtn: unknown button', id);
+}
+
+/** @param {boolean} visible */
+export function showMicWarning(visible) {
+  practiceView.micWarning = !!visible;
 }
 
 export function showImportStatus(message, type) {
@@ -209,32 +224,18 @@ export function showImportStatus(message, type) {
 }
 
 
-export function showScreen(id) {
-  const el = document.getElementById(id);
-  if (el) el.classList.remove('hidden');
-}
-
-export function hideScreen(id) {
-  const el = document.getElementById(id);
-  if (el) el.classList.add('hidden');
-}
-
+// The Practice tab shows one of three screens (Dashboard / Practice /
+// Results), switched through practiceView.screen.
 export function showStartScreen() {
-  hideScreen('screen-practice');
-  hideScreen('screen-results');
-  showScreen('screen-start');
+  practiceView.screen = 'start';
 }
 
 export function showPracticeScreen() {
-  hideScreen('screen-start');
-  hideScreen('screen-results');
-  showScreen('screen-practice');
+  practiceView.screen = 'practice';
 }
 
 export function showResultsScreen() {
-  hideScreen('screen-start');
-  hideScreen('screen-practice');
-  showScreen('screen-results');
+  practiceView.screen = 'results';
 }
 
 // The Voicevox batch-preload modal used to live here — replaced by the

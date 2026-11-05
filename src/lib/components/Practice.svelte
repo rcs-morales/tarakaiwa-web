@@ -1,18 +1,30 @@
 <script>
-  // In-session practice screen (Phase 5c, restyled 5d). This component owns the
-  // LAYOUT only — every element keeps its id because session.svelte.js, ui.js,
-  // stt.js and avatar.js drive the content imperatively. The Live2D canvas
-  // mounts into #avatar-container and must never be unmounted.
+  // In-session practice screen (Phase 5c, restyled 5d). The screen switch,
+  // status line, progress and control buttons render from practiceView /
+  // session state. The question card, transcript and result card are still
+  // filled in imperatively by id (session.svelte.js, ui.js, stt.js), and the
+  // Live2D canvas mounts into #avatar-container, which must never unmount
+  // (the screen hides with a class, never an {#if}).
   import { XP_PER_CORRECT } from '$lib/gamification.svelte.js';
+  import { practiceView } from '$lib/practiceView.svelte.js';
+  import {
+    session, endSession, finishRecording, checkAnswer, editTranscript, saveEditedTranscript,
+    cancelEditTranscript, rerecordAnswer, nextQuestion, skipQuestion, revealAnswerHint,
+  } from '$lib/session.svelte.js';
+
+  const total = $derived(session.qa.length);
+  const progressPct = $derived(total ? (session.current / total) * 100 : 0);
+  const isLastQuestion = $derived(total > 0 && session.current === total - 1);
+  const show = $derived(practiceView.buttons);
 </script>
 
-<div id="screen-practice" class="hidden">
+<div id="screen-practice" class:hidden={practiceView.screen !== 'practice'}>
   <div class="session-header">
-    <button class="session-end-btn" id="btn-end-session" title="End session" aria-label="End session">✕</button>
+    <button class="session-end-btn" id="btn-end-session" title="End session" aria-label="End session" onclick={endSession}>✕</button>
     <div class="progress-bar-wrap session-progress">
-      <div class="progress-bar-fill" id="progress-bar"></div>
+      <div class="progress-bar-fill" id="progress-bar" style:width="{progressPct}%"></div>
     </div>
-    <div class="progress-label session-count" id="progress-label">1 / 16</div>
+    <div class="progress-label session-count" id="progress-label">Question {session.current + 1} / {total}</div>
   </div>
 
   <div class="practice-stage">
@@ -35,17 +47,17 @@
     <div class="translate-result" id="romaji-result"></div>
   </div>
 
-  <div class="warning-box" id="warning-box">
+  <div class="warning-box" id="warning-box" style:display={practiceView.micWarning ? 'block' : null}>
     ⚠️ Microphone access is required. Please allow microphone permission when prompted,
-    then click <strong>Retry</strong>.
+    then click <strong>🎤 Try again</strong>.
   </div>
 
   <div class="status-area">
-    <div class="pulse-dot" id="pulse"></div>
-    <div class="status-text" id="status-text">Initializing...</div>
+    <div class="pulse-dot {practiceView.status.state}" id="pulse"></div>
+    <div class="status-text" id="status-text">{practiceView.status.text}</div>
   </div>
 
-  <button class="hint-prompt-btn hidden" id="btn-hint-prompt">💡 Taking a While? Tap to Reveal Answer</button>
+  <button class="hint-prompt-btn" id="btn-hint-prompt" class:hidden={!show.hintPrompt} onclick={revealAnswerHint}>💡 Taking a While? Tap to Reveal Answer</button>
 
   <div class="target-answer-box" id="target-answer-box">
     <div class="target-label" id="target-label">🎯 Expected Answer</div>
@@ -73,15 +85,15 @@
 
   <div class="btn-row practice-controls">
     <div class="btn-group-record">
-      <button class="btn btn-submit hidden" id="btn-submit">■ Finish Recording</button>
-      <button class="btn btn-primary hidden" id="btn-check">✔ Check Answer</button>
-      <button class="btn btn-secondary hidden" id="btn-edit-transcript" title="Fix a transcription mistake without re-recording">✏️ Edit</button>
-      <button class="btn btn-secondary hidden" id="btn-rerecord">🎤 Try again</button>
-      <button class="btn btn-primary hidden" id="btn-save-edit">💾 Save</button>
-      <button class="btn btn-secondary hidden" id="btn-cancel-edit">✕ Cancel</button>
+      <button class="btn btn-submit" id="btn-submit" class:hidden={!show.submit} onclick={finishRecording}>■ Finish Recording</button>
+      <button class="btn btn-primary" id="btn-check" class:hidden={!show.check} onclick={checkAnswer}>✔ Check Answer</button>
+      <button class="btn btn-secondary" id="btn-edit-transcript" class:hidden={!show.editTranscript} onclick={editTranscript} title="Fix a transcription mistake without re-recording">✏️ Edit</button>
+      <button class="btn btn-secondary" id="btn-rerecord" class:hidden={!show.rerecord} onclick={rerecordAnswer}>🎤 Try again</button>
+      <button class="btn btn-primary" id="btn-save-edit" class:hidden={!show.saveEdit} onclick={saveEditedTranscript}>💾 Save</button>
+      <button class="btn btn-secondary" id="btn-cancel-edit" class:hidden={!show.cancelEdit} onclick={cancelEditTranscript}>✕ Cancel</button>
     </div>
-    <button class="btn btn-success hidden" id="btn-next">Next →</button>
-    <button class="btn btn-secondary" id="btn-skip">Skip ▷</button>
+    <button class="btn btn-success" id="btn-next" class:hidden={!show.next} onclick={nextQuestion}>{isLastQuestion ? 'Finish Practice' : 'Next →'}</button>
+    <button class="btn btn-secondary" id="btn-skip" class:hidden={!show.skip} onclick={skipQuestion}>Skip ▷</button>
   </div>
 
   <p class="practice-ai-disclaimer">AI can make mistakes. Double-check the responses.</p>
