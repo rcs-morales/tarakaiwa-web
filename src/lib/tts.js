@@ -5,11 +5,24 @@ import { get, KEYS } from './settings.js';
 import { getAudio, saveAudio } from './db.js';
 import { showVoicevoxLoading, hideVoicevoxLoading } from './voicevoxLoading.svelte.js';
 
+/** @typedef {'practice' | 'tool'} SpeechContext  Practice questions, or the translate tool. */
+
+/**
+ * @typedef {object} SpeechChannel  One VOICEVOX audio player.
+ * @property {HTMLAudioElement | null} audio
+ * @property {string | null} url  object URL of the clip playing
+ * @property {(() => void) | null} onEnd
+ * @property {(() => void) | null} [cancelWatchdog]  disarms a pending watchdog
+ */
+
+/** @type {Record<SpeechContext, SpeechChannel>} */
 let channels = {
   practice: { audio: null, url: null, onEnd: null },
   tool: { audio: null, url: null, onEnd: null }
 };
+/** @type {Record<string, Promise<Blob | null> | undefined>} */
 const prefetchCache = {};
+/** @type {Map<string, Promise<Blob | null>>} */
 const inFlightVoicevoxRequests = new Map();
 
 export function unlockAudioForMobile() {
@@ -18,10 +31,10 @@ export function unlockAudioForMobile() {
     // Minimal valid WAV: 44-byte header + 1 sample of silence
     const silentWav = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
     
-    if (!channels.practice.audio) channels.practice.audio = new Audio();
-    if (!channels.tool.audio) channels.tool.audio = new Audio();
+    const practiceAudio = channels.practice.audio ??= new Audio();
+    const toolAudio = channels.tool.audio ??= new Audio();
 
-    [channels.practice.audio, channels.tool.audio].forEach(a => {
+    [practiceAudio, toolAudio].forEach(a => {
       a.src = silentWav;
       a.volume = 0;
       a.play().catch(() => {});
@@ -50,6 +63,7 @@ export const VOICEVOX_STOCK_PHRASES = [
 
 // Only one background warmup runs at a time — starting a new one (new deck,
 // new speaker, session start) cancels the previous.
+/** @type {{ cancelled: boolean } | null} */
 let warmupSignal = null;
 
 // ── Shared 429 cooldown ──
@@ -73,12 +87,13 @@ export function isVoicevoxRateLimited() {
  * given order, at the API-polite pace of preloadAllVoicevoxAudio. Never
  * blocks the caller; playback fetches on demand (deduped in-flight) if it
  * gets ahead of the warmup.
+ * @param {string[]} texts
  */
 export function startVoicevoxWarmup(texts) {
   cancelVoicevoxWarmup();
   const signal = { cancelled: false };
   warmupSignal = signal;
-  preloadAllVoicevoxAudio(texts, null, signal).catch(() => {});
+  preloadAllVoicevoxAudio(texts, undefined, signal).catch(() => {});
   return signal;
 }
 
@@ -91,10 +106,11 @@ export function cancelVoicevoxWarmup() {
 /**
  * How much of the given phrase list is already cached for the current
  * speaker. Drives the "voice pack" indicator in settings.
+ * @param {string[]} texts
  * @returns {Promise<{ cached: number, total: number }>}
  */
 export async function getVoicePackStatus(texts) {
-  const speakerId = parseInt(get(KEYS.VOICEVOX_SPEAKER), 10) || 3;
+  const speakerId = voicevoxSpeakerId();
   let cached = 0;
   for (const text of texts) {
     try {
@@ -109,17 +125,28 @@ export async function getVoicePackStatus(texts) {
 
 /** Playback rate from settings, clamped to the slider's 0.5–1.5 range. */
 function getTTSSpeed() {
-  const speed = parseFloat(get(KEYS.TTS_SPEED));
+  const speed = parseFloat(get(KEYS.TTS_SPEED) ?? '');
   if (Number.isNaN(speed)) return 0.85;
   return Math.min(1.5, Math.max(0.5, speed));
 }
 
+/** The selected VOICEVOX speaker (Zundamon, 3, when unset). */
+function voicevoxSpeakerId() {
+  return parseInt(get(KEYS.VOICEVOX_SPEAKER) ?? '', 10) || 3;
+}
+
+/**
+ * Fetch (or read from the offline cache) the VOICEVOX audio for a phrase.
+ * Concurrent calls for the same phrase share one request.
+ * @param {string} text
+ * @returns {Promise<Blob | null>} null when it couldn't be fetched
+ */
 export async function preloadVoicevoxAudio(text) {
-  const speakerId = parseInt(get(KEYS.VOICEVOX_SPEAKER), 10) || 3;
+  const speakerId = voicevoxSpeakerId();
   const cacheKey = `${speakerId}:${text}`;
 
-  if (prefetchCache[cacheKey]) return prefetchCache[cacheKey];
-  if (inFlightVoicevoxRequests.has(cacheKey)) return inFlightVoicevoxRequests.get(cacheKey);
+  const cached = prefetchCache[cacheKey] ?? inFlightVoicevoxRequests.get(cacheKey);
+  if (cached) return cached;
 
   const promise = (async () => {
     try {
@@ -184,7 +211,7 @@ export async function preloadVoicevoxAudio(text) {
     } catch (err) {
       // 429s already logged a single concise warning above — a full
       // console.error per phrase turns a rate-limited warmup into log spam.
-      if (!String(err?.message).includes('429')) {
+      if (!String(err instanceof Error ? err.message : err).includes('429')) {
         console.error("Voicevox Prefetch failed:", err);
       }
       delete prefetchCache[cacheKey];
@@ -205,14 +232,14 @@ export async function preloadVoicevoxAudio(text) {
  * Batch-preload an array of text strings for Voicevox TTS.
  * Uses a concurrency limit to avoid 429 rate limiting from api.tts.quest.
  * @param {string[]} texts - Array of text strings to preload
- * @param {(completed: number, total: number, message?: string) => void} onProgress - Progress callback (optional status message while rate limited)
- * @param {{ cancelled: boolean }} signal - Cancellation signal (set .cancelled = true to stop)
+ * @param {(completed: number, total: number, message?: string) => void} [onProgress] - Progress callback (optional status message while rate limited)
+ * @param {{ cancelled: boolean }} [signal] - Cancellation signal (set .cancelled = true to stop)
  * @returns {Promise<void>}
  */
 export async function preloadAllVoicevoxAudio(texts, onProgress, signal) {
   const CONCURRENCY = 1; // Strict limit to avoid 429s on tts.quest
   const MAX_RATE_LIMIT_STRIKES = 3; // give up after this many cooldown cycles
-  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+  const sleep = (/** @type {number} */ ms) => new Promise(r => setTimeout(r, ms));
   let completed = 0;
   const total = texts.length;
   let index = 0;
@@ -315,6 +342,12 @@ function delayVoicevoxLoading() {
   };
 }
 
+/**
+ * @param {string} text
+ * @param {() => void} onEnd
+ * @param {SpeechContext} context
+ * @param {number} [rate]
+ */
 async function speakWithVoicevox(text, onEnd, context, rate = 1) {
   const chan = channels[context];
   const doneLoading = delayVoicevoxLoading();
@@ -332,12 +365,13 @@ async function speakWithVoicevox(text, onEnd, context, rate = 1) {
     if (chan.url) URL.revokeObjectURL(chan.url);
     chan.url = URL.createObjectURL(blob);
 
-    if (!chan.audio) chan.audio = new Audio();
+    const audio = chan.audio ??= new Audio();
     chan.audio.src = chan.url;
     chan.audio.volume = 1; // restore volume in case it was muted by unlockAudioForMobile
     chan.audio.playbackRate = rate;
 
     let finished = false;
+    /** @type {ReturnType<typeof setTimeout> | null} */
     let watchdogTimer = null;
     const finish = () => {
       if (finished) return;
@@ -369,8 +403,8 @@ async function speakWithVoicevox(text, onEnd, context, rate = 1) {
     // (once known) so a missed event still resolves.
     const armWatchdog = () => {
       if (finished || watchdogTimer) return;
-      const knownMs = Number.isFinite(chan.audio.duration) && chan.audio.duration > 0
-        ? chan.audio.duration * 1000
+      const knownMs = Number.isFinite(audio.duration) && audio.duration > 0
+        ? audio.duration * 1000
         : 20000;
       watchdogTimer = setTimeout(finish, knownMs / Math.max(rate, 0.1) + 3000);
     };
@@ -387,7 +421,7 @@ async function speakWithVoicevox(text, onEnd, context, rate = 1) {
 
     chan.audio.onended = finish;
     chan.audio.onerror = finish;
-    chan.audio.play().catch(err => {
+    chan.audio.play().catch((/** @type {unknown} */ err) => {
       console.warn(`[${context}] Audio play caught error:`, err);
       finish();
     });
@@ -398,6 +432,12 @@ async function speakWithVoicevox(text, onEnd, context, rate = 1) {
   }
 }
 
+/**
+ * @param {string} text
+ * @param {() => void} onEnd
+ * @param {SpeechContext} context
+ * @param {number} [rate]
+ */
 function speakWithBrowser(text, onEnd, context, rate = 1) {
   const synth = window.speechSynthesis;
   if (!synth) {
@@ -427,6 +467,7 @@ function speakWithBrowser(text, onEnd, context, rate = 1) {
   synth.speak(utter);
 }
 
+/** @param {SpeechContext} [context] */
 export function cancelSpeech(context = 'practice') {
   const chan = channels[context];
 
@@ -462,6 +503,12 @@ export function cancelSpeech(context = 'practice') {
   } catch (_) { }
 }
 
+/**
+ * Speak a question (follows the speech-speed setting).
+ * @param {string} text
+ * @param {() => void} [onEnd]
+ * @param {SpeechContext} [context]
+ */
 export async function speakQuestion(text, onEnd, context = 'practice') {
   const mode = get(KEYS.TTS_MODE);
   if (context === 'practice') {
@@ -489,6 +536,13 @@ export async function speakQuestion(text, onEnd, context = 'practice') {
   speakWithBrowser(text, wrapOnEnd, context, getTTSSpeed());
 }
 
+/**
+ * Speak feedback or praise (natural speed).
+ * @param {string} text
+ * @param {() => void} [onEnd]
+ * @param {boolean} [silent] don't update the status line
+ * @param {SpeechContext} [context]
+ */
 export async function speakFeedback(text, onEnd, silent = false, context = 'practice') {
   if (!silent && context === 'practice') setStatus('speaking', 'Speaking feedback…');
   const wrapOnEnd = () => {
@@ -518,6 +572,7 @@ function getJapaneseVoices() {
   return synth ? synth.getVoices().filter(v => v.lang && v.lang.toLowerCase().startsWith('ja')) : [];
 }
 
+/** @param {SpeechSynthesisVoice} voice @param {string} hint */
 function voiceMatchesHint(voice, hint) {
   const normalizedHint = String(hint || '').toLowerCase();
   const name = voice.name.toLowerCase();
@@ -525,8 +580,9 @@ function voiceMatchesHint(voice, hint) {
   return name.includes(normalizedHint) || uri.includes(normalizedHint);
 }
 
+/** @param {SpeechSynthesisVoice[]} voices */
 function pickAvatarMappedVoice(voices) {
-  const avatarModel = get(KEYS.AVATAR_MODEL);
+  const avatarModel = get(KEYS.AVATAR_MODEL) ?? '';
   const avatarConfig = AVATAR_MODELS[avatarModel] || AVATAR_MODELS.simple;
   const hints = avatarConfig.browserVoiceHints || [];
 
@@ -538,6 +594,7 @@ function pickAvatarMappedVoice(voices) {
   return null;
 }
 
+/** @param {SpeechSynthesisVoice} voice */
 function scoreJapaneseBrowserVoice(voice) {
   const name = voice.name.toLowerCase();
   const lang = voice.lang.toLowerCase();
@@ -553,7 +610,7 @@ function scoreJapaneseBrowserVoice(voice) {
   
   if (name.includes('english') || name.includes(' us ') || name.includes('uk ')) score -= 100;
 
-  const avatarModel = get(KEYS.AVATAR_MODEL);
+  const avatarModel = get(KEYS.AVATAR_MODEL) ?? '';
   const voiceProfile = (AVATAR_MODELS[avatarModel] || AVATAR_MODELS.simple).voiceProfile || 'female';
   if (voiceProfile === 'male') {
     if (name.includes('male') && !name.includes('female')) score += 50;
@@ -575,9 +632,15 @@ function pickJapaneseBrowserVoice() {
   const mappedVoice = pickAvatarMappedVoice(voices);
   if (mappedVoice) return mappedVoice;
 
-  return voices.reduce((best, v) => {
+  /** @type {SpeechSynthesisVoice | null} */
+  let best = null;
+  let bestScore = -1;
+  for (const v of voices) {
     const score = scoreJapaneseBrowserVoice(v);
-    const bestScore = best ? scoreJapaneseBrowserVoice(best) : -1;
-    return score > bestScore ? v : best;
-  }, null);
+    if (score > bestScore) {
+      best = v;
+      bestScore = score;
+    }
+  }
+  return best;
 }

@@ -39,19 +39,22 @@ function readStored() {
   prefs.furigana = get(KEYS.SHOW_FURIGANA) !== '0';
   prefs.romaji = get(KEYS.SHOW_ROMAJI) !== '0';
   prefs.enHints = get(KEYS.SHOW_EN_HINTS) !== '0';
-  prefs.dailyGoal = clampGoal(parseInt(get(KEYS.DAILY_GOAL), 10));
-  prefs.jlptLevel = get(KEYS.JLPT_LEVEL);
+  prefs.dailyGoal = clampGoal(parseInt(get(KEYS.DAILY_GOAL) ?? '', 10));
+  // These keys all have settings.js defaults, so get() only returns null if
+  // those are removed — keep the current value then.
+  prefs.jlptLevel = get(KEYS.JLPT_LEVEL) ?? prefs.jlptLevel;
   // Same rule as groqClient getGradingModel(): unknown values fall back to Balanced.
   const model = get(KEYS.GRADING_MODEL);
-  prefs.gradingModel = Object.values(GROQ_GRADING_MODELS).includes(model) ? model : GROQ_GRADING_MODELS.balanced;
-  prefs.sttMode = get(KEYS.STT_MODE);
-  prefs.ttsMode = get(KEYS.TTS_MODE);
-  prefs.voicevoxSpeaker = get(KEYS.VOICEVOX_SPEAKER);
-  prefs.avatarModel = get(KEYS.AVATAR_MODEL);
-  prefs.ttsSpeed = get(KEYS.TTS_SPEED);
+  prefs.gradingModel = model && Object.values(GROQ_GRADING_MODELS).includes(model) ? model : GROQ_GRADING_MODELS.balanced;
+  prefs.sttMode = get(KEYS.STT_MODE) ?? prefs.sttMode;
+  prefs.ttsMode = get(KEYS.TTS_MODE) ?? prefs.ttsMode;
+  prefs.voicevoxSpeaker = get(KEYS.VOICEVOX_SPEAKER) ?? prefs.voicevoxSpeaker;
+  prefs.avatarModel = get(KEYS.AVATAR_MODEL) ?? prefs.avatarModel;
+  prefs.ttsSpeed = get(KEYS.TTS_SPEED) ?? prefs.ttsSpeed;
   prefs.shuffle = get(KEYS.SHUFFLE_QUESTIONS) !== '0';
 }
 
+/** @param {number} n */
 function clampGoal(n) {
   if (!Number.isFinite(n)) return DAILY_GOAL_DEFAULT;
   return Math.min(Math.max(n, DAILY_GOAL_MIN), DAILY_GOAL_MAX);
@@ -71,7 +74,10 @@ const AID_KEYS = {
   enHints: KEYS.SHOW_EN_HINTS,
 };
 
-/** Flip one of the aid toggles ('furigana' | 'romaji' | 'enHints'). */
+/** @typedef {keyof typeof AID_KEYS} AidName */
+
+/** Flip one of the aid toggles ('furigana' | 'romaji' | 'enHints').
+ * @param {AidName} name @param {boolean} on */
 export function setAid(name, on) {
   if (!(name in AID_KEYS)) return;
   prefs[name] = !!on;
@@ -79,25 +85,25 @@ export function setAid(name, on) {
   applyAidClasses();
 }
 
-/** Set the sessions-per-day target, clamped to [MIN, MAX]. */
+/** Set the sessions-per-day target, clamped to [MIN, MAX]. @param {number} n */
 export function setDailyGoal(n) {
   prefs.dailyGoal = clampGoal(n);
   set(KEYS.DAILY_GOAL, String(prefs.dailyGoal));
 }
 
-/** Default level for new decks ('N5' | 'N4' | 'N3'). */
+/** Default level for new decks ('N5' | 'N4' | 'N3'). @param {string} level */
 export function setJlptLevel(level) {
   prefs.jlptLevel = level;
   set(KEYS.JLPT_LEVEL, level);
 }
 
-/** Groq model used for grading and the study tools. */
+/** Groq model used for grading and the study tools. @param {string} model */
 export function setGradingModel(model) {
   prefs.gradingModel = model;
   set(KEYS.GRADING_MODEL, model);
 }
 
-/** Speech recognition: 'ai' (Groq Whisper) | 'browser'. */
+/** Speech recognition: 'ai' (Groq Whisper) | 'browser'. @param {string} mode */
 export function setSttMode(mode) {
   prefs.sttMode = mode;
   set(KEYS.STT_MODE, mode);
@@ -106,6 +112,7 @@ export function setSttMode(mode) {
 /**
  * Text-to-speech: 'browser' | 'voicevox'. Switching to VOICEVOX starts on the
  * default cloud voice (Zundamon, '3').
+ * @param {string} mode
  */
 export function setTtsMode(mode) {
   prefs.ttsMode = mode;
@@ -113,27 +120,27 @@ export function setTtsMode(mode) {
   if (mode === 'voicevox') setVoicevoxSpeaker('3');
 }
 
-/** VOICEVOX speaker id. */
+/** VOICEVOX speaker id. @param {string} id */
 export function setVoicevoxSpeaker(id) {
   if (!id) return;
   prefs.voicevoxSpeaker = id;
   set(KEYS.VOICEVOX_SPEAKER, id);
 }
 
-/** Live2D avatar model name. */
+/** Live2D avatar model name. @param {string} name */
 export function setAvatarModel(name) {
   if (name === get(KEYS.AVATAR_MODEL)) return;
   prefs.avatarModel = name;
   set(KEYS.AVATAR_MODEL, name);
 }
 
-/** Question speaking speed, e.g. '0.85'. */
+/** Question speaking speed, e.g. '0.85'. @param {string | number} value */
 export function setTtsSpeed(value) {
   prefs.ttsSpeed = String(value);
   set(KEYS.TTS_SPEED, prefs.ttsSpeed);
 }
 
-/** Shuffle question order each session. */
+/** Shuffle question order each session. @param {boolean} on */
 export function setShuffle(on) {
   prefs.shuffle = !!on;
   set(KEYS.SHUFFLE_QUESTIONS, on ? '1' : '0');

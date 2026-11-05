@@ -10,6 +10,7 @@ import { get, set, KEYS } from './settings.js';
  * `locale` for browser speech recognition (BCP 47), `whisper` for the Whisper
  * fallback (ISO 639-1; Whisper calls Filipino "Tagalog").
  */
+/** @type {Record<string, { locale: string, whisper: string }>} */
 export const SPEECH_LANGUAGES = {
   English: { locale: 'en-US', whisper: 'en' },
   Filipino: { locale: 'fil-PH', whisper: 'tl' },
@@ -221,12 +222,14 @@ async function startWhisperRecording() {
   }
   if (!(await requestMicAccess())) return;
 
+  const stream = micStream;
+  if (!stream) return;
   audioChunks = [];
   const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : '';
   try {
     mediaRecorder = mimeType
-      ? new MediaRecorder(micStream, { mimeType, audioBitsPerSecond: 64000 })
-      : new MediaRecorder(micStream);
+      ? new MediaRecorder(stream, { mimeType, audioBitsPerSecond: 64000 })
+      : new MediaRecorder(stream);
   } catch {
     releaseRecorder();
     setStatus('Recording not supported in this browser.', 'error');

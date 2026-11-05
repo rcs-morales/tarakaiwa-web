@@ -8,7 +8,10 @@
 /** @typedef {'start' | 'practice' | 'results'} PracticeScreen */
 /** @typedef {'' | 'speaking' | 'listening' | 'checking'} StatusState */
 
-/** Control buttons by the id ui.js callers use. */
+/** @typedef {'submit' | 'check' | 'editTranscript' | 'rerecord' | 'saveEdit' | 'cancelEdit' | 'next' | 'skip' | 'hintPrompt'} ButtonKey */
+
+/** Control buttons by the id ui.js callers use.
+ * @type {Record<string, ButtonKey | undefined>} */
 export const BUTTON_IDS = {
   'btn-submit': 'submit',
   'btn-check': 'check',

@@ -1,3 +1,5 @@
+// @ts-nocheck — standalone manual debug script (run with node), not part of
+// the app: it stubs Node globals with partial mocks.
 
 import { gradeWithAI } from './ai/index.js';
 

@@ -7,6 +7,7 @@ import { resolveAIRoute } from './groqClient.js';
 // Set by transcribeWithWhisper on failure/empty-result so the UI can show a
 // specific reason instead of one generic "transcription failed" message —
 // mirrors grading.js's lastGradingErrorReason pattern.
+/** @type {string | null} */
 let lastWhisperErrorReason = null;
 export function getLastWhisperErrorReason() {
   return lastWhisperErrorReason;
@@ -63,6 +64,11 @@ export async function transcribeForTool(audioBlob, language) {
   }
 }
 
+/**
+ * Transcribe a practice answer.
+ * @param {Blob} audioBlob
+ * @param {string} [expectedAnswer]  biases Whisper toward the expected words
+ */
 export async function transcribeWithWhisper(audioBlob, expectedAnswer = '') {
   lastWhisperErrorReason = null;
   const route = await resolveAIRoute();

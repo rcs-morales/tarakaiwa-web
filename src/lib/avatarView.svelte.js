@@ -3,7 +3,8 @@
 // browser-voice mode avatar.js mounts a Live2D (PIXI) canvas into the host
 // element Practice.svelte registers with the avatarCanvasHost action.
 
-/** VOICEVOX speaker id → character image in public/assets/. */
+/** VOICEVOX speaker id → character image in public/assets/.
+ * @type {Record<string, string>} */
 export const VOICEVOX_CHARACTERS = {
   '3': 'zundamon',
   '2': 'shikoku_metan',

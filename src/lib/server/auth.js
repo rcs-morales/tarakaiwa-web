@@ -5,7 +5,11 @@
 //
 // Runs on the Cloudflare Workers runtime (Web APIs only — fetch, Request, etc.).
 
+/** @typedef {NonNullable<App.Platform['env']>} ServerEnv  Cloudflare bindings (see app.d.ts). */
+
 /**
+ * @param {Request} request
+ * @param {ServerEnv} env
  * @returns {Promise<{ user: { id: string, email?: string } } | { error: string, status: number }>}
  */
 export async function authenticateRequest(request, env) {

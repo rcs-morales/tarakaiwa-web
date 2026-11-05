@@ -15,6 +15,7 @@
 import { supabaseClient } from './supabase.js';
 import { getCurrentUser, isLoggedIn } from './auth.js';
 import { KEYS, get, onChange } from './settings.js';
+import { errorMessage } from './errors.js';
 
 // Keys that must NOT leave the device / go into user_settings:
 //  - API_KEY / API_PROVIDER: secret, per-device BYO key
@@ -44,7 +45,10 @@ const SYNC_KEYS = Object.values(KEYS).filter((k) => !SYNC_EXCLUDE.has(k));
 // Settings sync
 // ─────────────────────────────────────────────
 
-let pushTimer = null;
+/** @typedef {import('./decks.svelte.js').Deck} Deck */
+
+/** @type {ReturnType<typeof setTimeout> | undefined} */
+let pushTimer;
 
 /** Install the settings change hook. Call once on boot. */
 export function registerSettingsSync() {
@@ -61,6 +65,7 @@ function schedulePush() {
 }
 
 function snapshotSettings() {
+  /** @type {Record<string, string>} */
   const obj = {};
   for (const k of SYNC_KEYS) {
     const v = localStorage.getItem(k);
@@ -150,7 +155,7 @@ export async function pushDeck(deck) {
     if (error) throw error;
     return true;
   } catch (e) {
-    console.error('deck push failed:', e.message || e);
+    console.error('deck push failed:', errorMessage(e));
     return false;
   }
 }
@@ -176,7 +181,7 @@ export async function deleteDeckRemote(id) {
     if (error) throw error;
     return true;
   } catch (e) {
-    console.error('deck delete failed:', e.message || e);
+    console.error('deck delete failed:', errorMessage(e));
     return false;
   }
 }
@@ -188,7 +193,7 @@ export async function deleteDeckRemote(id) {
  * decoupled the same way settings-synced always has been, so this module
  * never imports decks.svelte.js.
  *
- * @param {Array<{id, name, jlptLevel, qa, updatedAt}>} localList
+ * @param {Deck[]} localList
  */
 async function syncDecks(localList = []) {
   const user = getCurrentUser();
@@ -258,7 +263,7 @@ export async function saveSessionResult(payload) {
     });
     if (error) throw error;
   } catch (e) {
-    console.error('session result save failed:', e.message || e);
+    console.error('session result save failed:', errorMessage(e));
   }
 }
 
@@ -278,7 +283,7 @@ export async function deleteAllSessionResults() {
     if (error) throw error;
     return true;
   } catch (e) {
-    console.error('session results delete failed:', e.message || e);
+    console.error('session results delete failed:', errorMessage(e));
     return false;
   }
 }
@@ -317,7 +322,7 @@ export async function fetchSessionHistory(limit = 100) {
 
 /**
  * Run the full pull/merge on login. Safe to call more than once.
- * @param {Array<{id, name, jlptLevel, qa, updatedAt}>} localDecksList
+ * @param {Deck[]} localDecksList
  */
 export async function onLogin(localDecksList) {
   if (!isLoggedIn()) return;

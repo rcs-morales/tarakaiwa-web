@@ -5,6 +5,7 @@ export function getIsChecking() {
   return isChecking;
 }
 
+/** @param {boolean} value */
 export function setIsChecking(value) {
   isChecking = value;
 }

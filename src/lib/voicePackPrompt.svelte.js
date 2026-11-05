@@ -6,9 +6,13 @@
 // await the user's answer.
 export const voicePackPrompt = $state({ open: false, cached: 0, total: 0 });
 
+/** @type {((continueAnyway: boolean) => void) | null} */
 let pendingResolve = null;
 
-/** Opens the prompt and resolves once the user answers (true = continue anyway). */
+/** Opens the prompt and resolves once the user answers (true = continue anyway).
+ * @param {number} cached  clips already downloaded
+ * @param {number} total
+ * @returns {Promise<boolean>} */
 export function requestVoicePackConfirmation(cached, total) {
   return new Promise((resolve) => {
     voicePackPrompt.cached = cached;
@@ -18,6 +22,7 @@ export function requestVoicePackConfirmation(cached, total) {
   });
 }
 
+/** @param {boolean} continueAnyway */
 export function answerVoicePackPrompt(continueAnyway) {
   voicePackPrompt.open = false;
   const resolve = pendingResolve;

@@ -8,7 +8,18 @@ export const STRIP_RE = /[\s　、。！？・「」『』【】〜〈〉（）,
 
 const TOKEN_RE = /[\u3040-\u30ff\u4e00-\u9fffA-Za-z]+/g;
 
+/**
+ * @typedef {object} BreakdownItem  One AI-graded mistake.
+ * @property {string} [original]   what the student said
+ * @property {string} [corrected]  what it should be
+ * @property {string} [category]   e.g. Grammar, Particle, Vocabulary
+ * @property {string} [explanation]
+ */
+
+/** @typedef {(s: string) => string} TextFn */
+
 /** Collapse common STT vowel insertions (e.g. しゅうみ → しゅみ). */
+/** @param {string} s */
 function relaxSpokenSttArtifacts(s) {
   return s
     .replace(/([ゅょぉ])う(?=[ぁ-ん])/g, '$1')
@@ -18,6 +29,7 @@ function relaxSpokenSttArtifacts(s) {
 /** Words often omitted in casual spoken answers without changing core meaning. */
 const OPTIONAL_SPOKEN_OMISSIONS = ['あるいて', 'あるき', 'およそ', 'だいたい'];
 
+/** @param {string} s */
 function relaxOptionalSpokenOmissions(s) {
   let text = String(s || '');
   for (const word of OPTIONAL_SPOKEN_OMISSIONS) {
@@ -26,17 +38,20 @@ function relaxOptionalSpokenOmissions(s) {
   return text;
 }
 
+/** @param {unknown} s */
 function normalizeGradingToken(s) {
   return katakanaToHiragana(transcriptToFurigana(String(s || '')))
     .replace(STRIP_RE, '')
     .toLowerCase();
 }
 
+/** @param {unknown} s */
 export function normalizeForGradingComparison(s) {
   return relaxSpokenSttArtifacts(normalizeGradingToken(s));
 }
 
-/** True when two answers match after spoken-test normalization. */
+/** True when two answers match after spoken-test normalization.
+ * @param {string} answer @param {string} transcript */
 export function gradingTextsEquivalent(answer, transcript) {
   const normA = normalizeForGradingComparison(answer);
   const normT = normalizeForGradingComparison(transcript);
@@ -44,6 +59,7 @@ export function gradingTextsEquivalent(answer, transcript) {
   return relaxOptionalSpokenOmissions(normA) === relaxOptionalSpokenOmissions(normT);
 }
 
+/** @param {string} token @param {string} normPrefix */
 function extractTokenPrefix(token, normPrefix) {
   if (!normPrefix) return null;
   let normBuilt = '';
@@ -55,7 +71,12 @@ function extractTokenPrefix(token, normPrefix) {
   return null;
 }
 
-/** Replace AI-hallucinated breakdown originals with the student's actual words. */
+/**
+ * Replace AI-hallucinated breakdown originals with the student's actual words.
+ * @param {BreakdownItem} item
+ * @param {string} transcript
+ * @returns {BreakdownItem | null} null when no word of the transcript fits
+ */
 export function groundBreakdownItem(item, transcript) {
   const original = String(item.original || '').trim();
   const corrected = String(item.corrected || '').trim();
@@ -99,10 +120,11 @@ export function groundBreakdownItem(item, transcript) {
   return null;
 }
 
+/** @param {BreakdownItem[] | null | undefined} breakdown @param {string} transcript */
 export function groundBreakdown(breakdown, transcript) {
   return (breakdown || [])
     .map((item) => groundBreakdownItem(item, transcript))
-    .filter(Boolean);
+    .filter((item) => item !== null);
 }
 
 const PREDICATE_MARKER_RE = /(ませんでした|ませんか|ましたか|でしたか|ますか|ですか|ました|でした|ません|ます|です|ましょう|ない|ている|ています|ていました|たい|たかった)/g;
@@ -111,6 +133,7 @@ const PREDICATE_END_RE = /(ませんでした|ませんか|ましたか|でし�
 const DANGLING_END_RE = /(は|が|を|に|へ|で|と|の|も|まで|より|そして|それから)$/;
 const QUESTION_MARKER_RE = /(か[。！？?]|[？?])/g;
 
+/** @param {string} text @param {RegExp} re */
 function countMatches(text, re) {
   re.lastIndex = 0;
   return Array.from(String(text || '').matchAll(re)).length;
@@ -118,8 +141,11 @@ function countMatches(text, re) {
 
 /**
  * Creates a grammar analysis helper bound to parser functions.
+ * @param {TextFn} transcriptToFurigana
+ * @param {TextFn} katakanaToHiragana
  */
 export function createGrammarRuleHelper(transcriptToFurigana, katakanaToHiragana) {
+  /** @type {Record<string, string>} */
   const ROMAJI_PARTICLE_MAP = {
     ha: 'は', wa: 'は', ga: 'が', wo: 'を', ni: 'に', he: 'へ', de: 'で', no: 'の',
     to: 'と', ya: 'や', mo: 'も', kara: 'から', made: 'まで', yori: 'より', 'わ': 'は'
@@ -127,26 +153,27 @@ export function createGrammarRuleHelper(transcriptToFurigana, katakanaToHiragana
   const PARTICLE_REGEX = /(?:は|わ|が|を|に|へ|で|の|と|や|も|から|まで|より)/g;
   const ROMAJI_PARTICLE_REGEX = /\b(?:ha|ga|wo|ni|he|de|no|to|ya|mo|kara|made|yori)\b/gi;
 
-  const normalizeText = (s) => {
+  const normalizeText = (/** @type {string} */ s) => {
     const text = String(s || '');
     return katakanaToHiragana(transcriptToFurigana(text))
       .replace(/[\s　、。！？・「」『』【】〜〈〉（）,，.]/g, '');
   };
-  const normalizeParticleToken = (token) => {
+  const normalizeParticleToken = (/** @type {string} */ token) => {
     const lower = String(token || '').toLowerCase();
     return ROMAJI_PARTICLE_MAP[lower] || lower;
   };
-  const extractParticles = (s) => {
+  const extractParticles = (/** @type {string} */ s) => {
     const text = String(s || '');
     const fromKana = Array.from(text.matchAll(PARTICLE_REGEX), m => normalizeParticleToken(m[0])).join('');
     const fromRomaji = Array.from(text.matchAll(ROMAJI_PARTICLE_REGEX), m => normalizeParticleToken(m[0])).join('');
     return (fromKana + fromRomaji).replace(/[\s　、。！？・「」『』【】〜〈〉（）,，.]/g, '');
   };
-  const stripParticles = (s) => String(s || '')
+  const stripParticles = (/** @type {string} */ s) => String(s || '')
     .replace(/[\s　、。！？・「」『』【】〜〈〉（）,，.]/g, '')
     .replace(PARTICLE_REGEX, '')
     .replace(ROMAJI_PARTICLE_REGEX, '');
 
+  /** @param {string} answer @param {string} transcript */
   const detectTenseMismatch = (answer, transcript) => {
     const a = normalizeText(answer);
     const t = normalizeText(transcript);
@@ -168,11 +195,13 @@ export function createGrammarRuleHelper(transcriptToFurigana, katakanaToHiragana
     return false;
   };
 
+  /** @param {string} answer @param {string} transcript */
   const detectPolarityMismatch = (answer, transcript) => {
     const a = normalizeText(answer);
     const t = normalizeText(transcript);
     const negativePatterns = [/ない/g, /ません/g, /ませんでした/g, /なく/g, /ませんか/g];
     const positivePatterns = [/ます/g, /ました/g, /です/g, /でした/g, /ますか/g, /でしたか/g];
+    /** @param {string} text @param {RegExp[]} patterns */
     const matchesAny = (text, patterns) => patterns.some((re) => {
       re.lastIndex = 0;
       return re.test(text);
@@ -189,6 +218,7 @@ export function createGrammarRuleHelper(transcriptToFurigana, katakanaToHiragana
     return (expectedNegative !== heardNegative) || (expectedPositive !== heardPositive);
   };
 
+  /** @param {string} answer @param {string} transcript */
   return function analyzeGrammar(answer, transcript) {
     const a = normalizeText(answer);
     const t = normalizeText(transcript);
@@ -224,7 +254,8 @@ const WRONG_PROHIBITION_FORMS = [
   'てもいきません', 'てもいけない', 'てもいけません', 'でもいけません', 'てもだめ'
 ];
 
-/** Detect 〜てはいけません swapped for incorrect forms like 〜てもいきません. */
+/** Detect 〜てはいけません swapped for incorrect forms like 〜てもいきません.
+ * @param {string} answer @param {string} transcript */
 export function detectProhibitionFormMismatch(answer, transcript) {
   const a = normalizeForGradingComparison(answer);
   const t = normalizeForGradingComparison(transcript);
@@ -237,7 +268,9 @@ export function detectProhibitionFormMismatch(answer, transcript) {
   return false;
 }
 
-/** True when AI breakdown items reflect real grammar or vocabulary errors. */
+/** True when AI breakdown items reflect real grammar or vocabulary errors.
+ * @param {BreakdownItem[] | null | undefined} breakdown
+ * @param {(item: BreakdownItem) => boolean} isScriptOrNumeralOnly */
 export function hasMeaningfulBreakdownError(breakdown, isScriptOrNumeralOnly) {
   return (breakdown || []).some((item) => {
     if (isScriptOrNumeralOnly(item)) return false;
@@ -252,9 +285,14 @@ export function hasMeaningfulBreakdownError(breakdown, isScriptOrNumeralOnly) {
 
 /**
  * Analyze whether the student's answer covers all required parts.
+ * @param {string} question
+ * @param {string} answer
+ * @param {string} transcript
+ * @param {TextFn} transcriptToFurigana
+ * @param {TextFn} katakanaToHiragana
  */
 export function analyzeAnswerCompleteness(question, answer, transcript, transcriptToFurigana, katakanaToHiragana) {
-  const normalize = (s) => katakanaToHiragana(transcriptToFurigana(String(s || '')))
+  const normalize = (/** @type {string} */ s) => katakanaToHiragana(transcriptToFurigana(String(s || '')))
     .replace(STRIP_RE, '')
     .toLowerCase();
 
@@ -300,13 +338,17 @@ export function analyzeAnswerCompleteness(question, answer, transcript, transcri
 
 /**
  * Local (offline) grading — uses text similarity and grammar rule checks.
+ * @param {string} rawTranscript
+ * @param {string} answer
+ * @param {string} [question]
  */
 export async function isCorrectLocal(rawTranscript, answer, question = '') {
   const { katakanaToHiragana, transcriptToFurigana, transcriptToFuriganaForGrading } = await import('../parser.js');
   const analyzeGrammar = createGrammarRuleHelper(transcriptToFurigana, katakanaToHiragana);
   const grammarSignals = analyzeGrammar(answer, rawTranscript);
 
-  const normalizeAnswer = (s) => katakanaToHiragana(s).replace(STRIP_RE, '').toLowerCase();
+  const normalizeAnswer = (/** @type {string} */ s) => katakanaToHiragana(s).replace(STRIP_RE, '').toLowerCase();
+  /** @param {string} raw @param {string} [ans] */
   const normalizeTranscript = (raw, ans) => {
     const furigana = ans != null
       ? transcriptToFuriganaForGrading(raw, ans)
@@ -368,17 +410,18 @@ export async function isCorrectLocal(rawTranscript, answer, question = '') {
   }
 
   const particles = ['は', 'わ', 'が', 'に', 'へ', 'で', 'を', 'の', 'も'];
+  /** @type {Record<string, string>} */
   const romajiParticleMap = {
     ha: 'は', ga: 'が', wo: 'を', ni: 'に', he: 'へ', de: 'で', no: 'の',
     to: 'と', ya: 'や', mo: 'も', kara: 'から', made: 'まで', yori: 'より'
   };
   const particleSet = /(?:は|わ|が|を|に|へ|で|の|と|や|も|から|まで|より)/g;
   const romajiParticleSet = /\b(?:ha|ga|wo|ni|he|de|no|to|ya|mo|kara|made|yori)\b/gi;
-  const normalizeParticleToken = (token) => {
+  const normalizeParticleToken = (/** @type {string} */ token) => {
     const lower = String(token || '').toLowerCase();
     return romajiParticleMap[lower] || lower;
   };
-  const detectTense = (text) => {
+  const detectTense = (/** @type {string} */ text) => {
     const normalized = transcriptToFurigana(String(text || '')).replace(/[\s\u3000]/g, '');
     const patterns = [
       { type: 'past', re: /(ました|でした|ていた|ていました|たこと|かった|だった)/g },
@@ -423,6 +466,7 @@ export async function isCorrectLocal(rawTranscript, answer, question = '') {
   const questionAnswerTenseMismatch = questionTense !== 'unknown' && answerTense !== 'unknown' && questionTense !== answerTense;
   const particleSeqA = grammarSignals.particleSeqA;
   const particleSeqT = grammarSignals.particleSeqT;
+  /** @type {string[]} */
   const missingParticles = [];
   particles.forEach(p => {
     const countA = (a.match(new RegExp(p, 'g')) || []).length;
@@ -434,6 +478,7 @@ export async function isCorrectLocal(rawTranscript, answer, question = '') {
   const hasParticleMismatch = grammarSignals.particleMismatch || missingParticles.length > 0;
 
   const markers = ['ます', 'ました', 'ません', 'です', 'でした', 'ましょう', 'ますか', 'ませんか'];
+  /** @type {string[]} */
   const missingVerbs = [];
   markers.forEach(marker => {
     const pattern = new RegExp(marker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');

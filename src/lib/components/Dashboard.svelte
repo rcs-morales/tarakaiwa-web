@@ -33,18 +33,19 @@
   }
   const hello = greeting();
 
+  /** @param {string} at  ISO timestamp */
   function fmtDay(at) {
     const d = new Date(at);
     const today = new Date();
     const yesterday = new Date(today);
     yesterday.setDate(today.getDate() - 1);
-    const same = (a, b) => a.toDateString() === b.toDateString();
+    const same = (/** @type {Date} */ a, /** @type {Date} */ b) => a.toDateString() === b.toDateString();
     if (same(d, today)) return 'Today';
     if (same(d, yesterday)) return 'Yesterday';
     return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   }
 
-  const pctOf = (e) => (e.total ? Math.round((e.score / e.total) * 100) : 0);
+  const pctOf = (/** @type {{ score: number, total: number }} */ e) => (e.total ? Math.round((e.score / e.total) * 100) : 0);
 </script>
 
 <div id="screen-start" class:hidden={practiceView.screen !== 'start'}>

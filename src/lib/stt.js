@@ -3,16 +3,23 @@ import { practiceView } from './practiceView.svelte.js';
 import { hasAIAccess } from './ai/index.js';
 import { getIsChecking } from './sessionFlags.js';
 
+/** @typedef {(message: string) => void} ErrorHandler */
+
+/** @type {any} A SpeechRecognition (the Web Speech API isn't in TS's DOM lib). */
 let recog = null;
 let listening = false;
 let liveTranscript = '';
 let finalTranscript = '';
 let intentionalStop = false;
+/** @type {MediaStream | null} */
 let micStream = null;
+/** @type {MediaRecorder | null} */
 let mediaRecorder = null;
+/** @type {Blob[]} */
 let audioChunks = [];
 let permissionPromptInFlight = false;
 
+/** Ask for (or reuse) microphone access. @param {ErrorHandler} [onError] */
 export async function ensureMicAccess(onError) {
   if (micStream && micStream.active) return true;
 
@@ -73,6 +80,11 @@ export function initRecognizer() {
   return true;
 }
 
+/**
+ * Start browser speech recognition, streaming the live transcript.
+ * @param {ErrorHandler} onError
+ * @param {(raw: string) => string} formatLiveTranscript
+ */
 export async function startListening(onError, formatLiveTranscript) {
   if (!recog) {
     onError('SpeechRecognition not supported in this browser. Use Chrome.');
@@ -129,7 +141,7 @@ export async function startListening(onError, formatLiveTranscript) {
     }
   };
   
-  recog.onresult = (e) => {
+  recog.onresult = (/** @type {any} */ e) => {
     let accumulated = '';
     let interimRaw  = '';
     for (let i = 0; i < e.results.length; i++) {
@@ -142,7 +154,7 @@ export async function startListening(onError, formatLiveTranscript) {
     showTranscript(formatLiveTranscript(transcript), true);
   };
   
-  recog.onerror = (e) => {
+  recog.onerror = (/** @type {any} */ e) => {
     if (e.error === 'no-speech') return; // Ignore silence errors, onend will restart it
     
     // Some browsers use 'aborted' when we call recog.abort(). 
@@ -166,6 +178,7 @@ export async function startListening(onError, formatLiveTranscript) {
   }
 }
 
+/** Start recording audio for Whisper. @param {ErrorHandler} onError */
 export async function startAIRecording(onError) {
   const micReady = await ensureMicAccess(onError);
   if (!micReady) {
@@ -193,23 +206,26 @@ export async function startAIRecording(onError) {
     ? 'audio/webm;codecs=opus'
     : '';
 
+  /** @type {MediaRecorder} */
+  let recorder;
   try {
-    mediaRecorder = preferredMimeType
+    recorder = preferredMimeType
       ? new MediaRecorder(micStream, {
           mimeType: preferredMimeType,
           audioBitsPerSecond: 64000
         })
       : new MediaRecorder(micStream);
   } catch (e) {
-    onError('MediaRecorder not supported: ' + e.message);
+    onError('MediaRecorder not supported: ' + (e instanceof Error ? e.message : String(e)));
     return;
   }
+  mediaRecorder = recorder;
 
-  mediaRecorder.ondataavailable = (e) => {
+  recorder.ondataavailable = (e) => {
     if (e.data.size > 0) audioChunks.push(e.data);
   };
 
-  mediaRecorder.onstart = () => {
+  recorder.onstart = () => {
     listening = true;
     setStatus('listening', '🤖 AI Recording… speak clearly then click Finish Recording');
 
@@ -220,31 +236,33 @@ export async function startAIRecording(onError) {
     showBtn('btn-skip', false);
   };
 
-  mediaRecorder.onerror = (e) => {
+  recorder.onerror = (/** @type {any} */ e) => {
     listening = false;
     onError('Recording error: ' + e.error);
   };
 
-  mediaRecorder.start(250);
+  recorder.start(250);
   return true;
 }
 
+/** Stop the Whisper recording. @returns {Promise<Blob | null>} the audio, or null if none */
 export function stopAIRecording() {
   return new Promise((resolve) => {
-    if (!mediaRecorder || mediaRecorder.state === 'inactive') {
+    const recorder = mediaRecorder;
+    if (!recorder || recorder.state === 'inactive') {
       resolve(null);
       return;
     }
 
-    mediaRecorder.onstop = () => {
+    recorder.onstop = () => {
       listening = false;
-      const mimeType = (mediaRecorder.mimeType || 'audio/webm').split(';')[0].trim();
+      const mimeType = (recorder.mimeType || 'audio/webm').split(';')[0].trim();
       const blob = new Blob(audioChunks, { type: mimeType });
       resolve(blob);
     };
 
     try {
-      mediaRecorder.stop();
+      recorder.stop();
     } catch (e) {
       resolve(null);
     }
@@ -255,6 +273,7 @@ export function getLiveTranscript() {
   return liveTranscript;
 }
 
+/** @param {string} val */
 export function setLiveTranscript(val) {
   liveTranscript = val;
 }
@@ -263,6 +282,7 @@ export function getMicStream() {
   return micStream;
 }
 
+/** @param {MediaStream | null} stream */
 export function setMicStream(stream) {
   micStream = stream;
 }

@@ -56,6 +56,7 @@ export const KEYS = {
 /**
  * Default values returned by get() when a key has no stored value.
  */
+/** @type {Record<string, string>} */
 const DEFAULTS = {
   [KEYS.JLPT_LEVEL]: 'N5',
   [KEYS.STT_MODE]: 'ai',
@@ -83,16 +84,19 @@ export function get(key) {
 // Optional hook invoked after every set()/remove(). sync.js registers this to
 // debounce-upload changed settings; when nothing registers it, set/remove keep
 // their original localStorage-only behaviour (logged-out path unchanged).
+/** @type {((key: string) => void) | null} */
 let changeHook = null;
 
 /**
  * Register a callback fired after each set()/remove(). Called as (key).
  * Pass null to unregister.
+ * @param {((key: string) => void) | null} hook
  */
 export function onChange(hook) {
   changeHook = hook;
 }
 
+/** @param {string} key */
 function notifyChange(key) {
   if (!changeHook) return;
   try { changeHook(key); } catch (e) { console.error('settings change hook error:', e); }

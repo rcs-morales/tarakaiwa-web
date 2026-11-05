@@ -3,6 +3,7 @@ import {
 } from './parser.js';
 import { showImportStatus } from './ui.js';
 import { importDeck, MAX_DECK_QUESTIONS } from './decks.svelte.js';
+import { errorMessage } from './errors.js';
 
 /**
  * Handle the file import process.
@@ -10,7 +11,7 @@ import { importDeck, MAX_DECK_QUESTIONS } from './decks.svelte.js';
  */
 export async function handleFileImport(event) {
   const input = /** @type {HTMLInputElement} */ (event.target);
-  const file = input.files[0];
+  const file = input.files?.[0];
   if (!file) return;
 
   const reader = new FileReader();
@@ -26,12 +27,13 @@ export async function handleFileImport(event) {
 
   reader.onload = async (e) => {
     try {
+      const result = e.target?.result ?? null;
       let qa;
 
       if (isExcel) {
-        qa = await parseExcel(/** @type {ArrayBuffer} */ (e.target.result));
+        qa = await parseExcel(/** @type {ArrayBuffer} */ (result));
       } else {
-        const content = e.target.result;
+        const content = String(result ?? '');
         if (fileName.endsWith('.json')) {
           qa = parseJSON(content);
         } else if (fileName.endsWith('.csv') || fileName.endsWith('.txt')) {
@@ -61,7 +63,7 @@ export async function handleFileImport(event) {
       }
 
     } catch (error) {
-      showImportStatus('❌ Import failed: ' + error.message, 'error');
+      showImportStatus('❌ Import failed: ' + errorMessage(error), 'error');
     }
   };
 

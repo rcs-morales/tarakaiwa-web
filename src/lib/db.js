@@ -2,6 +2,7 @@ const DB_NAME = 'VoicevoxCache';
 const STORE_NAME = 'audioBlobs';
 const DB_VERSION = 1;
 
+/** @type {Promise<IDBDatabase> | null} */
 let dbPromise = null;
 
 /**

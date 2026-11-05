@@ -11,11 +11,13 @@ import {
 // Set by translateWithAI on failure/empty-result so the UI can show a
 // specific reason instead of always blaming the API key — mirrors
 // grading.js's lastGradingErrorReason / whisper.js's lastWhisperErrorReason.
+/** @type {string | null} */
 let lastTranslationErrorReason = null;
 export function getLastTranslationErrorReason() {
   return lastTranslationErrorReason;
 }
 
+/** @param {string | null | undefined} raw */
 function normalizeJapaneseTranslation(raw) {
   if (!raw) return '';
 
@@ -43,7 +45,7 @@ function normalizeJapaneseTranslation(raw) {
 /**
  * Ask the AI study assistant a question, maintaining conversation history.
  * @param {string} query
- * @param {Array} history - previous conversation turns
+ * @param {{ role: string, content: string }[]} history - previous conversation turns
  * @returns {Promise<{response?: string, error?: string}>}
  */
 export async function askStudyAssistant(query, history = []) {
@@ -174,6 +176,11 @@ export async function translateToJapaneseWithAI(text, sourceLang = 'English') {
   }
 }
 
+/**
+ * Translate a Japanese question or answer into English.
+ * @param {string} japaneseText
+ * @param {string} [context]  e.g. the question an answer belongs to
+ */
 export async function translateWithAI(japaneseText, context = '') {
   lastTranslationErrorReason = null;
   const route = await resolveAIRoute();
@@ -226,6 +233,7 @@ export async function translateWithAI(japaneseText, context = '') {
 /**
  * Romanize a Japanese answer via the Groq LLM — used for decks that don't
  * ship their own romaji field (only the built-in Sample deck does).
+ * @param {string} japaneseText
  */
 export async function getRomajiWithAI(japaneseText) {
   const route = await resolveAIRoute();

@@ -11,7 +11,9 @@ import { fetchAvatarUrl } from './avatarUpload.js';
 export const DEFAULT_AVATAR = '/assets/zundamon.png';
 
 export const profile = $state({
+  /** @type {import('./auth.js').User | null} */
   user: null,
+  /** @type {string | null} */
   avatarUrl: null,     // stored base URL from profiles, or null
   avatarBusting: '',   // '?v=…' appended right after a fresh upload
 });
@@ -31,7 +33,8 @@ export function avatarSrc() {
 
 /** AvatarModal reports the outcome via this rather than reaching into
  *  component state directly. url is a full cache-busted URL on a
- *  successful upload/preset pick, or null after a successful removal. */
+ *  successful upload/preset pick, or null after a successful removal.
+ * @param {string | null} url */
 export function applyAvatarChange(url) {
   if (url === null) {
     profile.avatarUrl = null;

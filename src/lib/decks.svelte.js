@@ -19,10 +19,34 @@ import { setQA } from './session.svelte.js';
 import { bestScoreForDeck as bestScoreFromHistory } from './history.svelte.js';
 import { history } from './history.svelte.js';
 import { pushDeck, deleteDeckRemote } from './sync.js';
+import { errorMessage } from './errors.js';
+
+/** @typedef {import('./data.js').QAItem} QAItem */
+
+/**
+ * @typedef {object} Deck  A user deck (stored locally, synced as a `decks` row).
+ * @property {string} id  client-generated uuid
+ * @property {string} name
+ * @property {string} jlptLevel
+ * @property {QAItem[]} qa
+ * @property {string} updatedAt  ISO timestamp
+ */
+
+/**
+ * @typedef {object} DeckView  A deck as listed — a user deck or the built-in Sample deck.
+ * @property {string | null} id  null for the Sample deck
+ * @property {string} name
+ * @property {string} jlptLevel
+ * @property {QAItem[]} qa
+ * @property {string} [subtitle]
+ * @property {boolean} [builtin]
+ * @property {string} [updatedAt]
+ */
 
 /** Shared cap on questions per deck — applies to manual entry and file import alike. */
 export const MAX_DECK_QUESTIONS = 23;
 
+/** @type {Readonly<DeckView>} */
 const SAMPLE_DECK = Object.freeze({
   id: null,
   name: 'Sample deck',
@@ -32,6 +56,7 @@ const SAMPLE_DECK = Object.freeze({
   builtin: true,
 });
 
+/** @returns {Deck[]} */
 function loadList() {
   const raw = get(KEYS.DECKS);
   if (raw) {
@@ -43,17 +68,19 @@ function loadList() {
   return migrateLegacyDeck();
 }
 
-/** One-time migration from the pre-multi-deck single QA_DATA key. */
+/** One-time migration from the pre-multi-deck single QA_DATA key.
+ * @returns {Deck[]} */
 function migrateLegacyDeck() {
   const raw = get(KEYS.QA_DATA);
   if (!raw) return [];
   try {
     const qa = JSON.parse(raw);
     if (!Array.isArray(qa) || qa.length === 0) return [];
+    /** @type {Deck} */
     const deck = {
       id: get(KEYS.DECK_ID) || crypto.randomUUID(),
       name: 'My Deck',
-      jlptLevel: get(KEYS.JLPT_LEVEL),
+      jlptLevel: get(KEYS.JLPT_LEVEL) ?? 'N5',
       qa,
       updatedAt: new Date().toISOString(),
     };
@@ -61,11 +88,12 @@ function migrateLegacyDeck() {
     set(KEYS.ACTIVE_DECK_ID, deck.id);
     return [deck];
   } catch (e) {
-    console.error('legacy deck migration failed:', e.message || e);
+    console.error('legacy deck migration failed:', errorMessage(e));
     return [];
   }
 }
 
+/** @param {Deck[]} list */
 function persistList(list) {
   set(KEYS.DECKS, JSON.stringify(list));
 }
@@ -73,14 +101,17 @@ function persistList(list) {
 /** Reactive deck list + active pointer. list excludes the built-in Sample deck. */
 export const decks = $state({
   list: loadList(),
+  /** @type {string | null} */
   activeId: get(KEYS.ACTIVE_DECK_ID) || null,
 });
 
-/** All decks including the built-in Sample deck, for rendering. */
+/** All decks including the built-in Sample deck, for rendering.
+ * @returns {DeckView[]} */
 export function allDecks() {
   return [SAMPLE_DECK, ...decks.list];
 }
 
+/** @param {string | null} id @returns {DeckView | null} */
 function findDeck(id) {
   if (id === null) return SAMPLE_DECK;
   return decks.list.find((d) => d.id === id) || null;
@@ -93,12 +124,18 @@ export function loadActiveDeckIntoSession() {
   setQA(deck.qa, { isDefault: !!deck.builtin, deckId: deck.builtin ? null : deck.id, jlptLevel: deck.jlptLevel });
 }
 
-/** Import a freshly parsed Q&A file as a new deck, make it active, and sync it up. */
+/**
+ * Import a freshly parsed Q&A file as a new deck, make it active, and sync it up.
+ * @param {QAItem[]} qa
+ * @param {string | undefined} name  'My Deck' when blank
+ * @param {string} [jlptLevel]  defaults to the Settings level
+ */
 export function importDeck(qa, name, jlptLevel) {
+  /** @type {Deck} */
   const deck = {
     id: crypto.randomUUID(),
     name: name || 'My Deck',
-    jlptLevel: jlptLevel || get(KEYS.JLPT_LEVEL),
+    jlptLevel: jlptLevel || get(KEYS.JLPT_LEVEL) || 'N5',
     qa,
     updatedAt: new Date().toISOString(),
   };
@@ -108,12 +145,19 @@ export function importDeck(qa, name, jlptLevel) {
   return pushDeck(deck);
 }
 
-/** Create a deck from hand-typed questions. Same path as file import — see importDeck. */
+/** Create a deck from hand-typed questions. Same path as file import — see importDeck.
+ * @param {string | undefined} name  'My Deck' when blank
+ * @param {QAItem[]} qa
+ * @param {string} [jlptLevel] */
 export function createDeck(name, qa, jlptLevel) {
   return importDeck(qa, name, jlptLevel);
 }
 
-/** Update an existing deck's name/questions/level; reload the session if it's active, and re-sync. */
+/**
+ * Update an existing deck's name/questions/level; reload the session if it's active, and re-sync.
+ * @param {string} id
+ * @param {{ name?: string, qa: QAItem[], jlptLevel?: string }} changes
+ */
 export function updateDeck(id, { name, qa, jlptLevel }) {
   const idx = decks.list.findIndex((d) => d.id === id);
   if (idx === -1) return null;
@@ -132,7 +176,8 @@ export function updateDeck(id, { name, qa, jlptLevel }) {
   return pushDeck(updated);
 }
 
-/** Delete a deck, falling back to the Sample deck if it was active, and remove it from the cloud. */
+/** Delete a deck, falling back to the Sample deck if it was active, and remove it from the cloud.
+ * @param {string} id */
 export function deleteDeck(id) {
   decks.list = decks.list.filter((d) => d.id !== id);
   persistList(decks.list);
@@ -142,7 +187,8 @@ export function deleteDeck(id) {
   return deleteDeckRemote(id);
 }
 
-/** Switch the active deck and load its qa into the practice session. */
+/** Switch the active deck and load its qa into the practice session.
+ * @param {string | null} id  null for the Sample deck */
 export function setActiveDeck(id) {
   const deck = findDeck(id);
   if (!deck) return;
@@ -151,7 +197,8 @@ export function setActiveDeck(id) {
   setQA(deck.qa, { isDefault: !!deck.builtin, deckId: deck.builtin ? null : deck.id, jlptLevel: deck.jlptLevel });
 }
 
-/** Best score percentage recorded for this deck, or null if never played. */
+/** Best score percentage recorded for this deck, or null if never played.
+ * @param {string | null} id */
 export function bestScoreForDeck(id) {
   return bestScoreFromHistory(history.entries, id);
 }
@@ -161,6 +208,7 @@ export function bestScoreForDeck(id) {
  * (see sync.js's syncDecks) as the new local list. Called from app.js's
  * 'deck-list-synced' listener, decoupled the same way settings-synced /
  * deck-synced always have been.
+ * @param {Deck[]} mergedList
  */
 export function adoptSyncedDecks(mergedList) {
   decks.list = mergedList;

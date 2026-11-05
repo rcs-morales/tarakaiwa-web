@@ -45,8 +45,11 @@ export async function fetchQuotaUsage() {
   }
 }
 
+/** @typedef {{ chatRequests: number, whisperSeconds: number }} QuotaUsage  Today's shared-quota use. */
+
 /**
  * Format quota for display (e.g. "18/200 chat requests remaining").
+ * @param {QuotaUsage | null} usage
  */
 export function formatQuotaDisplay(usage) {
   if (!usage) return '';
@@ -58,6 +61,7 @@ export function formatQuotaDisplay(usage) {
 /**
  * Check if the user is on the shared quota and approaching the limit
  * (useful for warning UI).
+ * @param {QuotaUsage | null} usage
  */
 export function isQuotaLow(usage) {
   if (!usage) return false;

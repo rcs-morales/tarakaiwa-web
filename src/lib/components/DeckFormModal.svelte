@@ -9,7 +9,7 @@
   import { createDeck, updateDeck, deleteDeck, MAX_DECK_QUESTIONS } from '$lib/decks.svelte.js';
   import { showImportStatus } from '$lib/ui.js';
 
-  /** @type {{ deck?: { name: string, jlptLevel: string, qa: { q: string, a: string }[] } & Record<string, any>, onclose: () => void }} */
+  /** @type {{ deck?: import('$lib/decks.svelte.js').Deck, onclose: () => void }} */
   let { deck, onclose } = $props();
   const isEdit = !!deck;
 
@@ -19,7 +19,7 @@
   let rows = $state(
     deck ? deck.qa.map((r) => ({ q: r.q, a: r.a })) : [{ q: '', a: '' }, { q: '', a: '' }]
   );
-  let level = $state(deck?.jlptLevel ?? get(KEYS.JLPT_LEVEL));
+  let level = $state(deck?.jlptLevel ?? get(KEYS.JLPT_LEVEL) ?? 'N5');
   let saving = $state(false);
   let deleting = $state(false);
 
@@ -38,6 +38,7 @@
     if (canAddRow) rows.push({ q: '', a: '' });
   }
 
+  /** @param {number} i */
   function removeRow(i) {
     if (rows.length > 1) rows.splice(i, 1);
   }
@@ -46,7 +47,7 @@
     if (!canSave) return;
     saving = true;
     try {
-      if (isEdit) {
+      if (deck) {
         const pushed = await updateDeck(deck.id, { name: name.trim(), qa: validPairs, jlptLevel: level });
         showImportStatus(
           pushed === false
@@ -71,7 +72,7 @@
   }
 
   async function remove() {
-    if (!isEdit || deleting) return;
+    if (!deck || deleting) return;
     if (!confirm('Delete "' + deck.name + '"? This cannot be undone.')) return;
     deleting = true;
     try {

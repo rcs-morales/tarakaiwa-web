@@ -4,6 +4,10 @@
 
 /**
  * Build the grading prompt sent to Groq for answer evaluation.
+ * @param {string} level  JLPT level
+ * @param {string} question
+ * @param {string} expectedAnswer
+ * @param {string} transcript
  */
 export function getGradingPrompt(level, question, expectedAnswer, transcript) {
   return `You are grading a JLPT ${level} speaking answer.
@@ -61,7 +65,7 @@ export const TRANSLATION_SYSTEM_PROMPT = 'You are a Japanese-to-English translat
 /** System prompt for romanizing a Japanese answer (custom decks have no stored romaji). */
 export const ROMANIZATION_SYSTEM_PROMPT = 'You are a Japanese romanization tool for a JLPT speaking app. Convert the given Japanese text (kanji and/or kana) into Hepburn romaji, exactly as it would be pronounced. Return ONLY the romaji, nothing else — no quotes, no explanation.';
 
-/** System prompt for translating learner input into Japanese. */
+/** System prompt for translating learner input into Japanese. @param {string} sourceLang */
 export function getToJapaneseTranslationPrompt(sourceLang) {
   return `You are a Japanese language tutor helping students practice speaking. Translate the following text (which is in ${sourceLang}) into natural, conversational Japanese suitable for spoken practice. Use common kanji where appropriate.
 
