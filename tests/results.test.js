@@ -4,7 +4,7 @@ import { render } from '@testing-library/svelte';
 const { mockSession } = vi.hoisted(() => ({
   mockSession: { qa: [], current: 0, score: 0, results: [], isDefaultDeck: false },
 }));
-vi.mock('$lib/session.svelte.js', () => ({ session: mockSession }));
+vi.mock('#lib/session.svelte.js', () => ({ session: mockSession }));
 
 import Results from '../src/lib/components/Results.svelte';
 

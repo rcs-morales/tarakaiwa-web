@@ -1,7 +1,7 @@
 <script>
   // "Session Complete!" overlay shown when a practice session ends. State and
   // fade timing live in finalOverlay.svelte.js (opened by session.svelte.js).
-  import { finalOverlay, closeFinalOverlay } from '$lib/finalOverlay.svelte.js';
+  import { finalOverlay, closeFinalOverlay } from '#lib/finalOverlay.svelte.js';
 </script>
 
 <div

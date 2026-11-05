@@ -2,11 +2,11 @@
   // Decks tab (Phase 5d step 5) — pick which deck to practice, or import a
   // new one. Reads/writes the reactive multi-deck list in decks.svelte.js;
   // the import file input and its status line come from deckImport.svelte.js.
-  import { allDecks, decks, setActiveDeck, bestScoreForDeck } from '$lib/decks.svelte.js';
-  import { deckImport, deckFileInput, pickDeckFile } from '$lib/deckImport.svelte.js';
-  import { handleFileImport } from '$lib/import.js';
+  import { allDecks, decks, setActiveDeck, bestScoreForDeck } from '#lib/decks.svelte.js';
+  import { deckImport, deckFileInput, pickDeckFile } from '#lib/deckImport.svelte.js';
+  import { handleFileImport } from '#lib/import.js';
   import DeckFormModal from './DeckFormModal.svelte';
-  import { prefs, setShuffle } from '$lib/prefs.svelte.js';
+  import { prefs, setShuffle } from '#lib/prefs.svelte.js';
 
   const LEVEL_ORDER = ['N5', 'N4', 'N3'];
   const list = $derived(allDecks());
@@ -17,7 +17,7 @@
     })).filter((g) => g.decks.length > 0)
   );
   let showCreate = $state(false);
-  /** @type {import('$lib/decks.svelte.js').Deck | null} */
+  /** @type {import('#lib/decks.svelte.js').Deck | null} */
   let editingDeck = $state(null);
 </script>
 

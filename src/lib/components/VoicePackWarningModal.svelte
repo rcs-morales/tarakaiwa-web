@@ -4,7 +4,7 @@
   // the learner a heads-up about possible mid-session loading pauses instead
   // of letting them run into "Loading Cloud Voice…" delays as a surprise.
   // Reuses the app's global .modal/.modal-card chrome (see AvatarModal.svelte).
-  import { voicePackPrompt, answerVoicePackPrompt } from '$lib/voicePackPrompt.svelte.js';
+  import { voicePackPrompt, answerVoicePackPrompt } from '#lib/voicePackPrompt.svelte.js';
 
   const remaining = $derived(voicePackPrompt.total - voicePackPrompt.cached);
 </script>

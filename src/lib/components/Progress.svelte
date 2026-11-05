@@ -3,8 +3,8 @@
   // week's streak circles, an XP-per-day bar chart, and the badge shelf.
   // Everything derives reactively from session history; no new stores.
   import LevelCard from './LevelCard.svelte';
-  import { history } from '$lib/history.svelte.js';
-  import { computeWeek, computeBadges } from '$lib/gamification.svelte.js';
+  import { history } from '#lib/history.svelte.js';
+  import { computeWeek, computeBadges } from '#lib/gamification.svelte.js';
 
   const week = $derived(computeWeek(history.entries));
   const shelf = $derived(computeBadges(history.entries));

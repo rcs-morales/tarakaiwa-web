@@ -5,11 +5,11 @@
   // pre-filled from that deck and funneling through updateDeck/deleteDeck
   // instead. Reuses the global .modal / .modal-card chrome (see the
   // bug-report modal in BugReportModal.svelte).
-  import { get, KEYS } from '$lib/settings.js';
-  import { createDeck, updateDeck, deleteDeck, MAX_DECK_QUESTIONS } from '$lib/decks.svelte.js';
-  import { showImportStatus } from '$lib/ui.js';
+  import { get, KEYS } from '#lib/settings.js';
+  import { createDeck, updateDeck, deleteDeck, MAX_DECK_QUESTIONS } from '#lib/decks.svelte.js';
+  import { showImportStatus } from '#lib/ui.js';
 
-  /** @type {{ deck?: import('$lib/decks.svelte.js').Deck, onclose: () => void }} */
+  /** @type {{ deck?: import('#lib/decks.svelte.js').Deck, onclose: () => void }} */
   let { deck, onclose } = $props();
   const isEdit = !!deck;
 

@@ -5,17 +5,17 @@
   // Phase 5b functional steps — deck pick and optional sign-in. Everything is
   // optional — the app works with the sample deck, signed out, at N5.
   import { onMount } from 'svelte';
-  import { get, set, KEYS } from '$lib/settings.js';
-  import { session } from '$lib/session.svelte.js';
-  import { signInWithEmail, signInWithGoogle, onAuthChange, getCurrentUser } from '$lib/auth.js';
-  import { setTab } from '$lib/shell.svelte.js';
-  import { WHATS_NEW_VERSION } from '$lib/whatsNew.js';
-  import { setJlptLevel } from '$lib/prefs.svelte.js';
-  import { pickDeckFile } from '$lib/deckImport.svelte.js';
+  import { get, set, KEYS } from '#lib/settings.js';
+  import { session } from '#lib/session.svelte.js';
+  import { signInWithEmail, signInWithGoogle, onAuthChange, getCurrentUser } from '#lib/auth.js';
+  import { setTab } from '#lib/shell.svelte.js';
+  import { WHATS_NEW_VERSION } from '#lib/whatsNew.js';
+  import { setJlptLevel } from '#lib/prefs.svelte.js';
+  import { pickDeckFile } from '#lib/deckImport.svelte.js';
 
   let open = $state(false);
   let step = $state(1);
-  /** @type {import('$lib/auth.js').User | null} */
+  /** @type {import('#lib/auth.js').User | null} */
   let user = $state(null);
   let email = $state('');
   let authMsg = $state('');

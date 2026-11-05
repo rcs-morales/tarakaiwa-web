@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/svelte';
 import { fireEvent, waitFor } from '@testing-library/dom';
 import { tick } from 'svelte';
 
-vi.mock('$lib/avatarUpload.js', () => ({
+vi.mock('#lib/avatarUpload.js', () => ({
   uploadAvatar: vi.fn(),
   removeAvatar: vi.fn(),
   selectPresetAvatar: vi.fn(),
@@ -14,45 +14,45 @@ vi.mock('$lib/avatarUpload.js', () => ({
 }));
 
 // avatar.js loads the Live2D runtime at import (not available in jsdom).
-vi.mock('$lib/avatar.js', () => ({ initAvatar: vi.fn() }));
-vi.mock('$lib/tts.js', async (importOriginal) => ({
+vi.mock('#lib/avatar.js', () => ({ initAvatar: vi.fn() }));
+vi.mock('#lib/tts.js', async (importOriginal) => ({
   ...(await importOriginal()),
   startVoicevoxWarmup: vi.fn(),
   cancelVoicevoxWarmup: vi.fn(),
   getVoicePackStatus: vi.fn(async () => ({ cached: 3, total: 13 })),
   preloadAllVoicevoxAudio: vi.fn(),
 }));
-vi.mock('$lib/sync.js', async (importOriginal) => ({
+vi.mock('#lib/sync.js', async (importOriginal) => ({
   ...(await importOriginal()),
   deleteAllSessionResults: vi.fn(async () => false),
   onLogout: vi.fn(),
 }));
-vi.mock('$lib/auth.js', async (importOriginal) => ({
+vi.mock('#lib/auth.js', async (importOriginal) => ({
   ...(await importOriginal()),
   getCurrentUser: vi.fn(() => null),
   signInWithEmail: vi.fn(async () => ({ error: null })),
   signInWithGoogle: vi.fn(async () => ({ error: null })),
   signOut: vi.fn(async () => {}),
 }));
-vi.mock('$lib/quota.svelte.js', async (importOriginal) => ({
+vi.mock('#lib/quota.svelte.js', async (importOriginal) => ({
   ...(await importOriginal()),
   updateQuotaDisplay: vi.fn(async () => {}),
 }));
 
 import Settings from '../src/lib/components/Settings.svelte';
-import { initAvatar } from '$lib/avatar.js';
-import { preloadAllVoicevoxAudio } from '$lib/tts.js';
-import { deleteAllSessionResults } from '$lib/sync.js';
-import { getCurrentUser, signInWithEmail, signInWithGoogle, signOut } from '$lib/auth.js';
-import { onLogout } from '$lib/sync.js';
-import { quota, updateQuotaDisplay } from '$lib/quota.svelte.js';
+import { initAvatar } from '#lib/avatar.js';
+import { preloadAllVoicevoxAudio } from '#lib/tts.js';
+import { deleteAllSessionResults } from '#lib/sync.js';
+import { getCurrentUser, signInWithEmail, signInWithGoogle, signOut } from '#lib/auth.js';
+import { onLogout } from '#lib/sync.js';
+import { quota, updateQuotaDisplay } from '#lib/quota.svelte.js';
 import { apiKey, loadApiKey } from '../src/lib/apiKey.svelte.js';
 import { account } from '../src/lib/account.svelte.js';
 import { voicePack } from '../src/lib/voicePack.svelte.js';
 import { history, recordSession } from '../src/lib/history.svelte.js';
 import { initPrefs, prefs } from '../src/lib/prefs.svelte.js';
 import { get, KEYS } from '../src/lib/settings.js';
-import { uploadAvatar, removeAvatar } from '$lib/avatarUpload.js';
+import { uploadAvatar, removeAvatar } from '#lib/avatarUpload.js';
 import { profile } from '../src/lib/profile.svelte.js';
 
 describe('Settings screen', () => {

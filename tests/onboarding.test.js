@@ -4,12 +4,12 @@ import { fireEvent, waitFor } from '@testing-library/dom';
 
 // session.svelte.js drags in the whole practice stack (tts/stt/avatar) — stub
 // the state object the sheet reads. auth.js would construct a supabase client.
-vi.mock('$lib/session.svelte.js', () => ({
+vi.mock('#lib/session.svelte.js', () => ({
   session: { qa: [{ q: 'こんにちは', a: 'こんにちは' }], isDefaultDeck: true },
 }));
 
 const signInWithEmail = vi.fn(async () => ({ error: null }));
-vi.mock('$lib/auth.js', () => ({
+vi.mock('#lib/auth.js', () => ({
   signInWithEmail: (...args) => signInWithEmail(...args),
   signInWithGoogle: vi.fn(async () => ({ error: null })),
   onAuthChange: vi.fn(),

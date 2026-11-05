@@ -2,7 +2,7 @@
   // Bug report modal. The description and screenshot are cleared when it
   // closes, so it starts empty each time. IDs match the old markup so the
   // global #bug-message / .modal styles still apply.
-  import { bugReport, closeBugReport, submitBugReport } from '$lib/bugReport.svelte.js';
+  import { bugReport, closeBugReport, submitBugReport } from '#lib/bugReport.svelte.js';
 
   let message = $state('');
   /** @type {FileList | null} */

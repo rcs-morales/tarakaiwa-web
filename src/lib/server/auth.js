@@ -5,7 +5,7 @@
 //
 // Runs on the Cloudflare Workers runtime (Web APIs only — fetch, Request, etc.).
 
-/** @typedef {NonNullable<App.Platform['env']>} ServerEnv  Cloudflare bindings (see app.d.ts). */
+/** @typedef {typeof import('cloudflare:workers').env} ServerEnv  Cloudflare bindings (see app.d.ts). */
 
 /**
  * @param {Request} request

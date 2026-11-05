@@ -2,8 +2,8 @@
   // Level / XP card (Phase 5d) — the gamification headline shown on the Home
   // dashboard and (identically) on the Progress screen. Derives everything
   // from the reactive session history via the gamification module; no props.
-  import { history } from '$lib/history.svelte.js';
-  import { computeXP } from '$lib/gamification.svelte.js';
+  import { history } from '#lib/history.svelte.js';
+  import { computeXP } from '#lib/gamification.svelte.js';
 
   const xp = $derived(computeXP(history.entries));
   const pct = $derived(Math.round((xp.xpInLevel / xp.xpForLevel) * 100));

@@ -1,7 +1,7 @@
 <script>
   // Full-screen "Loading Cloud Voice…" card while a slow VOICEVOX fetch runs
   // (tts.js shows it after 2.5s). Styles are in public/assets/style.css.
-  import { voicevoxLoading } from '$lib/voicevoxLoading.svelte.js';
+  import { voicevoxLoading } from '#lib/voicevoxLoading.svelte.js';
 </script>
 
 {#if voicevoxLoading.pending > 0}

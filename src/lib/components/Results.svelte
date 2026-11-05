@@ -2,12 +2,12 @@
   // Results screen (Phase 5c) — renders reactively from session state,
   // replacing the old createElement builder in session.js. Shown when
   // practiceView.screen is 'results' (ui.js showResultsScreen).
-  import { session, restartApp } from '$lib/session.svelte.js';
-  import { practiceView } from '$lib/practiceView.svelte.js';
-  import { history } from '$lib/history.svelte.js';
-  import { computeDailyGoal, XP_PER_CORRECT, newlyEarnedBadges } from '$lib/gamification.svelte.js';
-  import { prefs } from '$lib/prefs.svelte.js';
-  import { openBugReport } from '$lib/bugReport.svelte.js';
+  import { session, restartApp } from '#lib/session.svelte.js';
+  import { practiceView } from '#lib/practiceView.svelte.js';
+  import { history } from '#lib/history.svelte.js';
+  import { computeDailyGoal, XP_PER_CORRECT, newlyEarnedBadges } from '#lib/gamification.svelte.js';
+  import { prefs } from '#lib/prefs.svelte.js';
+  import { openBugReport } from '#lib/bugReport.svelte.js';
 
   const total = $derived(session.results.length);
   // Badges that this session's history entry just unlocked (recordSession

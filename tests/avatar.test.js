@@ -5,7 +5,7 @@ import { flushSync } from 'svelte';
 // The real shim loads PIXI + Live2D (not available in jsdom); tests install a
 // fake PIXI global instead.
 vi.mock('../src/lib/live2d-shim.js', () => ({}));
-vi.mock('$lib/session.svelte.js', () => ({
+vi.mock('#lib/session.svelte.js', () => ({
   session: { qa: [], current: 0 },
   endSession: vi.fn(), finishRecording: vi.fn(), checkAnswer: vi.fn(), editTranscript: vi.fn(),
   saveEditedTranscript: vi.fn(), cancelEditTranscript: vi.fn(), rerecordAnswer: vi.fn(),

@@ -4,14 +4,14 @@
   // stats, AI access from the saved key and the signed-in user).
   import StatCard from './StatCard.svelte';
   import LevelCard from './LevelCard.svelte';
-  import { session, startPractice } from '$lib/session.svelte.js';
-  import { history, computeStats } from '$lib/history.svelte.js';
-  import { computeDailyGoal } from '$lib/gamification.svelte.js';
-  import { prefs } from '$lib/prefs.svelte.js';
-  import { openBugReport } from '$lib/bugReport.svelte.js';
-  import { apiKey } from '$lib/apiKey.svelte.js';
-  import { profile } from '$lib/profile.svelte.js';
-  import { practiceView } from '$lib/practiceView.svelte.js';
+  import { session, startPractice } from '#lib/session.svelte.js';
+  import { history, computeStats } from '#lib/history.svelte.js';
+  import { computeDailyGoal } from '#lib/gamification.svelte.js';
+  import { prefs } from '#lib/prefs.svelte.js';
+  import { openBugReport } from '#lib/bugReport.svelte.js';
+  import { apiKey } from '#lib/apiKey.svelte.js';
+  import { profile } from '#lib/profile.svelte.js';
+  import { practiceView } from '#lib/practiceView.svelte.js';
 
   const stats = $derived(computeStats(history.entries));
   const daily = $derived(computeDailyGoal(history.entries, prefs.dailyGoal));

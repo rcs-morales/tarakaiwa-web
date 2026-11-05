@@ -185,7 +185,7 @@ in `src/lib/server/quota.js` (defaults: 200 chat requests, 600 Whisper-seconds).
 ### Testing the proxy locally
 
 Under `npm run dev` / `npm run preview` the `/api/*` endpoints exist but have no
-Cloudflare env bindings (`platform.env`), so they return a clean 500 — a
+Cloudflare env bindings (read from `cloudflare:workers`), so they return a clean 500 — a
 signed-in user without a BYO key can't reach AI locally. To exercise the proxy
 with real bindings, run the built worker through Cloudflare's emulator:
 

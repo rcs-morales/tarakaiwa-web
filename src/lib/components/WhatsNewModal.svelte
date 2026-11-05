@@ -6,8 +6,8 @@
   // in the list is "new" to someone who just signed up. Reuses the app's
   // global .modal/.modal-card chrome (see AvatarModal.svelte for the same pattern).
   import { onMount } from 'svelte';
-  import { get, set, KEYS } from '$lib/settings.js';
-  import { WHATS_NEW_VERSION, WHATS_NEW_ITEMS } from '$lib/whatsNew.js';
+  import { get, set, KEYS } from '#lib/settings.js';
+  import { WHATS_NEW_VERSION, WHATS_NEW_ITEMS } from '#lib/whatsNew.js';
 
   let open = $state(false);
 

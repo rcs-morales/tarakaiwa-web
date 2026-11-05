@@ -3,8 +3,8 @@
   // panel. State and the ask flow live in assistant.svelte.js. IDs and classes
   // match the old hand-built markup so the global styles still apply.
   import { onMount, tick } from 'svelte';
-  import { assistant, askAssistant } from '$lib/assistant.svelte.js';
-  import { makeDraggable, makeResizable, positionPanelAboveButton } from '$lib/panel.js';
+  import { assistant, askAssistant } from '#lib/assistant.svelte.js';
+  import { makeDraggable, makeResizable, positionPanelAboveButton } from '#lib/panel.js';
 
   /** @type {HTMLButtonElement} */ let floatBtn;
   /** @type {HTMLDivElement} */ let panel;
