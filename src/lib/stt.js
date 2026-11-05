@@ -1,4 +1,4 @@
-import { setStatus, showTranscript, showBtn } from './ui.js';
+import { setStatus, showTranscript, showTranscriptIndicator, showBtn } from './ui.js';
 import { practiceView } from './practiceView.svelte.js';
 import { hasAIAccess } from './ai/index.js';
 import { getIsChecking } from './sessionFlags.js';
@@ -213,15 +213,7 @@ export async function startAIRecording(onError) {
     listening = true;
     setStatus('listening', '🤖 AI Recording… speak clearly then click Finish Recording');
 
-    const ct = document.getElementById('transcript-content');
-    const ph = document.getElementById('transcript-placeholder');
-    const box = document.getElementById('transcript-box');
-    if (ph) ph.classList.add('hidden');
-    if (ct) {
-      ct.classList.remove('hidden');
-      ct.innerHTML = '<div class="ai-recording-indicator"><div class="rec-dot"></div>Recording audio for AI transcription...</div>';
-    }
-    if (box) box.classList.add('active');
+    showTranscriptIndicator('recording');
 
     showBtn('btn-submit', true);
     showBtn('btn-rerecord', true);

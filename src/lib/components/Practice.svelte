@@ -1,10 +1,9 @@
 <script>
-  // In-session practice screen (Phase 5c, restyled 5d). The screen switch,
-  // status line, progress, control buttons and question card render from
-  // practiceView / session state. The transcript and result card are still
-  // filled in imperatively by id (session.svelte.js, ui.js, stt.js), and the
-  // Live2D canvas mounts into #avatar-container, which must never unmount
-  // (the screen hides with a class, never an {#if}).
+  // In-session practice screen (Phase 5c, restyled 5d). Everything renders
+  // from practiceView / session state: screen switch, status line, progress,
+  // control buttons, question card, transcript and result card. The Live2D
+  // canvas mounts into #avatar-container (avatar.js), which must never unmount
+  // — the screen hides with a class, never an {#if}.
   import { XP_PER_CORRECT } from '$lib/gamification.svelte.js';
   import { practiceView } from '$lib/practiceView.svelte.js';
   import {
@@ -26,6 +25,36 @@
   const romajiLabel = $derived(
     card.romaji.loading ? '⏳ Loading…' : card.romaji.open && card.romaji.ok ? '🔤 Hide Romaji' : '🔤 Romaji'
   );
+
+  const transcript = $derived(practiceView.answer.transcript);
+  const result = $derived(practiceView.answer.result);
+  const grade = $derived(result.grade);
+
+  /** Focus the edit box with the cursor at the end (Edit transcript). */
+  function focusAtEnd(/** @type {HTMLTextAreaElement} */ el) {
+    el.focus();
+    el.setSelectionRange(el.value.length, el.value.length);
+  }
+
+  /** AI breakdown category → tag colour. */
+  function breakdownTagClass(/** @type {string} */ category) {
+    const c = (category || '').toLowerCase();
+    if (c.includes('sentence')) return 'rich-tag-sentence-structure';
+    if (c.includes('word') || c.includes('vocab')) return 'rich-tag-word-choice';
+    if (c.includes('particle')) return 'rich-tag-particle';
+    if (c.includes('conjugation') || c.includes('tense')) return 'rich-tag-conjugation';
+    if (c.includes('completeness')) return 'rich-tag-sentence-structure';
+    return 'rich-tag-default';
+  }
+
+  /** Local grading hint category → tag colour (same buckets as the AI breakdown). */
+  function hintTagClass(/** @type {string} */ category) {
+    const c = (category || '').toLowerCase();
+    if (c.includes('completeness')) return 'rich-tag-sentence-structure';
+    if (c.includes('particle')) return 'rich-tag-particle';
+    if (c.includes('conjugation') || c.includes('tense')) return 'rich-tag-conjugation';
+    return 'rich-tag-default';
+  }
 
   /** Keyboard access for the span "links" (Enter / Space). */
   function activate(/** @type {KeyboardEvent} */ e, /** @type {() => void} */ fn) {
@@ -97,20 +126,83 @@
     <div id="target-answer-trans" class="trans-small">{card.target.translation}</div>
   </div>
 
-  <div class="transcript-box" id="transcript-box">
-    <span class="transcript-placeholder" id="transcript-placeholder">Your spoken answer will appear here (as
+  {#snippet transLineView(/** @type {import('$lib/practiceView.svelte.js').TransLine} */ line)}
+    {line.text}{#if line.linkUrl}{' '}<a href={line.linkUrl} target="_blank" rel="noopener" style="color: var(--teal); text-decoration: underline;">{line.linkText}</a>{/if}
+  {/snippet}
+
+  <div class="transcript-box" id="transcript-box" class:active={transcript.active}>
+    <span class="transcript-placeholder" id="transcript-placeholder" class:hidden={transcript.mode !== 'empty'}>Your spoken answer will appear here (as
       recognized)…</span>
-    <div id="transcript-content" class="hidden"></div>
+    <div id="transcript-content" class:hidden={transcript.mode === 'empty'}>
+      {#if transcript.mode === 'text'}
+        {transcript.text}
+      {:else if transcript.mode === 'recording'}
+        <div class="ai-recording-indicator"><div class="rec-dot"></div>Recording audio for AI transcription...</div>
+      {:else if transcript.mode === 'transcribing'}
+        <div class="ai-transcribing-indicator">Transcribing<span class="dots"></span></div>
+      {:else if transcript.mode === 'editing'}
+        <textarea id="transcript-edit-input" class="transcript-edit-input" bind:value={transcript.editText} use:focusAtEnd></textarea>
+      {:else if transcript.mode === 'checked'}
+        <div>{transcript.checked.heard}</div>
+        <div id="user-ans-trans" class="trans-small">{@render transLineView(transcript.checked.userTrans)}</div>
+        <div class="transcript-furigana">
+          <div>Checked (reading): {transcript.checked.reading}</div>
+        </div>
+      {/if}
+    </div>
   </div>
 
-  <div class="result-badge" id="result-badge">
-    <span class="icon" id="result-icon"></span>
+  <div class="result-badge {result.shown ? (result.correct ? 'correct' : 'wrong') : ''}" id="result-badge" class:hidden={!result.panel}>
+    <span class="icon" id="result-icon">{result.shown ? (result.correct ? '✅' : '❌') : ''}</span>
     <div class="result-badge-content">
       <span class="result-xp-pill">+{XP_PER_CORRECT} XP</span>
-      <div id="result-msg"></div>
-      <div class="answer-reveal" id="answer-reveal"></div>
-      <div id="answer-translation" class="ai-feedback-text practice-answer-translation"></div>
-      <div class="ai-feedback" id="ai-feedback"></div>
+      <div id="result-msg">{result.shown ? (result.correct ? '正解！ Correct!' : '不正解。 Incorrect.') : ''}</div>
+      <div class="answer-reveal" id="answer-reveal">
+        {#if result.shown}
+          <strong>{result.correct ? 'Expected answer: ' : 'Expected: '}</strong>{result.answer}
+          <div id="expected-ans-romaji" class="target-romaji">{result.romaji}</div>
+          <div id="expected-ans-trans" class="trans-small">{@render transLineView(result.expTrans)}</div>
+        {/if}
+      </div>
+      <div class="ai-feedback" id="ai-feedback">
+        {#if grade?.source === 'groq'}
+          {#if grade.general_feedback || grade.feedback}
+            <div class="ai-feedback-text">🤖 {grade.general_feedback || grade.feedback}</div>
+          {/if}
+          {#if (grade.breakdown || []).length > 0}
+            <div class="rich-feedback-section">
+              <div class="rich-feedback-header">Explanation</div>
+              {#each grade.breakdown as item}
+                <div class="rich-breakdown-card">
+                  <div class="rich-breakdown-top">
+                    <div class="rich-breakdown-changes">
+                      <span class="rich-breakdown-old">{item.original}</span> <span class="rich-breakdown-arrow">→</span> <span class="rich-breakdown-new">{item.corrected}</span>
+                    </div>
+                    <div class="rich-breakdown-tag {breakdownTagClass(item.category)}">{item.category || 'Feedback'}</div>
+                  </div>
+                  <div class="rich-breakdown-desc">{item.explanation}</div>
+                </div>
+              {/each}
+            </div>
+          {/if}
+        {:else if grade?.source === 'local'}
+          <div class="ai-feedback-text">⚙️ {grade.feedback} (AI unavailable — used local matching)</div>
+          {#if (grade.hints || []).length > 0}
+            <!-- The specific grammar/particle reasons the local checker found: same
+                 card styling as the AI breakdown, minus the original → corrected line. -->
+            <div class="rich-feedback-section">
+              {#each grade.hints as hint}
+                <div class="rich-breakdown-card">
+                  <div class="rich-breakdown-top">
+                    <div class="rich-breakdown-tag {hintTagClass(hint.category)}">{hint.category || 'Feedback'}</div>
+                  </div>
+                  <div class="rich-breakdown-desc">{hint.explanation}</div>
+                </div>
+              {/each}
+            </div>
+          {/if}
+        {/if}
+      </div>
     </div>
   </div>
 
@@ -210,12 +302,6 @@
   @keyframes hint-prompt-pulse {
     0%, 100% { opacity: 1; }
     50%      { opacity: 0.7; }
-  }
-
-  .practice-answer-translation {
-    font-style: normal;
-    opacity: 0.8;
-    margin-bottom: 4px;
   }
 
   .practice-ai-disclaimer {

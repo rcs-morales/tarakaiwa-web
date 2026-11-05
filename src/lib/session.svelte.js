@@ -1,7 +1,6 @@
 import {
-  setStatus, showTranscript, showCheckedTranscript,
+  setStatus, showTranscript, showTranscriptIndicator, showCheckedTranscript,
   showResult, showResultPanel, showBtn, showMicWarning,
-  showAnswerTranslation, updateCheckedTranslation,
   showPracticeScreen, showResultsScreen, showStartScreen
 } from './ui.js';
 import {
@@ -22,7 +21,7 @@ import {
 import { requestVoicePackConfirmation } from './voicePackPrompt.svelte.js';
 import { openFinalOverlay, scheduleFinalOverlayFade } from './finalOverlay.svelte.js';
 import { assistantHistory } from './assistant.svelte.js';
-import { practiceView, resetQuestionCard } from './practiceView.svelte.js';
+import { practiceView, resetQuestionCard, resetAnswerCard, transLine } from './practiceView.svelte.js';
 import {
   initRecognizer, startListening, abortRecognition,
   startAIRecording, stopAIRecording, getLiveTranscript,
@@ -140,11 +139,8 @@ export async function loadQuestion() {
   // Question text hidden, Translate/Romaji closed, no expected-answer box.
   resetQuestionCard();
 
-  showAnswerTranslation('');
-
-  document.getElementById('result-badge').className = 'result-badge';
+  resetAnswerCard(); // empty transcript, no result card
   showMicWarning(false);
-  showTranscript('');
   showBtn('btn-submit',   false);
   showBtn('btn-next',     false);
   showBtn('btn-rerecord', false);
@@ -442,12 +438,10 @@ export async function finishRecording() {
   let whisperFailReason = null;
   if (sttMode === 'ai' && hasAIAccess()) {
     setStatus('checking', '🤖 Transcribing audio…');
-    const ct = document.getElementById('transcript-content');
-    if (ct) ct.innerHTML = '<div class="ai-transcribing-indicator">Transcribing<span class="dots"></span></div>';
+    showTranscriptIndicator('transcribing');
 
     const audioBlob = await stopAIRecording();
     if (audioBlob) {
-      showTranscript('Transcribing…', true);
       const transcript = await transcribeWithWhisper(audioBlob, item.a);
       if (transcript) {
         setLiveTranscript(transcript);
@@ -504,19 +498,9 @@ export async function finishRecording() {
 // ─────────────────────────────────────────────
 
 export function editTranscript() {
-  const ct = document.getElementById('transcript-content');
-  const ph = document.getElementById('transcript-placeholder');
-  if (!ct) return;
-
-  const textarea = document.createElement('textarea');
-  textarea.id = 'transcript-edit-input';
-  textarea.className = 'transcript-edit-input';
-  textarea.value = getLiveTranscript();
-  ct.replaceChildren(textarea);
-  ct.classList.remove('hidden');
-  if (ph) ph.classList.add('hidden');
-  textarea.focus();
-  textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+  const t = practiceView.answer.transcript;
+  t.editText = getLiveTranscript();
+  t.mode = 'editing'; // Practice.svelte focuses the textarea, cursor at the end
 
   showBtn('btn-check', false);
   showBtn('btn-rerecord', false);
@@ -527,10 +511,10 @@ export function editTranscript() {
 }
 
 export function saveEditedTranscript() {
-  const textarea = /** @type {HTMLTextAreaElement} */ (document.getElementById('transcript-edit-input'));
-  if (!textarea) return;
+  const t = practiceView.answer.transcript;
+  if (t.mode !== 'editing') return;
 
-  const edited = textarea.value.trim();
+  const edited = t.editText.trim();
   if (!edited) {
     alert('Please enter your answer, or press Cancel to keep the original transcription.');
     return;
@@ -598,57 +582,51 @@ export async function checkAnswer() {
   // built-in Sample deck has one) and only fall back to an AI call for
   // decks that don't. Skipped entirely when the aid is toggled off, both to
   // respect the setting and to avoid burning API quota on a hidden element.
+  // Romaji and translations fill in below, some asynchronously; results that
+  // arrive after the learner has moved on are dropped.
+  const card = practiceView.answer;
+  const stillHere = () => session.qa[session.current] === item && practiceView.answer === card;
+  const googleUrl = (text) => `https://translate.google.com/?sl=ja&tl=en&text=${encodeURIComponent(text)}&op=translate`;
+
   if (get(KEYS.SHOW_ROMAJI) !== '0') {
     if (item.r) {
-      updateCheckedTranslation('expected-ans-romaji', item.r);
+      card.result.romaji = item.r;
     } else if (hasAIAccess()) {
-      updateCheckedTranslation('expected-ans-romaji', 'Loading romaji…');
+      card.result.romaji = 'Loading romaji…';
       getRomajiWithAI(item.a)
-        .then(romaji => updateCheckedTranslation('expected-ans-romaji', romaji || ''))
-        .catch(() => updateCheckedTranslation('expected-ans-romaji', ''));
+        .then(romaji => { if (stillHere()) card.result.romaji = romaji || ''; })
+        .catch(() => { if (stillHere()) card.result.romaji = ''; });
     }
   }
 
   if (get(KEYS.SHOW_EN_HINTS) !== '0') {
+    const checked = card.transcript.checked;
     if (hasAIAccess()) {
-      updateCheckedTranslation('user-ans-trans', 'Translating your answer...');
-      updateCheckedTranslation('expected-ans-trans', 'Translating expected answer...');
+      checked.userTrans = transLine('Translating your answer...');
+      card.result.expTrans = transLine('Translating expected answer...');
 
       (async () => {
         let userTrans = null;
         try {
           userTrans = await translateWithAI(raw, item.q);
         } catch (e) {}
-
-        if (userTrans) {
-          updateCheckedTranslation('user-ans-trans', 'You said: ' + userTrans);
-        } else {
-          const query = encodeURIComponent(raw);
-          const url = `https://translate.google.com/?sl=ja&tl=en&text=${query}&op=translate`;
-          const reasonText = translationFailureReasonText();
-          updateCheckedTranslation('user-ans-trans', `⚠️ ${reasonText || 'AI Translation failed.'} <a href="${url}" target="_blank" style="color: var(--teal); text-decoration: underline;">Translate on Google ↗</a>`);
-        }
+        if (!stillHere()) return;
+        checked.userTrans = userTrans
+          ? transLine('You said: ' + userTrans)
+          : transLine(`⚠️ ${translationFailureReasonText() || 'AI Translation failed.'}`, googleUrl(raw), 'Translate on Google ↗');
 
         let expTrans = null;
         try {
           expTrans = await translateWithAI(item.a, item.q);
         } catch (e) {}
-
-        if (expTrans) {
-          updateCheckedTranslation('expected-ans-trans', expTrans);
-        } else {
-          const expectedUrl = `https://translate.google.com/?sl=ja&tl=en&text=${encodeURIComponent(item.a)}&op=translate`;
-          const reasonText = translationFailureReasonText();
-          updateCheckedTranslation('expected-ans-trans', `⚠️ ${reasonText || 'AI Translation failed.'} <a href="${expectedUrl}" target="_blank" style="color: var(--teal); text-decoration: underline;">Translate on Google ↗</a>`);
-        }
+        if (!stillHere()) return;
+        card.result.expTrans = expTrans
+          ? transLine(expTrans)
+          : transLine(`⚠️ ${translationFailureReasonText() || 'AI Translation failed.'}`, googleUrl(item.a), 'Translate on Google ↗');
       })();
     } else {
-      const query = encodeURIComponent(raw);
-      const url = `https://translate.google.com/?sl=ja&tl=en&text=${query}&op=translate`;
-      updateCheckedTranslation('user-ans-trans', `🌐 <a href="${url}" target="_blank" style="color: var(--teal); text-decoration: underline;">Translate what you said on Google Translate ↗</a>`);
-
-      const expectedUrl = `https://translate.google.com/?sl=ja&tl=en&text=${encodeURIComponent(item.a)}&op=translate`;
-      updateCheckedTranslation('expected-ans-trans', `🌐 <a href="${expectedUrl}" target="_blank" style="color: var(--teal); text-decoration: underline;">Translate expected answer on Google Translate ↗</a>`);
+      checked.userTrans = transLine('🌐', googleUrl(raw), 'Translate what you said on Google Translate ↗');
+      card.result.expTrans = transLine('🌐', googleUrl(item.a), 'Translate expected answer on Google Translate ↗');
     }
   }
 
@@ -674,8 +652,7 @@ export async function rerecordAnswer() {
   await ensureMicAccess();
   abortRecognition();
   setLiveTranscript('');
-  document.getElementById('result-badge').className = 'result-badge';
-  showTranscript('');
+  resetAnswerCard();
   showBtn('btn-next',     false);
   showBtn('btn-rerecord', false);
   showBtn('btn-submit',   false);
