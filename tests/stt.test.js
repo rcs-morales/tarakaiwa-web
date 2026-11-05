@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as stt from '../src/lib/stt.js';
-import { transcribeWithWhisper } from '../src/lib/ai/whisper.js';
+import { transcribeWithWhisper, transcribeForTool } from '../src/lib/ai/whisper.js';
 import * as ui from '../src/lib/ui.js';
 import * as aiIndex from '../src/lib/ai/index.js';
 
@@ -183,5 +183,32 @@ describe('AI Whisper Integration Tests', () => {
     const blob = new Blob(['test-audio'], { type: 'audio/webm' });
     const result = await transcribeWithWhisper(blob);
     expect(result).toBeNull();
+  });
+});
+
+describe('transcribeForTool (Speak-in-Japanese tool)', () => {
+  const route = {
+    chatUrl: 'https://api.groq.com/openai/v1/chat/completions',
+    transcribeUrl: 'https://api.groq.com/openai/v1/audio/transcriptions',
+    headers: { Authorization: 'Bearer gsk_test' },
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    aiIndex.resolveAIRoute.mockReturnValue(route);
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ text: ' hola ' }) }));
+  });
+
+  it('passes the spoken language to Whisper when given', async () => {
+    const text = await transcribeForTool(new Blob(['x'], { type: 'audio/webm' }), 'es');
+    expect(text).toBe('hola');
+    const body = fetch.mock.calls[0][1].body;
+    expect(body.get('language')).toBe('es');
+    expect(body.get('model')).toBe('whisper-large-v3-turbo');
+  });
+
+  it('lets Whisper detect the language when none is given', async () => {
+    await transcribeForTool(new Blob(['x'], { type: 'audio/webm' }));
+    expect(fetch.mock.calls[0][1].body.has('language')).toBe(false);
   });
 });
