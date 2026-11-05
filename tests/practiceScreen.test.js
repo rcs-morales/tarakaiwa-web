@@ -13,7 +13,7 @@ const { mockSession, handlers } = vi.hoisted(() => {
     handlers: Object.fromEntries(names.map((n) => [n, vi.fn()])),
   };
 });
-vi.mock('$lib/session.svelte.js', () => ({ session: mockSession, ...handlers }));
+vi.mock('#lib/session.svelte.js', () => ({ session: mockSession, ...handlers }));
 
 import Practice from '../src/lib/components/Practice.svelte';
 import Results from '../src/lib/components/Results.svelte';

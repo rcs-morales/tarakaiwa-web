@@ -7,10 +7,10 @@
   import {
     translate, SOURCE_LANGUAGES, loadSourceLanguage, setSourceLanguage,
     translateAndSpeak, replayJapaneseAudio, toggleMic, closeTranslateTool,
-  } from '$lib/translate.svelte.js';
-  import { makeDraggable, makeResizable, positionPanelAboveButton } from '$lib/panel.js';
-  import { toFuriganaHtml } from '$lib/parser.js';
-  import { sanitizeHtml } from '$lib/sanitize.js';
+  } from '#lib/translate.svelte.js';
+  import { makeDraggable, makeResizable, positionPanelAboveButton } from '#lib/panel.js';
+  import { toFuriganaHtml } from '#lib/parser.js';
+  import { sanitizeHtml } from '#lib/sanitize.js';
 
   /** @type {HTMLButtonElement} */ let floatBtn;
   /** @type {HTMLDivElement} */ let panel;

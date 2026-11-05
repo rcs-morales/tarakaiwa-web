@@ -1,22 +1,22 @@
 <script>
   import { onMount } from 'svelte';
-  import { initApp } from '$lib/app.js';
-  import Shell from '$lib/components/Shell.svelte';
-  import Onboarding from '$lib/components/Onboarding.svelte';
-  import WhatsNewModal from '$lib/components/WhatsNewModal.svelte';
-  import VoicePackWarningModal from '$lib/components/VoicePackWarningModal.svelte';
-  import Dashboard from '$lib/components/Dashboard.svelte';
-  import Practice from '$lib/components/Practice.svelte';
-  import Results from '$lib/components/Results.svelte';
-  import Decks from '$lib/components/Decks.svelte';
-  import Progress from '$lib/components/Progress.svelte';
-  import Settings from '$lib/components/Settings.svelte';
-  import StudyAssistant from '$lib/components/StudyAssistant.svelte';
-  import TranslateTool from '$lib/components/TranslateTool.svelte';
-  import FinalScoreOverlay from '$lib/components/FinalScoreOverlay.svelte';
-  import BugReportModal from '$lib/components/BugReportModal.svelte';
-  import VoicevoxLoadingOverlay from '$lib/components/VoicevoxLoadingOverlay.svelte';
-  import { shell } from '$lib/shell.svelte.js';
+  import { initApp } from '#lib/app.js';
+  import Shell from '#lib/components/Shell.svelte';
+  import Onboarding from '#lib/components/Onboarding.svelte';
+  import WhatsNewModal from '#lib/components/WhatsNewModal.svelte';
+  import VoicePackWarningModal from '#lib/components/VoicePackWarningModal.svelte';
+  import Dashboard from '#lib/components/Dashboard.svelte';
+  import Practice from '#lib/components/Practice.svelte';
+  import Results from '#lib/components/Results.svelte';
+  import Decks from '#lib/components/Decks.svelte';
+  import Progress from '#lib/components/Progress.svelte';
+  import Settings from '#lib/components/Settings.svelte';
+  import StudyAssistant from '#lib/components/StudyAssistant.svelte';
+  import TranslateTool from '#lib/components/TranslateTool.svelte';
+  import FinalScoreOverlay from '#lib/components/FinalScoreOverlay.svelte';
+  import BugReportModal from '#lib/components/BugReportModal.svelte';
+  import VoicevoxLoadingOverlay from '#lib/components/VoicevoxLoadingOverlay.svelte';
+  import { shell } from '#lib/shell.svelte.js';
 
   onMount(initApp);
 </script>

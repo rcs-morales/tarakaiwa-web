@@ -4,12 +4,12 @@
   // The account menu shows who is signed in (profile.svelte.js) and the
   // shared-quota chip (quota.svelte.js); the theme toggle reads theme.svelte.js.
   import { onMount } from 'svelte';
-  import { shell, setTab, TABS } from '$lib/shell.svelte.js';
-  import { history, computeStats } from '$lib/history.svelte.js';
-  import { computeXP } from '$lib/gamification.svelte.js';
-  import { profile, DEFAULT_AVATAR, avatarSrc, watchProfile } from '$lib/profile.svelte.js';
-  import { quota, formatQuotaDisplay, isQuotaLow } from '$lib/quota.svelte.js';
-  import { theme, toggleTheme } from '$lib/theme.svelte.js';
+  import { shell, setTab, TABS } from '#lib/shell.svelte.js';
+  import { history, computeStats } from '#lib/history.svelte.js';
+  import { computeXP } from '#lib/gamification.svelte.js';
+  import { profile, DEFAULT_AVATAR, avatarSrc, watchProfile } from '#lib/profile.svelte.js';
+  import { quota, formatQuotaDisplay, isQuotaLow } from '#lib/quota.svelte.js';
+  import { theme, toggleTheme } from '#lib/theme.svelte.js';
 
   let { children } = $props();
 

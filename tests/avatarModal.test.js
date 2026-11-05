@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from '@testing-library/svelte';
 import { fireEvent, waitFor } from '@testing-library/dom';
 
-vi.mock('$lib/avatarUpload.js', () => ({
+vi.mock('#lib/avatarUpload.js', () => ({
   uploadAvatar: vi.fn(),
   removeAvatar: vi.fn(),
   selectPresetAvatar: vi.fn(),
@@ -13,7 +13,7 @@ vi.mock('$lib/avatarUpload.js', () => ({
 }));
 
 import AvatarModal from '../src/lib/components/AvatarModal.svelte';
-import { uploadAvatar, removeAvatar, selectPresetAvatar, AVATAR_PRESETS } from '$lib/avatarUpload.js';
+import { uploadAvatar, removeAvatar, selectPresetAvatar, AVATAR_PRESETS } from '#lib/avatarUpload.js';
 
 const DEFAULT_AVATAR = '/assets/zundamon.png';
 

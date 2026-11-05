@@ -6,23 +6,23 @@
   // prefs.svelte.js / voicePack.svelte.js (preferences), account.svelte.js +
   // profile.user (Account & Sync), apiKey.svelte.js and quota.svelte.js
   // (AI grading).
-  import { history, resetProgress } from '$lib/history.svelte.js';
-  import { computeXP } from '$lib/gamification.svelte.js';
+  import { history, resetProgress } from '#lib/history.svelte.js';
+  import { computeXP } from '#lib/gamification.svelte.js';
   import {
     prefs, setAid, setDailyGoal, DAILY_GOAL_MIN, DAILY_GOAL_MAX,
     setJlptLevel, setGradingModel, setSttMode, setTtsMode, setVoicevoxSpeaker,
     setAvatarModel, setTtsSpeed,
-  } from '$lib/prefs.svelte.js';
+  } from '#lib/prefs.svelte.js';
   import {
     voicePack, warmVoicesIfNeeded, refreshVoicePackStatus, downloadVoicePack, clearVoicePackCache,
-  } from '$lib/voicePack.svelte.js';
-  import { initAvatar } from '$lib/avatar.js';
-  import { deleteAllSessionResults } from '$lib/sync.js';
-  import { getCurrentUser } from '$lib/auth.js';
-  import { profile, DEFAULT_AVATAR, avatarSrc, applyAvatarChange } from '$lib/profile.svelte.js';
-  import { account, sendMagicLink, continueWithGoogle, signOutAccount } from '$lib/account.svelte.js';
-  import { apiKey, saveApiKey, testApiKey, clearApiKey } from '$lib/apiKey.svelte.js';
-  import { quota, quotaMeter, CHAT_DAILY_LIMIT, WHISPER_DAILY_LIMIT } from '$lib/quota.svelte.js';
+  } from '#lib/voicePack.svelte.js';
+  import { initAvatar } from '#lib/avatar.js';
+  import { deleteAllSessionResults } from '#lib/sync.js';
+  import { getCurrentUser } from '#lib/auth.js';
+  import { profile, DEFAULT_AVATAR, avatarSrc, applyAvatarChange } from '#lib/profile.svelte.js';
+  import { account, sendMagicLink, continueWithGoogle, signOutAccount } from '#lib/account.svelte.js';
+  import { apiKey, saveApiKey, testApiKey, clearApiKey } from '#lib/apiKey.svelte.js';
+  import { quota, quotaMeter, CHAT_DAILY_LIMIT, WHISPER_DAILY_LIMIT } from '#lib/quota.svelte.js';
   import AvatarModal from './AvatarModal.svelte';
 
   const xp = $derived(computeXP(history.entries));
@@ -109,7 +109,7 @@
       : { message: '✅ All progress has been reset.', type: 'success' };
   }
 
-  /** @type {{ name: import('$lib/prefs.svelte.js').AidName, jp: string, en: string, hint: string }[]} */
+  /** @type {{ name: import('#lib/prefs.svelte.js').AidName, jp: string, en: string, hint: string }[]} */
   const AIDS = [
     { name: 'furigana', jp: 'ふりがな', en: 'Furigana', hint: 'Kana readings above kanji' },
     { name: 'romaji', jp: 'ローマ字', en: 'Romaji', hint: 'Latin letters under the expected answer' },

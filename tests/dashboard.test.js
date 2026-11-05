@@ -6,7 +6,7 @@ const { mockSession, startPractice } = vi.hoisted(() => ({
   startPractice: vi.fn(),
 }));
 
-vi.mock('$lib/session.svelte.js', () => ({
+vi.mock('#lib/session.svelte.js', () => ({
   session: mockSession,
   startPractice,
 }));

@@ -3,19 +3,19 @@ import { render, screen } from '@testing-library/svelte';
 import { fireEvent, waitFor } from '@testing-library/dom';
 
 const mockGetCurrentUser = vi.fn(() => null);
-vi.mock('$lib/auth.js', () => ({
+vi.mock('#lib/auth.js', () => ({
   onAuthChange: vi.fn(),
   getCurrentUser: (...args) => mockGetCurrentUser(...args),
 }));
 
-vi.mock('$lib/avatarUpload.js', () => ({
+vi.mock('#lib/avatarUpload.js', () => ({
   fetchAvatarUrl: vi.fn(async () => null),
 }));
 
 import Shell from '../src/lib/components/Shell.svelte';
 import { shell, setTab, TABS } from '../src/lib/shell.svelte.js';
 import { quota } from '../src/lib/quota.svelte.js';
-import { fetchAvatarUrl } from '$lib/avatarUpload.js';
+import { fetchAvatarUrl } from '#lib/avatarUpload.js';
 
 describe('App Shell', () => {
   beforeEach(() => {

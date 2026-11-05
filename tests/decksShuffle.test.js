@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, fireEvent } from '@testing-library/svelte';
 // avatar.js loads the Live2D runtime at import (not available in jsdom).
-vi.mock('$lib/avatar.js', () => ({ initAvatar: vi.fn() }));
+vi.mock('#lib/avatar.js', () => ({ initAvatar: vi.fn() }));
 
 import Decks from '../src/lib/components/Decks.svelte';
 import { initPrefs } from '../src/lib/prefs.svelte.js';

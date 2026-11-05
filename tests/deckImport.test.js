@@ -2,13 +2,13 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, fireEvent } from '@testing-library/svelte';
 import { flushSync } from 'svelte';
 // avatar.js loads the Live2D runtime at import (not available in jsdom).
-vi.mock('$lib/avatar.js', () => ({ initAvatar: vi.fn() }));
-vi.mock('$lib/import.js', () => ({ handleFileImport: vi.fn() }));
+vi.mock('#lib/avatar.js', () => ({ initAvatar: vi.fn() }));
+vi.mock('#lib/import.js', () => ({ handleFileImport: vi.fn() }));
 
 import Decks from '../src/lib/components/Decks.svelte';
 import { deckImport, showImportStatus, pickDeckFile } from '../src/lib/deckImport.svelte.js';
 import { showImportStatus as fromUi } from '../src/lib/ui.js';
-import { handleFileImport } from '$lib/import.js';
+import { handleFileImport } from '#lib/import.js';
 
 describe('deck import status', () => {
   beforeEach(() => {

@@ -5,14 +5,14 @@
   // frame renders from avatarView: the VOICEVOX image here, the Live2D canvas
   // mounted by avatar.js into the canvas host, which must never unmount — the
   // screen hides with a class, never an {#if}.
-  import { XP_PER_CORRECT } from '$lib/gamification.svelte.js';
-  import { practiceView } from '$lib/practiceView.svelte.js';
-  import { avatarView, avatarCanvasHost, DEFAULT_VOICEVOX_CHARACTER } from '$lib/avatarView.svelte.js';
+  import { XP_PER_CORRECT } from '#lib/gamification.svelte.js';
+  import { practiceView } from '#lib/practiceView.svelte.js';
+  import { avatarView, avatarCanvasHost, DEFAULT_VOICEVOX_CHARACTER } from '#lib/avatarView.svelte.js';
   import {
     session, endSession, finishRecording, checkAnswer, editTranscript, saveEditedTranscript,
     cancelEditTranscript, rerecordAnswer, nextQuestion, skipQuestion, revealAnswerHint,
     toggleQuestionText, translateQuestion, getQuestionRomaji,
-  } from '$lib/session.svelte.js';
+  } from '#lib/session.svelte.js';
 
   const total = $derived(session.qa.length);
   const progressPct = $derived(total ? (session.current / total) * 100 : 0);
@@ -147,7 +147,7 @@
     <div id="target-answer-trans" class="trans-small">{card.target.translation}</div>
   </div>
 
-  {#snippet transLineView(/** @type {import('$lib/practiceView.svelte.js').TransLine} */ line)}
+  {#snippet transLineView(/** @type {import('#lib/practiceView.svelte.js').TransLine} */ line)}
     {line.text}{#if line.linkUrl}{' '}<a href={line.linkUrl} target="_blank" rel="noopener" style="color: var(--teal); text-decoration: underline;">{line.linkText}</a>{/if}
   {/snippet}
 

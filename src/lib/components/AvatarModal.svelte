@@ -4,8 +4,8 @@
   // via onchange (new URL string, or null after a removal) rather than
   // reaching into Settings' own state directly. Reuses the app's global
   // .modal/.modal-card chrome (see DeckFormModal.svelte for the same pattern).
-  import { uploadAvatar, removeAvatar, selectPresetAvatar, AVATAR_PRESETS } from '$lib/avatarUpload.js';
-  import { errorMessage } from '$lib/errors.js';
+  import { uploadAvatar, removeAvatar, selectPresetAvatar, AVATAR_PRESETS } from '#lib/avatarUpload.js';
+  import { errorMessage } from '#lib/errors.js';
 
   /**
    * @type {{
