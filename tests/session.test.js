@@ -127,7 +127,7 @@ describe('Session Flow Integration Tests', () => {
 
   it('should start practice and load the first question', async () => {
     vi.spyOn(Math, 'random').mockReturnValue(0.999999); // Disable shuffle
-    settings.get.mockReturnValue('browser');
+    vi.mocked(settings.get).mockReturnValue('browser');
     await startPractice();
 
     expect(ui.showPracticeScreen).toHaveBeenCalled();
@@ -139,17 +139,18 @@ describe('Session Flow Integration Tests', () => {
 
   it('requests microphone access before Voicevox preloading in practice startup', async () => {
     vi.spyOn(Math, 'random').mockReturnValue(0.999999);
-    settings.get.mockImplementation((key) => key === 'tts_mode' ? 'voicevox' : 'browser');
+    vi.mocked(settings.get).mockImplementation((key) => key === 'tts_mode' ? 'voicevox' : 'browser');
 
     const order = [];
-    stt.ensureMicAccess.mockImplementation(async () => {
+    vi.mocked(stt.ensureMicAccess).mockImplementation(async () => {
       order.push('mic');
       return true;
     });
     // Startup warms the Voicevox cache in the background via startVoicevoxWarmup
     // (formerly preloadAllVoicevoxAudio); it must run after mic access is requested.
-    tts.startVoicevoxWarmup.mockImplementation(() => {
+    vi.mocked(tts.startVoicevoxWarmup, { partial: true }).mockImplementation(() => {
       order.push('preload');
+      return { cancelled: false };
     });
 
     await startPractice();
@@ -176,7 +177,7 @@ describe('Session Flow Integration Tests', () => {
     setScore(0);
     setResults([]);
 
-    ai.gradeWithAI.mockResolvedValue({
+    vi.mocked(ai.gradeWithAI).mockResolvedValue({
       correct: true,
       score: 100,
       general_feedback: 'Perfect!',
@@ -199,7 +200,7 @@ describe('Session Flow Integration Tests', () => {
     setScore(0);
     setResults([]);
 
-    ai.gradeWithAI.mockResolvedValue({
+    vi.mocked(ai.gradeWithAI).mockResolvedValue({
       correct: true,
       score: 100,
       general_feedback: 'Perfect!',
@@ -289,9 +290,9 @@ describe('Question card', () => {
     setQA(QA.map((x) => ({ ...x })));
     setCurrent(0);
     resetQuestionCard();
-    ai.hasAIAccess.mockReturnValue(true);
-    ai.getLastTranslationErrorReason.mockReturnValue(null);
-    settings.get.mockReturnValue(null);
+    vi.mocked(ai.hasAIAccess).mockReturnValue(true);
+    vi.mocked(ai.getLastTranslationErrorReason).mockReturnValue(null);
+    vi.mocked(settings.get).mockReturnValue(null);
   });
 
   /** Move to the next question the way loadQuestion does for the card. */
@@ -310,7 +311,7 @@ describe('Question card', () => {
   });
 
   it('translates the question, toggles it, and reuses the cached result', async () => {
-    ai.translateWithAI.mockResolvedValue('What is your name?');
+    vi.mocked(ai.translateWithAI).mockResolvedValue('What is your name?');
     setQA([{ q: 'お名前は？', a: 'A' }]);
 
     await translateQuestion();
@@ -325,7 +326,7 @@ describe('Question card', () => {
   });
 
   it('offers a Google Translate link without AI access', async () => {
-    ai.hasAIAccess.mockReturnValue(false);
+    vi.mocked(ai.hasAIAccess).mockReturnValue(false);
     setQA([{ q: 'お元気ですか', a: 'A' }]);
     await translateQuestion();
     const tr = practiceView.question.translate;
@@ -335,8 +336,8 @@ describe('Question card', () => {
   });
 
   it('explains why a translation failed', async () => {
-    ai.translateWithAI.mockResolvedValue(null);
-    ai.getLastTranslationErrorReason.mockReturnValue('RATE_LIMIT');
+    vi.mocked(ai.translateWithAI).mockResolvedValue(null);
+    vi.mocked(ai.getLastTranslationErrorReason).mockReturnValue('RATE_LIMIT');
     setQA([{ q: 'Q-fail', a: 'A' }]);
     await translateQuestion();
     expect(practiceView.question.translate).toMatchObject({ open: true, ok: false });
@@ -344,8 +345,8 @@ describe('Question card', () => {
   });
 
   it('drops a translation that arrives after moving to the next question', async () => {
-    let resolve;
-    ai.translateWithAI.mockImplementation(() => new Promise((r) => { resolve = r; }));
+    /** @type {any} */ let resolve;
+    vi.mocked(ai.translateWithAI).mockImplementation(() => new Promise((r) => { resolve = r; }));
     setQA([{ q: 'Q-slow-1', a: 'A1' }, { q: 'Q-slow-2', a: 'A2' }]);
 
     const pending = translateQuestion();
@@ -358,15 +359,15 @@ describe('Question card', () => {
   });
 
   it('gets romaji, and drops a late romaji after moving on', async () => {
-    ai.getRomajiWithAI.mockResolvedValueOnce('onamae wa');
+    vi.mocked(ai.getRomajiWithAI).mockResolvedValueOnce('onamae wa');
     setQA([{ q: 'Q-r1', a: 'A1' }, { q: 'Q-r2', a: 'A2' }]);
     await getQuestionRomaji();
     expect(practiceView.question.romaji).toMatchObject({ open: true, ok: true, text: 'onamae wa' });
 
     resetQuestionCard();
     setQA([{ q: 'Q-r3', a: 'A1' }, { q: 'Q-r4', a: 'A2' }]);
-    let resolve;
-    ai.getRomajiWithAI.mockImplementation(() => new Promise((r) => { resolve = r; }));
+    /** @type {any} */ let resolve;
+    vi.mocked(ai.getRomajiWithAI).mockImplementation(() => new Promise((r) => { resolve = r; }));
     const pending = getQuestionRomaji();
     moveOn();
     resolve('late romaji');
@@ -376,7 +377,7 @@ describe('Question card', () => {
 
   it('reveals the answer with the deck romaji and an AI translation', async () => {
     setCurrent(1); // Q2 has stored romaji
-    ai.translateWithAI.mockResolvedValue('Answer two');
+    vi.mocked(ai.translateWithAI).mockResolvedValue('Answer two');
     revealAnswerHint();
     const t = practiceView.question.target;
     expect(t).toMatchObject({ visible: true, kind: 'hint', answer: 'A2', romaji: 'a ni', translation: 'Translating…' });
@@ -385,8 +386,8 @@ describe('Question card', () => {
   });
 
   it('does not let a late hint translation land on the next question', async () => {
-    let resolve;
-    ai.translateWithAI.mockImplementation(() => new Promise((r) => { resolve = r; }));
+    /** @type {any} */ let resolve;
+    vi.mocked(ai.translateWithAI).mockImplementation(() => new Promise((r) => { resolve = r; }));
     revealAnswerHint(); // Q1
     const old = practiceView.question.target;
     moveOn();
@@ -405,16 +406,16 @@ describe('Answer card (transcript + result)', () => {
     setCurrent(0);
     setResults([]);
     resetAnswerCard();
-    flags.getIsChecking.mockReturnValue(false);
-    ai.hasAIAccess.mockReturnValue(true);
-    ai.getLastTranslationErrorReason.mockReturnValue(null);
-    ai.gradeWithAI.mockResolvedValue({ correct: true, score: 100, general_feedback: 'ok', source: 'groq' });
-    settings.get.mockReturnValue(null);
-    stt.getLiveTranscript.mockReturnValue('A1');
+    vi.mocked(flags.getIsChecking).mockReturnValue(false);
+    vi.mocked(ai.hasAIAccess).mockReturnValue(true);
+    vi.mocked(ai.getLastTranslationErrorReason).mockReturnValue(null);
+    vi.mocked(ai.gradeWithAI, { partial: true }).mockResolvedValue({ correct: true, score: 100, general_feedback: 'ok', source: 'groq' });
+    vi.mocked(settings.get).mockReturnValue(null);
+    vi.mocked(stt.getLiveTranscript).mockReturnValue('A1');
   });
 
   it('edits the transcript: Save uses the edited text', () => {
-    stt.getLiveTranscript.mockReturnValue('えーわん');
+    vi.mocked(stt.getLiveTranscript).mockReturnValue('えーわん');
     editTranscript();
     expect(practiceView.answer.transcript).toMatchObject({ mode: 'editing', editText: 'えーわん' });
     expect(ui.showBtn).toHaveBeenCalledWith('btn-save-edit', true);
@@ -432,7 +433,7 @@ describe('Answer card (transcript + result)', () => {
     const alert = vi.fn();
     globalThis.alert = alert;
     try {
-      stt.getLiveTranscript.mockReturnValue('original');
+      vi.mocked(stt.getLiveTranscript).mockReturnValue('original');
       editTranscript();
       practiceView.answer.transcript.editText = '   ';
       saveEditedTranscript();
@@ -447,18 +448,18 @@ describe('Answer card (transcript + result)', () => {
   });
 
   it('fills the translation lines after Check Answer', async () => {
-    ai.translateWithAI.mockImplementation(async (text) => (text === 'A1' ? 'Answer one' : 'You said one'));
-    stt.getLiveTranscript.mockReturnValue('heard');
+    vi.mocked(ai.translateWithAI).mockImplementation(async (text) => (text === 'A1' ? 'Answer one' : 'You said one'));
+    vi.mocked(stt.getLiveTranscript).mockReturnValue('heard');
     await checkAnswer();
     await vi.waitFor(() => expect(practiceView.answer.result.expTrans.text).toBe('Answer one'));
     expect(practiceView.answer.transcript.checked.userTrans.text).toBe('You said: You said one');
   });
 
   it('offers Google Translate links without AI access', async () => {
-    ai.hasAIAccess.mockReturnValue(false);
-    ai.isCorrectLocal.mockResolvedValue({ correct: false, source: 'local', feedback: 'no', hints: [] });
-    ai.gradeWithAI.mockResolvedValue(null);
-    stt.getLiveTranscript.mockReturnValue('こんにちは');
+    vi.mocked(ai.hasAIAccess).mockReturnValue(false);
+    vi.mocked(ai.isCorrectLocal, { partial: true }).mockResolvedValue({ correct: false, source: 'local', feedback: 'no', hints: [] });
+    vi.mocked(ai.gradeWithAI).mockResolvedValue(null);
+    vi.mocked(stt.getLiveTranscript).mockReturnValue('こんにちは');
     await checkAnswer();
     const user = practiceView.answer.transcript.checked.userTrans;
     expect(user.linkText).toBe('Translate what you said on Google Translate ↗');
@@ -467,8 +468,8 @@ describe('Answer card (transcript + result)', () => {
   });
 
   it('drops translations that arrive after moving to the next question', async () => {
-    let resolveUser;
-    ai.translateWithAI.mockImplementation(() => new Promise((r) => { resolveUser = r; }));
+    /** @type {any} */ let resolveUser;
+    vi.mocked(ai.translateWithAI).mockImplementation(() => new Promise((r) => { resolveUser = r; }));
     await checkAnswer();
     const oldCard = practiceView.answer;
     // learner moves on: loadQuestion resets the card for Q2

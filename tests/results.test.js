@@ -7,6 +7,7 @@ const { mockSession } = vi.hoisted(() => ({
 vi.mock('#lib/session.svelte.js', () => ({ session: mockSession }));
 
 import Results from '../src/lib/components/Results.svelte';
+import { q } from './helpers.js';
 
 describe('Results screen', () => {
   beforeEach(() => {
@@ -24,7 +25,7 @@ describe('Results screen', () => {
     const { container } = render(Results);
     // Phase 5d score card shows the percentage as the hero, with "N / total correct" beneath.
     expect(container.querySelector('#score-display').textContent).toBe('50%');
-    expect(container.querySelector('#score-bar').style.width).toBe('50%');
+    expect(q(container, '#score-bar').style.width).toBe('50%');
     expect(container.textContent).toContain('1 / 2 correct');
     expect(container.textContent).toContain('Good effort');
 

@@ -16,6 +16,7 @@ import { history, recordSession } from '../src/lib/history.svelte.js';
 import { apiKey } from '../src/lib/apiKey.svelte.js';
 import { profile } from '../src/lib/profile.svelte.js';
 import { tick } from 'svelte';
+import { q } from './helpers.js';
 
 describe('Practice dashboard', () => {
   beforeEach(() => {
@@ -28,7 +29,7 @@ describe('Practice dashboard', () => {
 
   it('disables the start button when no deck is loaded', () => {
     const { container } = render(Dashboard);
-    const btn = container.querySelector('#btn-start-practice');
+    const btn = q(container, '#btn-start-practice');
     expect(btn.disabled).toBe(true);
     expect(btn.textContent).toContain('Import a deck');
   });
@@ -38,7 +39,7 @@ describe('Practice dashboard', () => {
     mockSession.isDefaultDeck = true;
     const { container } = render(Dashboard);
 
-    const btn = container.querySelector('#btn-start-practice');
+    const btn = q(container, '#btn-start-practice');
     expect(btn.disabled).toBe(false);
     expect(container.textContent).toContain('Sample deck · 1 questions');
 
@@ -85,14 +86,14 @@ describe('Practice dashboard', () => {
     });
 
     it('is active when signed in without a key', () => {
-      profile.user = { id: 'u1' };
+      profile.user = /** @type {any} */ ({ id: 'u1' });
       const { container } = render(Dashboard);
       expect(container.querySelector('#ai-status-text').textContent).toBe('Active (signed in)');
       expect(container.querySelector('#ai-status-chip').classList.contains('active')).toBe(true);
     });
 
     it('prefers the saved key, and follows it being cleared', async () => {
-      profile.user = { id: 'u1' };
+      profile.user = /** @type {any} */ ({ id: 'u1' });
       apiKey.saved = 'gsk_x';
       const { container } = render(Dashboard);
       expect(container.querySelector('#ai-status-text').textContent).toBe('Groq Active');

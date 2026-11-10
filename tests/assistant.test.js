@@ -3,7 +3,7 @@ import { askStudyAssistant, translateToJapaneseWithAI } from '../src/lib/ai/inde
 import { askAssistant, assistant, assistantHistory, formatAssistantReply } from '../src/lib/assistant.svelte.js';
 
 vi.mock('../src/lib/ai/index.js', async (importOriginal) => {
-  const actual = await importOriginal();
+  const actual = /** @type {object} */ (await importOriginal());
   return {
     ...actual,
     askStudyAssistant: vi.fn(),
@@ -103,7 +103,7 @@ describe('askStudyAssistant Unit Tests', () => {
 
     await realAskStudyAssistant('How are you?', history);
 
-    const callBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+    const callBody = JSON.parse(/** @type {any[]} */ (mockFetch.mock.calls[0])[1].body);
     expect(callBody.messages).toHaveLength(4);
     expect(callBody.messages[0].role).toBe('system');
     expect(callBody.messages[1]).toEqual(history[0]);
@@ -186,7 +186,7 @@ describe('AI Assistant chat flow', () => {
   });
 
   it('is busy while waiting and ignores a second question meanwhile', async () => {
-    let resolve;
+    /** @type {any} */ let resolve;
     vi.mocked(askStudyAssistant).mockImplementation(() => new Promise((r) => { resolve = r; }));
 
     const pending = askAssistant('First');

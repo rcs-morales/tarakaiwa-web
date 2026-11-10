@@ -14,13 +14,13 @@ describe('translateToJapaneseWithAI Unit Tests', () => {
     const mod = await vi.importActual('../src/lib/ai/studyAssistant.js');
     realTranslateToJapanese = mod.translateToJapaneseWithAI;
     vi.restoreAllMocks();
-    vi.stubGlobal('localStorage', {
+    vi.stubGlobal('localStorage', /** @type {any} */ ({
       store: {},
       getItem(key) { return this.store[key] || null; },
       setItem(key, value) { this.store[key] = value.toString(); },
       removeItem(key) { delete this.store[key]; },
       clear() { this.store = {}; },
-    });
+    }));
   });
 
   it('returns Japanese text on success', async () => {
@@ -69,7 +69,7 @@ describe('translateToJapaneseWithAI Unit Tests', () => {
 });
 
 vi.mock('../src/lib/ai/index.js', async (importOriginal) => {
-  const actual = await importOriginal();
+  const actual = /** @type {object} */ (await importOriginal());
   return {
     ...actual,
     translateToJapaneseWithAI: vi.fn(),
@@ -197,6 +197,7 @@ describe('Translate tool mic', () => {
 
   it('uses browser speech recognition when available', async () => {
     class MockSpeechRecognition {
+      /** @type {any} */ onstart; /** @type {any} */ onresult; /** @type {any} */ onend; /** @type {any} */ lang;
       start() {
         this.onstart?.();
         this.onresult?.({ results: [{ 0: { transcript: 'Good morning' }, isFinal: true }] });
@@ -216,6 +217,7 @@ describe('Translate tool mic', () => {
 
   it('releases the microphone when the user stops listening', async () => {
     class MockSpeechRecognition {
+      /** @type {any} */ onstart; /** @type {any} */ onresult; /** @type {any} */ onend; /** @type {any} */ lang;
       start() { this.onstart?.(); }
       stop() { this.onend?.(); }
     }
@@ -231,8 +233,9 @@ describe('Translate tool mic', () => {
   });
 
   it('releases the microphone when recognition ends on its own', async () => {
-    let instance;
+    /** @type {any} */ let instance;
     class MockSpeechRecognition {
+      /** @type {any} */ onstart; /** @type {any} */ onresult; /** @type {any} */ onend; /** @type {any} */ lang;
       constructor() { instance = this; }
       start() { this.onstart?.(); }
       stop() { this.onend?.(); }
@@ -248,6 +251,7 @@ describe('Translate tool mic', () => {
 
   it('closing the panel stops listening', async () => {
     class MockSpeechRecognition {
+      /** @type {any} */ onstart; /** @type {any} */ onresult; /** @type {any} */ onend; /** @type {any} */ lang;
       start() { this.onstart?.(); }
       stop() { this.onend?.(); }
     }
@@ -286,8 +290,9 @@ describe('Translate tool listening language', () => {
     ['English', 'en-US'], ['Filipino', 'fil-PH'], ['Spanish', 'es-ES'],
     ['French', 'fr-FR'], ['Chinese', 'zh-CN'], ['Korean', 'ko-KR'],
   ])('browser recognition listens in %s as %s', async (lang, locale) => {
-    let recognizer;
+    /** @type {any} */ let recognizer;
     class MockSpeechRecognition {
+      /** @type {any} */ onstart; /** @type {any} */ onresult; /** @type {any} */ onend; /** @type {any} */ lang;
       constructor() { recognizer = this; }
       start() { this.onstart?.(); }
       stop() { this.onend?.(); }
@@ -308,6 +313,7 @@ describe('Translate tool listening language', () => {
 
     // Minimal MediaRecorder: records, then hands back one chunk on stop.
     class FakeRecorder {
+      /** @type {any} */ onstart; /** @type {any} */ ondataavailable; /** @type {any} */ onstop;
       static isTypeSupported() { return true; }
       constructor() { this.state = 'inactive'; this.mimeType = 'audio/webm'; }
       start() { this.state = 'recording'; this.onstart?.(); }
@@ -319,7 +325,7 @@ describe('Translate tool listening language', () => {
     }
     // Swap only MediaRecorder (unstubAllGlobals would also drop other suites' stubs).
     const originalRecorder = globalThis.MediaRecorder;
-    globalThis.MediaRecorder = FakeRecorder;
+    globalThis.MediaRecorder = /** @type {any} */ (FakeRecorder);
     try {
       await toggleMic(); // start (Whisper fallback)
       expect(translate.recording).toBe(true);

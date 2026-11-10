@@ -90,8 +90,8 @@ describe('decks.svelte.js', () => {
     await decksModule.importDeck([{ q: 'q1', a: 'a1' }], 'Original');
     const id = decksModule.decks.list[0].id;
     const originalUpdatedAt = decksModule.decks.list[0].updatedAt;
-    session.setQA.mockClear();
-    sync.pushDeck.mockClear();
+    vi.mocked(session.setQA).mockClear();
+    vi.mocked(sync.pushDeck).mockClear();
 
     vi.useFakeTimers();
     vi.advanceTimersByTime(1);
@@ -123,7 +123,7 @@ describe('decks.svelte.js', () => {
     const { decksModule, session } = await load();
     await decksModule.importDeck([{ q: 'q1', a: 'a1' }], 'Original', 'N5');
     const id = decksModule.decks.list[0].id;
-    session.setQA.mockClear();
+    vi.mocked(session.setQA).mockClear();
 
     await decksModule.updateDeck(id, { name: 'Original', qa: [{ q: 'q1', a: 'a1' }], jlptLevel: 'N4' });
 
@@ -139,7 +139,7 @@ describe('decks.svelte.js', () => {
     await decksModule.importDeck([{ q: 'q1', a: 'a1' }], 'Deck A');
     await decksModule.importDeck([{ q: 'q2', a: 'a2' }], 'Deck B'); // becomes active
     const deckAId = decksModule.decks.list[0].id;
-    session.setQA.mockClear();
+    vi.mocked(session.setQA).mockClear();
 
     await decksModule.updateDeck(deckAId, { name: 'Deck A edited', qa: [{ q: 'x', a: 'y' }] });
 
@@ -151,7 +151,7 @@ describe('decks.svelte.js', () => {
     const { decksModule, session, sync } = await load();
     await decksModule.importDeck([{ q: 'q1', a: 'a1' }], 'Deck A');
     const id = decksModule.decks.list[0].id;
-    session.setQA.mockClear();
+    vi.mocked(session.setQA).mockClear();
 
     await decksModule.deleteDeck(id);
 
@@ -167,7 +167,7 @@ describe('decks.svelte.js', () => {
     await decksModule.importDeck([{ q: 'q2', a: 'a2' }], 'Deck B'); // becomes active
     const deckAId = decksModule.decks.list[0].id;
     const activeId = decksModule.decks.activeId;
-    session.setQA.mockClear();
+    vi.mocked(session.setQA).mockClear();
 
     await decksModule.deleteDeck(deckAId);
 
@@ -180,7 +180,7 @@ describe('decks.svelte.js', () => {
   it('setActiveDeck switches back to the built-in Sample deck', async () => {
     const { decksModule, session } = await load();
     await decksModule.importDeck([{ q: 'q', a: 'a' }], 'deck1.json');
-    session.setQA.mockClear();
+    vi.mocked(session.setQA).mockClear();
 
     decksModule.setActiveDeck(null);
 
@@ -194,9 +194,9 @@ describe('decks.svelte.js', () => {
     const id = decksModule.decks.list[0].id;
 
     historyModule.history.entries = [
-      { at: new Date().toISOString(), score: 8, total: 10, deckId: id },
-      { at: new Date().toISOString(), score: 5, total: 10, deckId: id },
-      { at: new Date().toISOString(), score: 9, total: 10, deckId: null },
+      { at: new Date().toISOString(), score: 8, total: 10, jlpt: 'N5', deckId: id },
+      { at: new Date().toISOString(), score: 5, total: 10, jlpt: 'N5', deckId: id },
+      { at: new Date().toISOString(), score: 9, total: 10, jlpt: 'N5', deckId: null },
     ];
 
     expect(decksModule.bestScoreForDeck(id)).toBe(80);

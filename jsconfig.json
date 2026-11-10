@@ -6,7 +6,7 @@
     "skipLibCheck": true,
     "strict": true
   },
-  // App code only for now; test files rely heavily on loosely-typed mocks.
+  // App code, strict. Tests have their own non-strict config: tests/jsconfig.json.
   "include": [
     ".svelte-kit/types/**/$types.d.ts",
     "src/**/*.js",

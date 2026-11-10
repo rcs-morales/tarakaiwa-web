@@ -5,7 +5,7 @@ import { fireEvent, waitFor } from '@testing-library/dom';
 const mockGetCurrentUser = vi.fn(() => null);
 vi.mock('#lib/auth.js', () => ({
   onAuthChange: vi.fn(),
-  getCurrentUser: (...args) => mockGetCurrentUser(...args),
+  getCurrentUser: (/** @type {[]} */ ...args) => mockGetCurrentUser(...args),
 }));
 
 vi.mock('#lib/avatarUpload.js', () => ({
@@ -16,13 +16,14 @@ import Shell from '../src/lib/components/Shell.svelte';
 import { shell, setTab, TABS } from '../src/lib/shell.svelte.js';
 import { quota } from '../src/lib/quota.svelte.js';
 import { fetchAvatarUrl } from '#lib/avatarUpload.js';
+import { q } from './helpers.js';
 
 describe('App Shell', () => {
   beforeEach(() => {
     // module-level state persists between tests — reset it
     setTab('practice');
     mockGetCurrentUser.mockReturnValue(null);
-    fetchAvatarUrl.mockReset().mockResolvedValue(null);
+    vi.mocked(fetchAvatarUrl).mockReset().mockResolvedValue(null);
   });
 
   it('renders all four tabs in both the top nav and the bottom bar', () => {
@@ -65,12 +66,12 @@ describe('App Shell', () => {
   it('shows the shared-quota chip, amber when running low', async () => {
     quota.usage = { chatRequests: 20, whisperSeconds: 100 };
     const { container } = render(Shell);
-    const chip = container.querySelector('#quota-chip');
+    const chip = q(container, '#quota-chip');
     expect(chip.textContent).toBe('💬 180/200 chat • 🎤 500s/600s');
     expect(chip.style.color).toBe('var(--muted)');
 
     quota.usage = { chatRequests: 190, whisperSeconds: 100 };
-    await waitFor(() => expect(container.querySelector('#quota-chip').style.color).toBe('var(--warn)'));
+    await waitFor(() => expect(q(container, '#quota-chip').style.color).toBe('var(--warn)'));
     quota.usage = null;
   });
 
@@ -97,15 +98,15 @@ describe('App Shell', () => {
     mockGetCurrentUser.mockReturnValue({ id: 'u1', email: 'me@example.com' });
     const { container } = render(Shell);
     await waitFor(() => expect(container.querySelector('.account-avatar')).not.toBeNull());
-    expect(container.querySelector('.account-avatar').src).toContain('/assets/zundamon.png');
+    expect(q(container, '.account-avatar').src).toContain('/assets/zundamon.png');
   });
 
   it('shows the stored avatar image when signed in with one set', async () => {
     mockGetCurrentUser.mockReturnValue({ id: 'u1', email: 'me@example.com' });
-    fetchAvatarUrl.mockResolvedValue('https://x/avatars/u1/avatar.jpg');
+    vi.mocked(fetchAvatarUrl).mockResolvedValue('https://x/avatars/u1/avatar.jpg');
     const { container } = render(Shell);
     await waitFor(() => {
-      const img = container.querySelector('.account-avatar');
+      const img = q(container, '.account-avatar');
       expect(img?.src).toContain('avatars/u1/avatar.jpg');
     });
   });

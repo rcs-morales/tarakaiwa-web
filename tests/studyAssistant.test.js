@@ -7,6 +7,7 @@ vi.mock('../src/lib/ai/index.js', () => ({ askStudyAssistant: vi.fn() }));
 import { askStudyAssistant } from '../src/lib/ai/index.js';
 import { assistant, assistantHistory } from '../src/lib/assistant.svelte.js';
 import StudyAssistant from '../src/lib/components/StudyAssistant.svelte';
+import { q } from './helpers.js';
 
 describe('StudyAssistant panel', () => {
   beforeEach(() => {
@@ -32,7 +33,7 @@ describe('StudyAssistant panel', () => {
   it('sends on Enter, clears the input and renders the reply', async () => {
     vi.mocked(askStudyAssistant).mockResolvedValue({ response: '<p><strong>時</strong> (toki)</p>' });
     const { container } = render(StudyAssistant);
-    const input = container.querySelector('#ai-chat-input');
+    const input = q(container, '#ai-chat-input');
 
     await fireEvent.input(input, { target: { value: 'What is 時?' } });
     await fireEvent.keyDown(input, { key: 'Enter' });
@@ -49,7 +50,7 @@ describe('StudyAssistant panel', () => {
 
   it('does not send on Enter while an IME is composing', async () => {
     const { container } = render(StudyAssistant);
-    const input = container.querySelector('#ai-chat-input');
+    const input = q(container, '#ai-chat-input');
 
     await fireEvent.input(input, { target: { value: 'じかん' } });
     await fireEvent.keyDown(input, { key: 'Enter', isComposing: true });
@@ -74,11 +75,11 @@ describe('StudyAssistant panel', () => {
   });
 
   it('disables Send while waiting for the reply', async () => {
-    let resolve;
+    /** @type {any} */ let resolve;
     vi.mocked(askStudyAssistant).mockImplementation(() => new Promise((r) => { resolve = r; }));
     const { container } = render(StudyAssistant);
     const input = container.querySelector('#ai-chat-input');
-    const send = container.querySelector('#btn-ai-send');
+    const send = q(container, '#btn-ai-send');
 
     await fireEvent.input(input, { target: { value: 'Hello' } });
     await fireEvent.click(send);

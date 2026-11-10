@@ -10,7 +10,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "check": "svelte-kit sync && svelte-check",
+    "check": "svelte-kit sync && svelte-check && svelte-check --tsconfig tests/jsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest"
   },
@@ -19,6 +19,7 @@
     "@sveltejs/kit": "^3.1.1",
     "@sveltejs/vite-plugin-svelte": "^7.3.1",
     "@testing-library/svelte": "^5.4.2",
+    "@types/node": "^22.20.5",
     "jsdom": "^29.1.1",
     "svelte": "^5.56.4",
     "svelte-check": "^4.7.8",

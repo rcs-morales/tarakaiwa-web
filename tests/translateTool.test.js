@@ -15,6 +15,7 @@ vi.mock('../src/lib/tts.js', () => ({
 import { translateToJapaneseWithAI } from '../src/lib/ai/index.js';
 import { translate } from '../src/lib/translate.svelte.js';
 import TranslateTool from '../src/lib/components/TranslateTool.svelte';
+import { q } from './helpers.js';
 
 describe('TranslateTool panel', () => {
   beforeEach(() => {
@@ -41,7 +42,7 @@ describe('TranslateTool panel', () => {
   it('loads and saves the source language', async () => {
     localStorage.setItem('source_language', 'Spanish');
     const { container } = render(TranslateTool);
-    const select = container.querySelector('#translate-source-lang');
+    const select = q(container, '#translate-source-lang');
     expect(select.value).toBe('Spanish');
 
     await fireEvent.change(select, { target: { value: 'Korean' } });

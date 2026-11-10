@@ -45,35 +45,35 @@ describe('Session history', () => {
 
   it('computes averages over the most recent 30 runs', () => {
     const entries = [
-      { at: iso(0), score: 10, total: 10 }, // 100%
-      { at: iso(1), score: 5, total: 10 },  // 50%
+      { at: iso(0), score: 10, total: 10, jlpt: 'N5', deckId: null }, // 100%
+      { at: iso(1), score: 5, total: 10, jlpt: 'N5', deckId: null },  // 50%
     ];
     expect(computeStats(entries).avgPct).toBe(75);
     expect(computeStats(entries).sessions).toBe(2);
     expect(computeStats([]).avgPct).toBe(0);
-    expect(computeStats([{ at: iso(0), score: 3, total: 0 }]).avgPct).toBe(0); // no div-by-zero
+    expect(computeStats([{ at: iso(0), score: 3, total: 0, jlpt: 'N5', deckId: null }]).avgPct).toBe(0); // no div-by-zero
   });
 
   it('counts a streak of consecutive days including today', () => {
-    const entries = [iso(0), iso(1), iso(2)].map((at) => ({ at, score: 1, total: 1 }));
+    const entries = [iso(0), iso(1), iso(2)].map((at) => ({ at, score: 1, total: 1, jlpt: 'N5', deckId: null }));
     expect(computeStats(entries).streakDays).toBe(3);
   });
 
   it('keeps the streak alive if today has no session yet (yesterday grace)', () => {
-    const entries = [iso(1), iso(2)].map((at) => ({ at, score: 1, total: 1 }));
+    const entries = [iso(1), iso(2)].map((at) => ({ at, score: 1, total: 1, jlpt: 'N5', deckId: null }));
     expect(computeStats(entries).streakDays).toBe(2);
   });
 
   it('breaks the streak after a missed day', () => {
-    const entries = [iso(0), iso(2), iso(3)].map((at) => ({ at, score: 1, total: 1 }));
+    const entries = [iso(0), iso(2), iso(3)].map((at) => ({ at, score: 1, total: 1, jlpt: 'N5', deckId: null }));
     expect(computeStats(entries).streakDays).toBe(1);
   });
 
   it('swaps to remote history when signed in and back to local on sign-out', async () => {
     recordSession({ score: 1, total: 2, jlpt: 'N5' });
-    fetchSessionHistory.mockResolvedValueOnce([
-      { at: iso(5), score: 8, total: 10, jlpt: 'N4' },
-      { at: iso(6), score: 6, total: 10, jlpt: 'N4' },
+    vi.mocked(fetchSessionHistory).mockResolvedValueOnce([
+      { at: iso(5), score: 8, total: 10, jlpt: 'N4', deckId: null },
+      { at: iso(6), score: 6, total: 10, jlpt: 'N4', deckId: null },
     ]);
 
     await syncFromRemote();
@@ -87,7 +87,7 @@ describe('Session history', () => {
 
   it('keeps the local view when the remote fetch fails', async () => {
     recordSession({ score: 1, total: 2, jlpt: 'N5' });
-    fetchSessionHistory.mockResolvedValueOnce(null);
+    vi.mocked(fetchSessionHistory).mockResolvedValueOnce(null);
     await syncFromRemote();
     expect(history.entries).toHaveLength(1);
   });

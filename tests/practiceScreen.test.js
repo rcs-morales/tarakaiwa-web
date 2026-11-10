@@ -23,6 +23,7 @@ import {
   setStatus, showBtn, showMicWarning, showStartScreen, showPracticeScreen, showResultsScreen,
   showTranscript, showTranscriptIndicator, showCheckedTranscript, showResult, showResultPanel,
 } from '../src/lib/ui.js';
+import { q } from './helpers.js';
 
 function resetView() {
   practiceView.screen = 'start';
@@ -75,14 +76,14 @@ describe('Practice tab screens', () => {
   it('renders progress from the session (first question)', () => {
     const { container } = render(Practice);
     expect(container.querySelector('#progress-label').textContent).toBe('Question 1 / 3');
-    expect(container.querySelector('#progress-bar').style.width).toBe('0%');
+    expect(q(container, '#progress-bar').style.width).toBe('0%');
   });
 
   it('renders progress from the session (later question)', () => {
     mockSession.current = 1;
     const { container } = render(Practice);
     expect(container.querySelector('#progress-label').textContent).toBe('Question 2 / 3');
-    expect(parseFloat(container.querySelector('#progress-bar').style.width)).toBeCloseTo(33.33, 1);
+    expect(parseFloat(q(container, '#progress-bar').style.width)).toBeCloseTo(33.33, 1);
   });
 
   it('shows only Skip until the flow reveals other buttons', async () => {
@@ -123,7 +124,7 @@ describe('Practice tab screens', () => {
 
   it('shows the mic warning, pointing at the Try again button', async () => {
     const { container } = render(Practice);
-    const box = container.querySelector('#warning-box');
+    const box = q(container, '#warning-box');
     expect(box.style.display).toBe('');
     showMicWarning(true);
     await tick();
@@ -148,7 +149,7 @@ describe('Practice tab screens', () => {
   describe('question card', () => {
     it('shows the current question text only after Show Text', async () => {
       const { container } = render(Practice);
-      const text = container.querySelector('#question-text');
+      const text = q(container, '#question-text');
       const btn = container.querySelector('#btn-toggle-question');
       expect(text.textContent).toBe('Q1');
       expect(text.style.display).toBe('none');
@@ -157,7 +158,7 @@ describe('Practice tab screens', () => {
       practiceView.question.textVisible = true;
       await tick();
       expect(text.style.display).toBe('block');
-      expect(container.querySelector('#translate-row').style.display).toBe('block');
+      expect(q(container, '#translate-row').style.display).toBe('block');
       expect(btn.textContent).toBe('👁 Hide Text');
 
       await fireEvent.click(btn);
@@ -219,7 +220,7 @@ describe('Practice tab screens', () => {
 
     it('renders the expected-answer box for each kind', async () => {
       const { container } = render(Practice);
-      const box = container.querySelector('#target-answer-box');
+      const box = q(container, '#target-answer-box');
       const label = container.querySelector('#target-label');
       expect(box.style.display).toBe('');
 
@@ -278,7 +279,7 @@ describe('Practice tab screens', () => {
       const { container } = render(Practice);
       Object.assign(practiceView.answer.transcript, { mode: 'editing', editText: 'たなかです' });
       await tick();
-      const ta = container.querySelector('#transcript-edit-input');
+      const ta = q(container, '#transcript-edit-input');
       expect(ta.value).toBe('たなかです');
       expect(document.activeElement).toBe(ta);
       expect(ta.selectionStart).toBe(ta.value.length);

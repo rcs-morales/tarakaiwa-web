@@ -5,6 +5,7 @@ import {
   finalOverlay, openFinalOverlay, scheduleFinalOverlayFade, closeFinalOverlay,
 } from '../src/lib/finalOverlay.svelte.js';
 import FinalScoreOverlay from '../src/lib/components/FinalScoreOverlay.svelte';
+import { q } from './helpers.js';
 
 describe('Session Complete overlay', () => {
   beforeEach(() => {
@@ -26,7 +27,7 @@ describe('Session Complete overlay', () => {
     openFinalOverlay({ score: 8, total: 10, passed: true, message: 'Great job!' });
     await tick();
 
-    const overlay = container.querySelector('#final-score-overlay');
+    const overlay = q(container, '#final-score-overlay');
     expect(overlay.classList.contains('hidden')).toBe(false);
     expect(overlay.style.opacity).toBe('1');
     expect(container.querySelector('#final-score-icon').textContent).toBe('🎉');
@@ -43,7 +44,7 @@ describe('Session Complete overlay', () => {
 
   it('fades out after the delay, then hides', async () => {
     const { container } = render(FinalScoreOverlay);
-    const overlay = container.querySelector('#final-score-overlay');
+    const overlay = q(container, '#final-score-overlay');
     openFinalOverlay({ score: 1, total: 1, passed: true, message: 'ok' });
     scheduleFinalOverlayFade(3000);
 

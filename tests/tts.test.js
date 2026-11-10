@@ -31,6 +31,7 @@ describe('TTS Unit Tests', () => {
       revokeObjectURL: vi.fn(),
     });
     vi.stubGlobal('Audio', class {
+      /** @type {any} */ onplay;
       constructor(url) {
         this.url = url;
         this.play = vi.fn().mockImplementation(async () => {
@@ -65,8 +66,8 @@ describe('TTS Unit Tests', () => {
   describe('preloadVoicevoxAudio', () => {
     it('should return cached audio if available in db', async () => {
       const mockBlob = new Blob(['audio'], { type: 'audio/wav' });
-      db.getAudio.mockResolvedValue(mockBlob);
-      settings.get.mockReturnValue('3');
+      vi.mocked(db.getAudio).mockResolvedValue(mockBlob);
+      vi.mocked(settings.get).mockReturnValue('3');
 
       const result = await tts.preloadVoicevoxAudio('test-cache');
       expect(result).toStrictEqual(mockBlob);
@@ -74,25 +75,25 @@ describe('TTS Unit Tests', () => {
     });
 
     it('should perform the full Voicevox 3-step pipeline (Request -> Poll -> Download)', async () => {
-      db.getAudio.mockResolvedValue(null);
-      settings.get.mockReturnValue('3');
+      vi.mocked(db.getAudio).mockResolvedValue(null);
+      vi.mocked(settings.get).mockReturnValue('3');
 
       const mockAudioBlob = new Blob(['audio-content'], { type: 'audio/wav' });
 
       // Sequence of fetch responses
-      fetch.mockResolvedValueOnce({
+      vi.mocked(fetch, { partial: true }).mockResolvedValueOnce({
         ok: true,
         json: async () => ({ audioStatusUrl: 'status-url', wavDownloadUrl: 'download-url' })
       }); // 1. Initial Request
-      fetch.mockResolvedValueOnce({
+      vi.mocked(fetch, { partial: true }).mockResolvedValueOnce({
         ok: true,
         json: async () => ({ isAudioReady: false })
       }); // 2. Poll 1: Not ready
-      fetch.mockResolvedValueOnce({
+      vi.mocked(fetch, { partial: true }).mockResolvedValueOnce({
         ok: true,
         json: async () => ({ isAudioReady: true })
       }); // 3. Poll 2: Ready
-      fetch.mockResolvedValueOnce({
+      vi.mocked(fetch, { partial: true }).mockResolvedValueOnce({
         ok: true,
         blob: async () => mockAudioBlob
       }); // 4. Download
@@ -103,9 +104,9 @@ describe('TTS Unit Tests', () => {
     });
 
     it('should throw error when API returns 429', async () => {
-      db.getAudio.mockResolvedValue(null);
-      settings.get.mockReturnValue('3');
-      fetch.mockResolvedValueOnce({ status: 429, ok: false });
+      vi.mocked(db.getAudio).mockResolvedValue(null);
+      vi.mocked(settings.get).mockReturnValue('3');
+      vi.mocked(fetch, { partial: true }).mockResolvedValueOnce({ status: 429, ok: false });
 
       const result = await tts.preloadVoicevoxAudio('test-429');
       expect(result).toBeNull();
@@ -116,22 +117,22 @@ describe('TTS Unit Tests', () => {
     it('should select the best Japanese voice based on heuristics', () => {
       // This tests pickJapaneseBrowserVoice indirectly or directly if exported
       // Since it's internal, we test it via a flow that calls it.
-      settings.get.mockReturnValue('browser');
+      vi.mocked(settings.get).mockReturnValue('browser');
       tts.speakQuestion('こんにちは', () => {});
       expect(window.speechSynthesis.speak).toHaveBeenCalled();
     });
 
     it('should use the selected avatar profile to influence voice choice', () => {
-      settings.get.mockImplementation((key) => {
+      vi.mocked(settings.get).mockImplementation((key) => {
         if (key === 'tts_mode') return 'browser';
         if (key === 'avatar_model') return 'male-avatar'; // Hypothesized male model
         return 'default';
       });
       // Mock voices to include a clearly male one
-      window.speechSynthesis.getVoices.mockReturnValue([
+      vi.mocked(window.speechSynthesis.getVoices).mockReturnValue(/** @type {any[]} */ ([
         { name: 'Japanese Male Voice', lang: 'ja-JP', voiceURI: 'ja-male' },
         { name: 'Japanese Female Voice', lang: 'ja-JP', voiceURI: 'ja-female' },
-      ]);
+      ]));
 
       tts.speakQuestion('こんにちは', () => {});
       // verify internal logic by checking the utterance voice if we could,
@@ -141,7 +142,7 @@ describe('TTS Unit Tests', () => {
 
   describe('Session Integration', () => {
     it('should trigger avatar speaking state and status update', async () => {
-      settings.get.mockImplementation((key) => {
+      vi.mocked(settings.get).mockImplementation((key) => {
         if (key === 'tts_mode') return 'voicevox';
         if (key === 'tts_speed') return '1.0';
         return 'default';
@@ -149,7 +150,7 @@ describe('TTS Unit Tests', () => {
 
       // Mock a successful immediate audio load
       const mockBlob = new Blob(['audio'], { type: 'audio/wav' });
-      db.getAudio.mockResolvedValue(mockBlob);
+      vi.mocked(db.getAudio).mockResolvedValue(mockBlob);
 
       await tts.speakQuestion('Test', () => {});
       expect(avatar.toggleSpeaking).toHaveBeenCalledWith(true);

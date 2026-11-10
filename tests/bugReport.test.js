@@ -18,6 +18,7 @@ import {
   bugReport, openBugReport, closeBugReport, screenshotStoragePath,
 } from '../src/lib/bugReport.svelte.js';
 import BugReportModal from '../src/lib/components/BugReportModal.svelte';
+import { q } from './helpers.js';
 
 describe('screenshotStoragePath', () => {
   it('keeps safe ASCII names', () => {
@@ -70,7 +71,7 @@ describe('BugReportModal', () => {
 
     openBugReport();
     await tick();
-    expect(container.querySelector('#bug-message').value).toBe('');
+    expect(q(container, '#bug-message').value).toBe('');
   });
 
   it('asks for a description instead of submitting an empty report', async () => {
@@ -128,7 +129,7 @@ describe('BugReportModal', () => {
   });
 
   it('shows Uploading… and disables Submit while sending', async () => {
-    let resolve;
+    /** @type {any} */ let resolve;
     insert.mockImplementation(() => new Promise((r) => { resolve = r; }));
     const { container } = render(BugReportModal);
     openBugReport();
@@ -137,7 +138,7 @@ describe('BugReportModal', () => {
     await fireEvent.input(container.querySelector('#bug-message'), { target: { value: 'Broken' } });
     await fireEvent.click(container.querySelector('#bug-submit-btn'));
     await tick();
-    const submit = container.querySelector('#bug-submit-btn');
+    const submit = q(container, '#bug-submit-btn');
     expect(submit.disabled).toBe(true);
     expect(submit.textContent.trim()).toBe('Uploading...');
 
