@@ -1,4 +1,5 @@
-import './live2d-shim.js';
+// PIXI + Live2D (about 1 MB) load on demand in initAvatar() — only when the
+// Live2D avatar is actually shown — so they stay out of the startup bundle.
 import { AVATAR_MODELS } from './data.js';
 import { get, KEYS } from './settings.js';
 import { avatarView, voicevoxCharacterFor, getAvatarCanvasHost } from './avatarView.svelte.js';
@@ -72,6 +73,22 @@ function keepAvatarFocusCentered() {
   }
 }
 
+/** @type {Promise<unknown> | null} */
+let live2dRuntime = null;
+
+/**
+ * Load PIXI + Live2D, which set the PIXI / PIXI.live2d globals (see
+ * live2d-shim.js). Overlapping callers share one load; a failed load (e.g.
+ * offline) is forgotten so the next initAvatar() tries again.
+ */
+function loadLive2DRuntime() {
+  live2dRuntime ??= import('./live2d-shim.js').catch((error) => {
+    live2dRuntime = null;
+    throw error;
+  });
+  return live2dRuntime;
+}
+
 function destroyLive2D() {
   if (live2dApp) {
     // removeView: true also takes the canvas out of the host element.
@@ -104,6 +121,10 @@ export async function initAvatar() {
   try {
     destroyLive2D();
     host.replaceChildren();
+
+    await loadLive2DRuntime();
+    // A newer initAvatar() (or a switch to VOICEVOX) took over meanwhile.
+    if (generation !== initGeneration) return;
 
     const app = new PIXI.Application({
       width: 400,

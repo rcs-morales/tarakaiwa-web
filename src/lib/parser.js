@@ -1,4 +1,3 @@
-import { readSheet } from 'read-excel-file/universal';
 import { KATAKANA_HIRAGANA_MAP, MONTH_READ, DAY_READ, KANJI_DIGIT, KANJI_MAP, LESSON_KANJI_MAP, SINGLE_KANJI_READ } from './data.js';
 import { get, KEYS } from './settings.js';
 
@@ -112,6 +111,8 @@ export function parseCSV(content) {
 export async function parseExcel(arrayBuffer) {
   let data;
   try {
+    // Loaded on demand: only .xlsx imports need the spreadsheet reader.
+    const { readSheet } = await import('read-excel-file/universal');
     data = await readSheet(arrayBuffer);
   } catch (e) {
     throw new Error('Excel parse error: ' + (e instanceof Error ? e.message : String(e)));
