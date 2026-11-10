@@ -25,9 +25,9 @@ describe('resolveAIRoute', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('routes directly to Groq with a BYO key', async () => {
-    settings.get.mockReturnValue('gsk_mykey');
-    auth.isLoggedIn.mockReturnValue(false);
-    auth.getFreshAccessToken.mockResolvedValue(null);
+    vi.mocked(settings.get).mockReturnValue('gsk_mykey');
+    vi.mocked(auth.isLoggedIn).mockReturnValue(false);
+    vi.mocked(auth.getFreshAccessToken).mockResolvedValue(null);
 
     const route = await resolveAIRoute();
     expect(route.chatUrl).toContain('api.groq.com');
@@ -36,9 +36,9 @@ describe('resolveAIRoute', () => {
   });
 
   it('routes through the proxy when signed in without a key', async () => {
-    settings.get.mockReturnValue(null);
-    auth.isLoggedIn.mockReturnValue(true);
-    auth.getFreshAccessToken.mockResolvedValue('jwt_token');
+    vi.mocked(settings.get).mockReturnValue(null);
+    vi.mocked(auth.isLoggedIn).mockReturnValue(true);
+    vi.mocked(auth.getFreshAccessToken).mockResolvedValue('jwt_token');
 
     const route = await resolveAIRoute();
     expect(route.chatUrl).toBe('/api/chat');
@@ -47,17 +47,17 @@ describe('resolveAIRoute', () => {
   });
 
   it('returns null with neither a key nor a session', async () => {
-    settings.get.mockReturnValue(null);
-    auth.isLoggedIn.mockReturnValue(false);
-    auth.getFreshAccessToken.mockResolvedValue(null);
+    vi.mocked(settings.get).mockReturnValue(null);
+    vi.mocked(auth.isLoggedIn).mockReturnValue(false);
+    vi.mocked(auth.getFreshAccessToken).mockResolvedValue(null);
 
     expect(await resolveAIRoute()).toBeNull();
   });
 
   it('prefers the BYO key over the proxy when both are present', async () => {
-    settings.get.mockReturnValue('gsk_mykey');
-    auth.isLoggedIn.mockReturnValue(true);
-    auth.getFreshAccessToken.mockResolvedValue('jwt_token');
+    vi.mocked(settings.get).mockReturnValue('gsk_mykey');
+    vi.mocked(auth.isLoggedIn).mockReturnValue(true);
+    vi.mocked(auth.getFreshAccessToken).mockResolvedValue('jwt_token');
 
     expect((await resolveAIRoute()).headers.Authorization).toBe('Bearer gsk_mykey');
   });
@@ -67,20 +67,20 @@ describe('hasAIAccess', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('is true with a BYO key', () => {
-    settings.get.mockReturnValue('gsk_x');
-    auth.isLoggedIn.mockReturnValue(false);
+    vi.mocked(settings.get).mockReturnValue('gsk_x');
+    vi.mocked(auth.isLoggedIn).mockReturnValue(false);
     expect(hasAIAccess()).toBe(true);
   });
 
   it('is true when signed in without a key', () => {
-    settings.get.mockReturnValue(null);
-    auth.isLoggedIn.mockReturnValue(true);
+    vi.mocked(settings.get).mockReturnValue(null);
+    vi.mocked(auth.isLoggedIn).mockReturnValue(true);
     expect(hasAIAccess()).toBe(true);
   });
 
   it('is false with neither', () => {
-    settings.get.mockReturnValue(null);
-    auth.isLoggedIn.mockReturnValue(false);
+    vi.mocked(settings.get).mockReturnValue(null);
+    vi.mocked(auth.isLoggedIn).mockReturnValue(false);
     expect(hasAIAccess()).toBe(false);
   });
 });

@@ -35,7 +35,7 @@ describe('Chatbot UI Interaction Tests', () => {
   });
 
   it('should clear the input field after a message is sent', async () => {
-    const input = document.getElementById('ai-chat-input');
+    const input = /** @type {any} */ (document.getElementById('ai-chat-input'));
     input.value = 'Hello AI';
 
     // Mock the query handler

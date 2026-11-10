@@ -17,6 +17,7 @@ import DeckFormModal from '../src/lib/components/DeckFormModal.svelte';
 import { createDeck, updateDeck, deleteDeck } from '../src/lib/decks.svelte.js';
 import { showImportStatus } from '../src/lib/ui.js';
 import { set, KEYS } from '../src/lib/settings.js';
+import { q } from './helpers.js';
 
 const sampleDeck = {
   id: 'deck-1',
@@ -57,7 +58,7 @@ describe('DeckFormModal', () => {
       const { container } = render(DeckFormModal, { onclose: vi.fn() });
       expect(container.querySelectorAll('.cdm-row')).toHaveLength(2);
 
-      const addBtn = screen.getByRole('button', { name: /Add question/ });
+      const addBtn = /** @type {any} */ (screen.getByRole('button', { name: /Add question/ }));
       for (let i = 0; i < 21; i++) {
         await fireEvent.click(addBtn);
       }
@@ -68,7 +69,7 @@ describe('DeckFormModal', () => {
 
     it('disables Save until at least one row has both a question and an answer', async () => {
       const { container } = render(DeckFormModal, { onclose: vi.fn() });
-      const saveBtn = screen.getByRole('button', { name: /Save deck/ });
+      const saveBtn = /** @type {any} */ (screen.getByRole('button', { name: /Save deck/ }));
       expect(saveBtn.disabled).toBe(true);
 
       await fillRow(container, 0, 'こんにちは', 'Hello');
@@ -110,7 +111,7 @@ describe('DeckFormModal', () => {
   describe('edit mode', () => {
     it('pre-fills name and rows from the deck prop, and shows edit-mode chrome', () => {
       const { container } = render(DeckFormModal, { deck: sampleDeck, onclose: vi.fn() });
-      expect(container.querySelector('#cdm-name').value).toBe('My Deck');
+      expect(q(container, '#cdm-name').value).toBe('My Deck');
 
       const rows = container.querySelectorAll('.cdm-row');
       expect(rows).toHaveLength(2);
@@ -175,7 +176,7 @@ describe('DeckFormModal', () => {
 
     it('Delete deck warns about cloud sync failure but still closes when deleteDeck resolves false', async () => {
       vi.stubGlobal('confirm', vi.fn(() => true));
-      deleteDeck.mockResolvedValueOnce(false);
+      vi.mocked(deleteDeck).mockResolvedValueOnce(false);
       const onclose = vi.fn();
       render(DeckFormModal, { deck: sampleDeck, onclose });
 

@@ -25,12 +25,12 @@ describe('avatarSrc', () => {
   });
 
   it('falls back to the default avatar when signed in with no stored picture', () => {
-    profile.user = { id: 'u1' };
+    profile.user = /** @type {any} */ ({ id: 'u1' });
     expect(avatarSrc()).toBe(DEFAULT_AVATAR);
   });
 
   it('returns the stored URL plus cache-busting query when both are set', () => {
-    profile.user = { id: 'u1' };
+    profile.user = /** @type {any} */ ({ id: 'u1' });
     profile.avatarUrl = 'https://x/avatars/u1/avatar.jpg';
     profile.avatarBusting = '?v=42';
     expect(avatarSrc()).toBe('https://x/avatars/u1/avatar.jpg?v=42');
@@ -68,8 +68,8 @@ describe('watchProfile', () => {
   });
 
   it('loads the current user and avatar, and subscribes to auth changes', async () => {
-    getCurrentUser.mockReturnValue({ id: 'u1' });
-    fetchAvatarUrl.mockResolvedValue('https://x/avatars/u1/avatar.jpg');
+    vi.mocked(getCurrentUser, { partial: true }).mockReturnValue({ id: 'u1' });
+    vi.mocked(fetchAvatarUrl).mockResolvedValue('https://x/avatars/u1/avatar.jpg');
 
     watchProfile();
 
@@ -79,20 +79,20 @@ describe('watchProfile', () => {
   });
 
   it('does not fetch the avatar when signed out', async () => {
-    getCurrentUser.mockReturnValue(null);
+    vi.mocked(getCurrentUser).mockReturnValue(null);
     watchProfile();
     expect(profile.user).toBeNull();
     expect(fetchAvatarUrl).not.toHaveBeenCalled();
   });
 
   it('reloads user/avatar when the subscribed auth callback fires', async () => {
-    getCurrentUser.mockReturnValue({ id: 'u1' });
-    fetchAvatarUrl.mockResolvedValue('https://x/avatars/u1/avatar.jpg');
+    vi.mocked(getCurrentUser, { partial: true }).mockReturnValue({ id: 'u1' });
+    vi.mocked(fetchAvatarUrl).mockResolvedValue('https://x/avatars/u1/avatar.jpg');
     watchProfile();
     await vi.waitFor(() => expect(profile.avatarUrl).toBe('https://x/avatars/u1/avatar.jpg'));
 
-    const authCallback = onAuthChange.mock.calls[0][0];
-    fetchAvatarUrl.mockClear();
+    const authCallback = vi.mocked(onAuthChange).mock.calls[0][0];
+    vi.mocked(fetchAvatarUrl).mockClear();
     authCallback(null);
 
     expect(profile.user).toBeNull();

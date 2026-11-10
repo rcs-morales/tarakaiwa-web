@@ -1,0 +1,10 @@
+{
+  // Tests are type-checked too, but not in strict mode: they lean on partial
+  // mocks and unchecked DOM lookups. Run by `npm run check`.
+  "extends": "../jsconfig.json",
+  "compilerOptions": {
+    "strict": false,
+    "types": ["$app/types", "node", "vitest/globals"]
+  },
+  "include": ["./**/*.js", "../vitest.config.js", "../src/**/*.d.ts"]
+}

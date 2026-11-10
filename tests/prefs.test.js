@@ -73,7 +73,7 @@ describe('prefs.svelte.js — learning aids + daily goal', () => {
   });
 
   it('ignores unknown aid names', () => {
-    setAid('nonsense', false);
+    setAid(/** @type {any} */ ('nonsense'), false);
     expect(document.body.className).toBe('');
   });
 });

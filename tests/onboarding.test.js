@@ -10,7 +10,7 @@ vi.mock('#lib/session.svelte.js', () => ({
 
 const signInWithEmail = vi.fn(async () => ({ error: null }));
 vi.mock('#lib/auth.js', () => ({
-  signInWithEmail: (...args) => signInWithEmail(...args),
+  signInWithEmail: (/** @type {[]} */ ...args) => signInWithEmail(...args),
   signInWithGoogle: vi.fn(async () => ({ error: null })),
   onAuthChange: vi.fn(),
   getCurrentUser: vi.fn(() => null),

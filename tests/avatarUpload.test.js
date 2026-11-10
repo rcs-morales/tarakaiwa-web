@@ -73,10 +73,10 @@ describe('cropResizeToSquare / uploadAvatar (canvas-stubbed)', () => {
 
     originalGetContext = HTMLCanvasElement.prototype.getContext;
     originalToBlob = HTMLCanvasElement.prototype.toBlob;
-    HTMLCanvasElement.prototype.getContext = vi.fn(() => ({
+    HTMLCanvasElement.prototype.getContext = /** @type {any} */ (vi.fn(() => ({
       imageSmoothingQuality: 'high',
       drawImage: (...args) => drawImageCalls.push(args),
-    }));
+    })));
     HTMLCanvasElement.prototype.toBlob = vi.fn(function (cb) { cb(fakeBlob); });
   });
 
@@ -145,26 +145,26 @@ describe('cropResizeToSquare / uploadAvatar (canvas-stubbed)', () => {
 
   describe('uploadAvatar', () => {
     it('throws when logged out', async () => {
-      getCurrentUser.mockReturnValue(null);
+      vi.mocked(getCurrentUser).mockReturnValue(null);
       await expect(uploadAvatar(makeFile())).rejects.toThrow('Sign in');
     });
 
     it('validates before touching the network', async () => {
-      getCurrentUser.mockReturnValue({ id: 'u1', email: 'me@example.com' });
+      vi.mocked(getCurrentUser, { partial: true }).mockReturnValue({ id: 'u1', email: 'me@example.com' });
       await expect(uploadAvatar(makeFile({ type: 'text/plain' }))).rejects.toThrow('Please choose a JPG, PNG, or GIF image.');
       expect(supabaseClient.storage.from).not.toHaveBeenCalled();
     });
 
     it('uploads to a stable per-user path with upsert, updates profiles, and returns a cache-busted URL', async () => {
-      getCurrentUser.mockReturnValue({ id: 'user-123', email: 'me@example.com' });
+      vi.mocked(getCurrentUser, { partial: true }).mockReturnValue({ id: 'user-123', email: 'me@example.com' });
 
       const upload = vi.fn().mockResolvedValue({ error: null });
       const getPublicUrl = vi.fn().mockReturnValue({ data: { publicUrl: 'https://x.supabase.co/storage/v1/object/public/avatars/user-123/avatar.jpg' } });
-      supabaseClient.storage.from.mockReturnValue({ upload, getPublicUrl });
+      vi.mocked(supabaseClient.storage.from, { partial: true }).mockReturnValue({ upload, getPublicUrl });
 
       const eq = vi.fn().mockResolvedValue({ error: null });
       const update = vi.fn().mockReturnValue({ eq });
-      supabaseClient.from.mockReturnValue({ update });
+      vi.mocked(supabaseClient.from, { partial: true }).mockReturnValue({ update });
 
       const url = await uploadAvatar(makeFile());
 
@@ -184,22 +184,22 @@ describe('cropResizeToSquare / uploadAvatar (canvas-stubbed)', () => {
     });
 
     it('throws when the storage upload fails', async () => {
-      getCurrentUser.mockReturnValue({ id: 'user-123', email: 'me@example.com' });
+      vi.mocked(getCurrentUser, { partial: true }).mockReturnValue({ id: 'user-123', email: 'me@example.com' });
       const upload = vi.fn().mockResolvedValue({ error: new Error('network down') });
-      supabaseClient.storage.from.mockReturnValue({ upload, getPublicUrl: vi.fn() });
+      vi.mocked(supabaseClient.storage.from, { partial: true }).mockReturnValue({ upload, getPublicUrl: vi.fn() });
 
       await expect(uploadAvatar(makeFile())).rejects.toThrow('network down');
       expect(supabaseClient.from).not.toHaveBeenCalled();
     });
 
     it('throws when the profiles update fails', async () => {
-      getCurrentUser.mockReturnValue({ id: 'user-123', email: 'me@example.com' });
-      supabaseClient.storage.from.mockReturnValue({
+      vi.mocked(getCurrentUser, { partial: true }).mockReturnValue({ id: 'user-123', email: 'me@example.com' });
+      vi.mocked(supabaseClient.storage.from, { partial: true }).mockReturnValue({
         upload: vi.fn().mockResolvedValue({ error: null }),
         getPublicUrl: vi.fn().mockReturnValue({ data: { publicUrl: 'https://x/avatars/user-123/avatar.jpg' } }),
       });
       const eq = vi.fn().mockResolvedValue({ error: new Error('rls denied') });
-      supabaseClient.from.mockReturnValue({ update: vi.fn().mockReturnValue({ eq }) });
+      vi.mocked(supabaseClient.from, { partial: true }).mockReturnValue({ update: vi.fn().mockReturnValue({ eq }) });
 
       await expect(uploadAvatar(makeFile())).rejects.toThrow('rls denied');
     });
@@ -220,34 +220,34 @@ describe('cropResizeToSquare / uploadAvatar (canvas-stubbed)', () => {
     });
 
     it('throws when logged out, without fetching', async () => {
-      getCurrentUser.mockReturnValue(null);
+      vi.mocked(getCurrentUser).mockReturnValue(null);
       await expect(selectPresetAvatar('zundamon')).rejects.toThrow('Sign in');
       expect(fetch).not.toHaveBeenCalled();
     });
 
     it('throws for an unknown preset id', async () => {
-      getCurrentUser.mockReturnValue({ id: 'user-123', email: 'me@example.com' });
+      vi.mocked(getCurrentUser, { partial: true }).mockReturnValue({ id: 'user-123', email: 'me@example.com' });
       await expect(selectPresetAvatar('nope')).rejects.toThrow('Unknown avatar.');
       expect(fetch).not.toHaveBeenCalled();
     });
 
     it('throws when the preset image fails to load', async () => {
-      getCurrentUser.mockReturnValue({ id: 'user-123', email: 'me@example.com' });
-      fetch.mockResolvedValue({ ok: false });
+      vi.mocked(getCurrentUser, { partial: true }).mockReturnValue({ id: 'user-123', email: 'me@example.com' });
+      vi.mocked(fetch, { partial: true }).mockResolvedValue({ ok: false });
       await expect(selectPresetAvatar('zundamon')).rejects.toThrow('Could not load that avatar.');
       expect(supabaseClient.storage.from).not.toHaveBeenCalled();
     });
 
     it('fetches the preset image, resizes it, and stores it exactly like a normal upload', async () => {
-      getCurrentUser.mockReturnValue({ id: 'user-123', email: 'me@example.com' });
+      vi.mocked(getCurrentUser, { partial: true }).mockReturnValue({ id: 'user-123', email: 'me@example.com' });
       const sourceBlob = new Blob(['fake-png-bytes'], { type: 'image/png' });
-      fetch.mockResolvedValue({ ok: true, blob: async () => sourceBlob });
+      vi.mocked(fetch, { partial: true }).mockResolvedValue({ ok: true, blob: async () => sourceBlob });
 
       const upload = vi.fn().mockResolvedValue({ error: null });
       const getPublicUrl = vi.fn().mockReturnValue({ data: { publicUrl: 'https://x.supabase.co/storage/v1/object/public/avatars/user-123/avatar.jpg' } });
-      supabaseClient.storage.from.mockReturnValue({ upload, getPublicUrl });
+      vi.mocked(supabaseClient.storage.from, { partial: true }).mockReturnValue({ upload, getPublicUrl });
       const eq = vi.fn().mockResolvedValue({ error: null });
-      supabaseClient.from.mockReturnValue({ update: vi.fn().mockReturnValue({ eq }) });
+      vi.mocked(supabaseClient.from, { partial: true }).mockReturnValue({ update: vi.fn().mockReturnValue({ eq }) });
 
       const url = await selectPresetAvatar('zundamon');
 
@@ -257,9 +257,9 @@ describe('cropResizeToSquare / uploadAvatar (canvas-stubbed)', () => {
     });
 
     it('throws when the storage upload fails, same as uploadAvatar', async () => {
-      getCurrentUser.mockReturnValue({ id: 'user-123', email: 'me@example.com' });
-      fetch.mockResolvedValue({ ok: true, blob: async () => new Blob(['x'], { type: 'image/png' }) });
-      supabaseClient.storage.from.mockReturnValue({ upload: vi.fn().mockResolvedValue({ error: new Error('network down') }), getPublicUrl: vi.fn() });
+      vi.mocked(getCurrentUser, { partial: true }).mockReturnValue({ id: 'user-123', email: 'me@example.com' });
+      vi.mocked(fetch, { partial: true }).mockResolvedValue({ ok: true, blob: async () => new Blob(['x'], { type: 'image/png' }) });
+      vi.mocked(supabaseClient.storage.from, { partial: true }).mockReturnValue({ upload: vi.fn().mockResolvedValue({ error: new Error('network down') }), getPublicUrl: vi.fn() });
 
       await expect(selectPresetAvatar('zundamon')).rejects.toThrow('network down');
       expect(supabaseClient.from).not.toHaveBeenCalled();
@@ -273,18 +273,18 @@ describe('fetchAvatarUrl', () => {
   });
 
   it('returns null when logged out, without querying supabase', async () => {
-    getCurrentUser.mockReturnValue(null);
+    vi.mocked(getCurrentUser).mockReturnValue(null);
     const result = await fetchAvatarUrl();
     expect(result).toBeNull();
     expect(supabaseClient.from).not.toHaveBeenCalled();
   });
 
   it('returns the stored avatar_url when signed in', async () => {
-    getCurrentUser.mockReturnValue({ id: 'user-123', email: 'me@example.com' });
+    vi.mocked(getCurrentUser, { partial: true }).mockReturnValue({ id: 'user-123', email: 'me@example.com' });
     const maybeSingle = vi.fn().mockResolvedValue({ data: { avatar_url: 'https://x/avatar.jpg' }, error: null });
     const eq = vi.fn().mockReturnValue({ maybeSingle });
     const select = vi.fn().mockReturnValue({ eq });
-    supabaseClient.from.mockReturnValue({ select });
+    vi.mocked(supabaseClient.from, { partial: true }).mockReturnValue({ select });
 
     const result = await fetchAvatarUrl();
 
@@ -295,17 +295,17 @@ describe('fetchAvatarUrl', () => {
   });
 
   it('returns null when the row has no avatar_url yet', async () => {
-    getCurrentUser.mockReturnValue({ id: 'user-123', email: 'me@example.com' });
+    vi.mocked(getCurrentUser, { partial: true }).mockReturnValue({ id: 'user-123', email: 'me@example.com' });
     const maybeSingle = vi.fn().mockResolvedValue({ data: { avatar_url: null }, error: null });
-    supabaseClient.from.mockReturnValue({ select: vi.fn().mockReturnValue({ eq: vi.fn().mockReturnValue({ maybeSingle }) }) });
+    vi.mocked(supabaseClient.from, { partial: true }).mockReturnValue({ select: vi.fn().mockReturnValue({ eq: vi.fn().mockReturnValue({ maybeSingle }) }) });
 
     expect(await fetchAvatarUrl()).toBeNull();
   });
 
   it('returns null and logs when the query errors', async () => {
-    getCurrentUser.mockReturnValue({ id: 'user-123', email: 'me@example.com' });
+    vi.mocked(getCurrentUser, { partial: true }).mockReturnValue({ id: 'user-123', email: 'me@example.com' });
     const maybeSingle = vi.fn().mockResolvedValue({ data: null, error: new Error('boom') });
-    supabaseClient.from.mockReturnValue({ select: vi.fn().mockReturnValue({ eq: vi.fn().mockReturnValue({ maybeSingle }) }) });
+    vi.mocked(supabaseClient.from, { partial: true }).mockReturnValue({ select: vi.fn().mockReturnValue({ eq: vi.fn().mockReturnValue({ maybeSingle }) }) });
     const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     expect(await fetchAvatarUrl()).toBeNull();
@@ -320,19 +320,19 @@ describe('removeAvatar', () => {
   });
 
   it('throws when logged out', async () => {
-    getCurrentUser.mockReturnValue(null);
+    vi.mocked(getCurrentUser).mockReturnValue(null);
     await expect(removeAvatar()).rejects.toThrow('Sign in');
   });
 
   it('deletes the storage object at the stable per-user path and clears profiles.avatar_url', async () => {
-    getCurrentUser.mockReturnValue({ id: 'user-123', email: 'me@example.com' });
+    vi.mocked(getCurrentUser, { partial: true }).mockReturnValue({ id: 'user-123', email: 'me@example.com' });
 
     const remove = vi.fn().mockResolvedValue({ error: null });
-    supabaseClient.storage.from.mockReturnValue({ remove });
+    vi.mocked(supabaseClient.storage.from, { partial: true }).mockReturnValue({ remove });
 
     const eq = vi.fn().mockResolvedValue({ error: null });
     const update = vi.fn().mockReturnValue({ eq });
-    supabaseClient.from.mockReturnValue({ update });
+    vi.mocked(supabaseClient.from, { partial: true }).mockReturnValue({ update });
 
     await removeAvatar();
 
@@ -344,18 +344,18 @@ describe('removeAvatar', () => {
   });
 
   it('throws when the storage delete fails', async () => {
-    getCurrentUser.mockReturnValue({ id: 'user-123', email: 'me@example.com' });
-    supabaseClient.storage.from.mockReturnValue({ remove: vi.fn().mockResolvedValue({ error: new Error('network down') }) });
+    vi.mocked(getCurrentUser, { partial: true }).mockReturnValue({ id: 'user-123', email: 'me@example.com' });
+    vi.mocked(supabaseClient.storage.from, { partial: true }).mockReturnValue({ remove: vi.fn().mockResolvedValue({ error: new Error('network down') }) });
 
     await expect(removeAvatar()).rejects.toThrow('network down');
     expect(supabaseClient.from).not.toHaveBeenCalled();
   });
 
   it('throws when the profiles update fails', async () => {
-    getCurrentUser.mockReturnValue({ id: 'user-123', email: 'me@example.com' });
-    supabaseClient.storage.from.mockReturnValue({ remove: vi.fn().mockResolvedValue({ error: null }) });
+    vi.mocked(getCurrentUser, { partial: true }).mockReturnValue({ id: 'user-123', email: 'me@example.com' });
+    vi.mocked(supabaseClient.storage.from, { partial: true }).mockReturnValue({ remove: vi.fn().mockResolvedValue({ error: null }) });
     const eq = vi.fn().mockResolvedValue({ error: new Error('rls denied') });
-    supabaseClient.from.mockReturnValue({ update: vi.fn().mockReturnValue({ eq }) });
+    vi.mocked(supabaseClient.from, { partial: true }).mockReturnValue({ update: vi.fn().mockReturnValue({ eq }) });
 
     await expect(removeAvatar()).rejects.toThrow('rls denied');
   });

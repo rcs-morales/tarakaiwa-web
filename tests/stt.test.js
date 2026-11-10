@@ -86,7 +86,7 @@ describe('Speech-to-Text (STT) Unit Tests', () => {
         getUserMedia: vi.fn().mockResolvedValue(newStream)
       }
     });
-    stt.setMicStream(oldStream);
+    stt.setMicStream(/** @type {any} */ (oldStream));
 
     const result = await stt.ensureMicAccess(onError);
 
@@ -148,19 +148,19 @@ describe('AI Whisper Integration Tests', () => {
   };
 
   it('should return null if there is no AI access (no key, not signed in)', async () => {
-    aiIndex.resolveAIRoute.mockReturnValue(null);
+    vi.mocked(aiIndex.resolveAIRoute).mockReturnValue(null);
     const result = await transcribeWithWhisper(new Blob(['test'], { type: 'audio/webm' }));
     expect(result).toBeNull();
   });
 
   it('should return null for empty audio blob', async () => {
-    aiIndex.resolveAIRoute.mockReturnValue(byoRoute);
+    vi.mocked(aiIndex.resolveAIRoute).mockResolvedValue(byoRoute);
     const result = await transcribeWithWhisper(new Blob([], { type: 'audio/webm' }));
     expect(result).toBeNull();
   });
 
   it('should successfully transcribe audio via Groq API', async () => {
-    aiIndex.resolveAIRoute.mockReturnValue(byoRoute);
+    vi.mocked(aiIndex.resolveAIRoute).mockResolvedValue(byoRoute);
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ text: 'こんにちは世界' })
@@ -173,7 +173,7 @@ describe('AI Whisper Integration Tests', () => {
   });
 
   it('should return null and log error on API failure', async () => {
-    aiIndex.resolveAIRoute.mockReturnValue(byoRoute);
+    vi.mocked(aiIndex.resolveAIRoute).mockResolvedValue(byoRoute);
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: false,
       status: 401,
@@ -195,20 +195,20 @@ describe('transcribeForTool (Speak-in-Japanese tool)', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    aiIndex.resolveAIRoute.mockReturnValue(route);
+    vi.mocked(aiIndex.resolveAIRoute).mockResolvedValue(route);
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ text: ' hola ' }) }));
   });
 
   it('passes the spoken language to Whisper when given', async () => {
     const text = await transcribeForTool(new Blob(['x'], { type: 'audio/webm' }), 'es');
     expect(text).toBe('hola');
-    const body = fetch.mock.calls[0][1].body;
+    const body = /** @type {FormData} */ (vi.mocked(fetch).mock.calls[0][1].body);
     expect(body.get('language')).toBe('es');
     expect(body.get('model')).toBe('whisper-large-v3-turbo');
   });
 
   it('lets Whisper detect the language when none is given', async () => {
     await transcribeForTool(new Blob(['x'], { type: 'audio/webm' }));
-    expect(fetch.mock.calls[0][1].body.has('language')).toBe(false);
+    expect(/** @type {FormData} */ (vi.mocked(fetch).mock.calls[0][1].body).has('language')).toBe(false);
   });
 });

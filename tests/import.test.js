@@ -33,18 +33,19 @@ describe('Data Import Tests', () => {
 
   function createMockEvent(fileName, content) {
     const file = new File([content], fileName, { type: 'text/plain' });
-    return {
+    // Only `target` is read by handleFileImport.
+    return /** @type {any} */ ({
       target: {
         files: [file],
         value: ''
       }
-    };
+    });
   }
 
   it('should successfully import a JSON file', async () => {
     const content = '[{"q": "Hi", "a": "Konnichiwa"}]';
     const event = createMockEvent('test.json', content);
-    parser.parseJSON.mockReturnValue(JSON.parse(content));
+    vi.mocked(parser.parseJSON).mockReturnValue(JSON.parse(content));
 
     // Mock FileReader
     vi.stubGlobal('FileReader', class {
@@ -70,7 +71,7 @@ describe('Data Import Tests', () => {
     const content = 'q,a\\nHi,Konnichiwa';
     const event = createMockEvent('test.csv', content);
     const mockQA = [{ q: 'Hi', a: 'Konnichiwa' }];
-    parser.parseCSV.mockReturnValue(mockQA);
+    vi.mocked(parser.parseCSV).mockReturnValue(mockQA);
 
     vi.stubGlobal('FileReader', class {
       constructor() {
@@ -95,11 +96,12 @@ describe('Data Import Tests', () => {
     const buffer = new ArrayBuffer(8);
     const event = createMockEvent('deck.xlsx', 'x');
     const mockQA = [{ q: 'Hi', a: 'Konnichiwa' }];
-    parser.parseExcel.mockResolvedValue(mockQA);
+    vi.mocked(parser.parseExcel).mockResolvedValue(mockQA);
 
     let done;
     const finished = new Promise((r) => { done = r; });
     vi.stubGlobal('FileReader', class {
+      /** @type {any} */ onload;
       readAsArrayBuffer() {
         Promise.resolve(this.onload({ target: { result: buffer } })).then(done);
       }
@@ -117,6 +119,7 @@ describe('Data Import Tests', () => {
     const event = createMockEvent('old.xls', 'x');
     const readSpy = vi.fn();
     vi.stubGlobal('FileReader', class {
+      /** @type {any} */ onload;
       readAsArrayBuffer() { readSpy(); }
       readAsText() { readSpy(); }
     });
@@ -151,7 +154,7 @@ describe('Data Import Tests', () => {
   it('should handle malformed data (empty array)', async () => {
     const content = '[]';
     const event = createMockEvent('test.json', content);
-    parser.parseJSON.mockReturnValue([]);
+    vi.mocked(parser.parseJSON).mockReturnValue([]);
 
     vi.stubGlobal('FileReader', class {
       constructor() {
@@ -174,7 +177,7 @@ describe('Data Import Tests', () => {
     const qa = Array.from({ length: 24 }, (_, i) => ({ q: `q${i}`, a: `a${i}` }));
     const content = JSON.stringify(qa);
     const event = createMockEvent('big.json', content);
-    parser.parseJSON.mockReturnValue(qa);
+    vi.mocked(parser.parseJSON).mockReturnValue(qa);
 
     vi.stubGlobal('FileReader', class {
       constructor() {
@@ -197,8 +200,8 @@ describe('Data Import Tests', () => {
   it('should report an info status when the cloud push fails', async () => {
     const content = '[{"q": "Hi", "a": "Konnichiwa"}]';
     const event = createMockEvent('test.json', content);
-    parser.parseJSON.mockReturnValue(JSON.parse(content));
-    decksModule.importDeck.mockResolvedValueOnce(false);
+    vi.mocked(parser.parseJSON).mockReturnValue(JSON.parse(content));
+    vi.mocked(decksModule.importDeck).mockResolvedValueOnce(false);
 
     vi.stubGlobal('FileReader', class {
       constructor() {
