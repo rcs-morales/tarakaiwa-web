@@ -115,10 +115,14 @@ describe('avatar frame', () => {
     expect(img.src).toMatch(/assets\/zundamon\.png$/);
   });
 
+  /** Wait until the nth Live2D model load has started (the runtime loads first). */
+  const modelLoadStarted = (n = 1) => vi.waitFor(() => expect(modelLoads).toHaveLength(n));
+
   it('mounts the Live2D canvas into the host, and removes it for VOICEVOX', async () => {
     set(KEYS.TTS_MODE, 'browser');
     const { frame, host } = render_();
     const loading = initAvatar();
+    await modelLoadStarted();
     modelLoads[0](fakeModel());
     await loading;
     flushSync();
@@ -136,10 +140,36 @@ describe('avatar frame', () => {
     expect(frame.querySelector('#vv-avatar-img')).not.toBeNull();
   });
 
+  it('never starts Live2D in VOICEVOX mode', async () => {
+    set(KEYS.TTS_MODE, 'voicevox');
+    render_();
+    await initAvatar();
+    expect(FakeApp.instances).toHaveLength(0);
+    expect(modelLoads).toHaveLength(0);
+  });
+
+  it('does not start Live2D if VOICEVOX takes over while its runtime loads', async () => {
+    set(KEYS.TTS_MODE, 'browser');
+    const { frame, host } = render_();
+    const slow = initAvatar(); // waiting on the lazy runtime import
+
+    set(KEYS.TTS_MODE, 'voicevox');
+    await initAvatar();
+    await slow;
+    flushSync();
+
+    expect(FakeApp.instances).toHaveLength(0);
+    expect(modelLoads).toHaveLength(0);
+    expect(host.querySelector('canvas')).toBeNull();
+    expect(avatarView.mode).toBe('voicevox');
+    expect(frame.querySelector('#vv-avatar-img')).not.toBeNull();
+  });
+
   it('drops a Live2D model that finishes loading after a switch to VOICEVOX', async () => {
     set(KEYS.TTS_MODE, 'browser');
     const { frame, host } = render_();
     const slow = initAvatar();
+    await modelLoadStarted();
 
     set(KEYS.TTS_MODE, 'voicevox');
     await initAvatar();
@@ -160,7 +190,9 @@ describe('avatar frame', () => {
     set(KEYS.TTS_MODE, 'browser');
     const { host } = render_();
     const first = initAvatar();
+    await modelLoadStarted(1);
     const second = initAvatar();
+    await modelLoadStarted(2);
     const stale = fakeModel();
     const fresh = fakeModel();
     modelLoads[1](fresh);
@@ -173,5 +205,18 @@ describe('avatar frame', () => {
     expect(FakeApp.instances[1].stage.addChild).toHaveBeenCalledWith(fresh);
     expect(host.querySelectorAll('canvas')).toHaveLength(1);
     expect(host.querySelector('canvas')).toBe(FakeApp.instances[1].view);
+  });
+
+  it('starts only one Live2D app when two loads begin together', async () => {
+    set(KEYS.TTS_MODE, 'browser');
+    const { host } = render_();
+    const first = initAvatar();
+    const second = initAvatar(); // supersedes the first while the runtime loads
+    await modelLoadStarted(1);
+    modelLoads[0](fakeModel());
+    await Promise.all([first, second]);
+
+    expect(FakeApp.instances).toHaveLength(1);
+    expect(host.querySelectorAll('canvas')).toHaveLength(1);
   });
 });
