@@ -5,21 +5,27 @@
   // pre-filled from that deck and funneling through updateDeck/deleteDeck
   // instead. Reuses the global .modal / .modal-card chrome (see the
   // bug-report modal in BugReportModal.svelte).
+  import { untrack } from 'svelte';
   import { get, KEYS } from '#lib/settings.js';
   import { createDeck, updateDeck, deleteDeck, MAX_DECK_QUESTIONS } from '#lib/decks.svelte.js';
   import { showImportStatus } from '#lib/ui.js';
 
   /** @type {{ deck?: import('#lib/decks.svelte.js').Deck, onclose: () => void }} */
   let { deck, onclose } = $props();
-  const isEdit = !!deck;
+
+  // The form is filled in once, from the deck as it was when the modal opened
+  // (Decks.svelte mounts a fresh modal per open), so later changes to the
+  // prop must not overwrite what's being typed.
+  const initial = untrack(() => deck);
+  const isEdit = !!initial;
 
   const LEVELS = ['N5', 'N4', 'N3'];
 
-  let name = $state(deck?.name ?? '');
+  let name = $state(initial?.name ?? '');
   let rows = $state(
-    deck ? deck.qa.map((r) => ({ q: r.q, a: r.a })) : [{ q: '', a: '' }, { q: '', a: '' }]
+    initial ? initial.qa.map((r) => ({ q: r.q, a: r.a })) : [{ q: '', a: '' }, { q: '', a: '' }]
   );
-  let level = $state(deck?.jlptLevel ?? get(KEYS.JLPT_LEVEL) ?? 'N5');
+  let level = $state(initial?.jlptLevel ?? get(KEYS.JLPT_LEVEL) ?? 'N5');
   let saving = $state(false);
   let deleting = $state(false);
 
